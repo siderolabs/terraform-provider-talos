@@ -51,20 +51,27 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 				Description:  "The machine secrets for the cluster",
 				ValidateFunc: validation.StringIsNotEmpty,
 			},
-			// "additional_sans": {
-			// 	Type:        schema.TypeList,
-			// 	Optional:    true,
-			// 	ForceNew:    true,
-			// 	Description: "additional Subject-Alt-Names for the APIServer certificate",
-			// 	Elem: &schema.Schema{
-			// 		Type: schema.TypeString,
-			// 	},
-			// },
+			"config_patches": {
+				Type: schema.TypeList,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				Optional:    true,
+				ForceNew:    true,
+				Description: "config patches to apply to the generated config",
+				ValidateDiagFunc: func(v interface{}, p cty.Path) diag.Diagnostics {
+					value := v.(string)
+					if err := validatePatch(value); err != nil {
+						return diag.FromErr(err)
+					}
+					return nil
+				},
+			},
 			"config_patch": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
-				Description: "config patches to apply to the generated config",
+				Description: "config patch to apply to the generated config",
 				ValidateDiagFunc: func(v interface{}, p cty.Path) diag.Diagnostics {
 					value := v.(string)
 					if err := validatePatch(value); err != nil {
@@ -80,12 +87,6 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 				Description: "desired kubernetes version to run",
 				Default:     constants.DefaultKubernetesVersion,
 			},
-			// "registry_mirrors": {
-			// 	Type:        schema.TypeMap,
-			// 	Optional:    true,
-			// 	ForceNew:    true,
-			// 	Description: "list of registry mirrors to use",
-			// },
 			"talos_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -166,6 +167,17 @@ func resourceTalosMachineConfigurationControlPlaneCreate(ctx context.Context, d 
 	if val, ok := d.GetOk("config_patch"); ok {
 		configPatch := val.(string)
 		genOptions.configPatch = configPatch
+	}
+
+	if val, ok := d.GetOk("config_patches"); ok {
+		configPatchesRaw := val.([]interface{})
+
+		configPatches := make([]string, len(configPatchesRaw))
+		for i, raw := range configPatchesRaw {
+			configPatches[i] = raw.(string)
+		}
+
+		genOptions.configPatches = configPatches
 	}
 
 	controlPlaneConfig, err := genOptions.generate()

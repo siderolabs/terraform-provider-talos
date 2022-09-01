@@ -33,6 +33,7 @@ type machineConfigGenerateOptions struct {
 	docsEnabled       bool
 	examplesEnabled   bool
 	configPatch       string
+	configPatches     []string
 }
 
 func (m *machineConfigGenerateOptions) generate() (string, error) {
@@ -89,15 +90,26 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 	}
 
 	if m.configPatch != "" {
-
 		switch m.machineType {
 		case machine.TypeControlPlane:
-
 			if err := addConfigPatch(m.configPatch, bundle.WithPatchControlPlane); err != nil {
 				return "", err
 			}
 		case machine.TypeWorker:
 			if err := addConfigPatch(m.configPatch, bundle.WithPatchWorker); err != nil {
+				return "", err
+			}
+		}
+	}
+
+	for _, p := range m.configPatches {
+		switch m.machineType {
+		case machine.TypeControlPlane:
+			if err := addConfigPatch(p, bundle.WithPatchControlPlane); err != nil {
+				return "", err
+			}
+		case machine.TypeWorker:
+			if err := addConfigPatch(p, bundle.WithPatchWorker); err != nil {
 				return "", err
 			}
 		}

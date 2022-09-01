@@ -14,6 +14,9 @@ resource "talos_machine_configuration_controlplane" "machineconfig_cp" {
 cluster:
   allowSchedulingOnControlPlanes: true
 EOT
+  config_patches = [
+    templatefile("./patch.tftpl", { hostname = "example" })
+  ]
 }
 
 resource "talos_machine_configuration_worker" "machineconfig_worker" {
