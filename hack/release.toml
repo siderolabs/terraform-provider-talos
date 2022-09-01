@@ -1,0 +1,34 @@
+# commit to be tagged for the new release
+commit = "HEAD"
+
+project_name = "terraform-provider-talos"
+github_repo = "siderolabs/terraform-provider-talos"
+match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
+
+previous = "v0.1.0-alpha.2"
+pre_release = true
+
+[notes]
+
+    [notes.provider]
+    title = "Talos Provider"
+    description = """\
+The Talos provider supports generating configs, applying them and bootstrap the nodes.
+
+Resources supported:
+
+* `talos_machine_secrets`
+* `talos_client_configuration`
+* `talos_machine_configuration_controlplane`
+* `talos_machine_configuration_worker`
+* `talos_machine_configuration_apply`
+* `talos_machine_bootstrap`
+* `talos_cluster_kubeconfig`
+
+Data sources supported:
+
+* `talos_client_configuration`
+* `talos_cluster_kubeconfig`
+
+Data sources will always create a diff and might be removed in a future release.
+"""
