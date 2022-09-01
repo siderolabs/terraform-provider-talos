@@ -10,15 +10,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/talos-systems/talos/pkg/machinery/generic/slices"
 	"gopkg.in/yaml.v3"
 )
 
-func dataSourceTalosClientConfiguration() *schema.Resource {
+func resourceTalosClientConfiguration() *schema.Resource {
 	return &schema.Resource{
-		Description: "Generate client configuration for a Talos cluster",
-		ReadContext: dataSourceTalosClientConfigurationRead,
+		Description:   "Generate client configuration for a Talos cluster",
+		CreateContext: resourceTalosClientConfigurationCreate,
+		ReadContext:   resourceTalosClientConfigurationRead,
+		UpdateContext: resourceTalosClientConfigurationUpdate,
+		DeleteContext: resourceTalosClientConfigurationDelete,
 		Schema: map[string]*schema.Schema{
 			"cluster_name": {
 				Type:         schema.TypeString,
@@ -58,7 +62,7 @@ func dataSourceTalosClientConfiguration() *schema.Resource {
 	}
 }
 
-func dataSourceTalosClientConfigurationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceTalosClientConfigurationCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	clusterName := d.Get("cluster_name").(string)
 	machineSecrets := d.Get("machine_secrets").(string)
 	endpointsRaw := d.Get("endpoints").([]interface{})
@@ -89,6 +93,46 @@ func dataSourceTalosClientConfigurationRead(ctx context.Context, d *schema.Resou
 	d.Set("talos_config", talosConfig)
 
 	d.SetId(clusterName)
+
+	return resourceTalosClientConfigurationRead(ctx, d, meta)
+}
+
+func resourceTalosClientConfigurationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	return nil
+}
+
+func resourceTalosClientConfigurationUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	talosConfig := d.Get("talos_config").(string)
+
+	cfg, err := clientconfig.FromString(talosConfig)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	if d.HasChange("endpoints") {
+		cfg.Contexts[cfg.Context].Endpoints = slices.Map(d.Get("endpoints").([]interface{}), func(val interface{}) string {
+			return val.(string)
+		})
+	}
+
+	if d.HasChange("nodes") {
+		cfg.Contexts[cfg.Context].Nodes = slices.Map(d.Get("nodes").([]interface{}), func(val interface{}) string {
+			return val.(string)
+		})
+	}
+
+	tc, err := cfg.Bytes()
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.Set("talos_config", string(tc))
+
+	return resourceTalosClientConfigurationRead(ctx, d, meta)
+}
+
+func resourceTalosClientConfigurationDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	d.SetId("")
 
 	return nil
 }

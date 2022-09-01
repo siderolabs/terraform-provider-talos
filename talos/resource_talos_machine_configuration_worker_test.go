@@ -32,7 +32,7 @@ func TestAccTalosMachineConfigurationWorker(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "cluster_endpoint", "https://example.com:6443"),
 					resource.TestCheckResourceAttrSet(name, "machine_secrets"),
 					resource.TestCheckResourceAttr(name, "kubernetes_version", constants.DefaultKubernetesVersion),
-					resource.TestCheckNoResourceAttr(name, "config_patch"),
+					resource.TestCheckNoResourceAttr(name, "config_patches.0"),
 					resource.TestCheckNoResourceAttr(name, "talos_version"),
 					resource.TestCheckResourceAttr(name, "config_version", "v1alpha1"),
 					resource.TestCheckResourceAttr(name, "docs_enabled", "true"),
@@ -48,7 +48,7 @@ func TestAccTalosMachineConfigurationWorker(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "cluster_name", rString),
 					resource.TestCheckResourceAttr(name, "cluster_endpoint", "https://example-1.com:6443"),
 					resource.TestCheckResourceAttrSet(name, "machine_secrets"),
-					resource.TestCheckResourceAttrSet(name, "config_patch"),
+					resource.TestCheckResourceAttrSet(name, "config_patches.0"),
 					resource.TestCheckResourceAttr(name, "kubernetes_version", "1.24.0"),
 					resource.TestCheckResourceAttr(name, "talos_version", "v1.2"),
 					resource.TestCheckResourceAttr(name, "config_version", "v1alpha1"),
@@ -93,11 +93,9 @@ resource "talos_machine_configuration_worker" "%s" {
 	cluster_name = "%s"
 	cluster_endpoint = "%s"
 	machine_secrets = talos_machine_secrets.%s.machine_secrets
-	config_patch = <<EOT
-machine:
-  sysctl:
-    foo: bar
-EOT
+	config_patches = [
+		file("${path.module}/testdata/patch-invalid.yaml"),
+	]
 }
 `, rName, rName, rName, endpoint, rName)
 }
@@ -110,14 +108,9 @@ resource "talos_machine_configuration_worker" "%s" {
 	cluster_name = "%s"
 	cluster_endpoint = "%s"
 	machine_secrets = talos_machine_secrets.%s.machine_secrets
-	config_patch = <<EOT
-machine:
-  sysfs:
-    cpu: 1
-  kubelet:
-    extraArgs:
-      foo: bar
-EOT
+	config_patches = [
+		file("${path.module}/testdata/patch-worker.yaml"),
+	]
 	kubernetes_version = "1.24.0"
 	talos_version = "v1.2"
 	config_version = "v1alpha1"
@@ -176,6 +169,7 @@ func validateGeneratedTalosMachineConfigWorkerOverride(t *testing.T, rName, mc s
 
 	assert.Equal(t, map[string]string{"cpu": "1"}, machineConfig.Machine().Sysfs())
 	assert.Equal(t, map[string]string{"foo": "bar"}, machineConfig.Machine().Kubelet().ExtraArgs())
+
 	assert.Equal(t, ep, machineConfig.Cluster().Endpoint())
 	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", "1.24.0"), machineConfig.Machine().Kubelet().Image())
 	assert.Equal(t, "v1alpha1", machineConfig.Version())

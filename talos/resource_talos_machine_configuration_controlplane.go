@@ -17,6 +17,7 @@ import (
 	talosnet "github.com/talos-systems/net"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
+	"github.com/talos-systems/talos/pkg/machinery/generic/slices"
 )
 
 func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
@@ -51,26 +52,13 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 				Description:  "The machine secrets for the cluster",
 				ValidateFunc: validation.StringIsNotEmpty,
 			},
-			// "additional_sans": {
-			// 	Type:        schema.TypeList,
-			// 	Optional:    true,
-			// 	ForceNew:    true,
-			// 	Description: "additional Subject-Alt-Names for the APIServer certificate",
-			// 	Elem: &schema.Schema{
-			// 		Type: schema.TypeString,
-			// 	},
-			// },
-			"config_patch": {
-				Type:        schema.TypeString,
+			"config_patches": {
+				Type:        schema.TypeList,
 				Optional:    true,
 				ForceNew:    true,
 				Description: "config patches to apply to the generated config",
-				ValidateDiagFunc: func(v interface{}, p cty.Path) diag.Diagnostics {
-					value := v.(string)
-					if err := validatePatch(value); err != nil {
-						return diag.FromErr(err)
-					}
-					return nil
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
 				},
 			},
 			"kubernetes_version": {
@@ -80,12 +68,6 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 				Description: "desired kubernetes version to run",
 				Default:     constants.DefaultKubernetesVersion,
 			},
-			// "registry_mirrors": {
-			// 	Type:        schema.TypeMap,
-			// 	Optional:    true,
-			// 	ForceNew:    true,
-			// 	Description: "list of registry mirrors to use",
-			// },
 			"talos_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -163,9 +145,12 @@ func resourceTalosMachineConfigurationControlPlaneCreate(ctx context.Context, d 
 		genOptions.talosVersion = talosVersion
 	}
 
-	if val, ok := d.GetOk("config_patch"); ok {
-		configPatch := val.(string)
-		genOptions.configPatch = configPatch
+	if val, ok := d.GetOk("config_patches"); ok {
+		configPatchesRaw := val.([]interface{})
+
+		genOptions.configPatches = slices.Map(configPatchesRaw, func(val interface{}) string {
+			return val.(string)
+		})
 	}
 
 	controlPlaneConfig, err := genOptions.generate()

@@ -5,14 +5,16 @@
 package talos
 
 import (
-	"errors"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"strings"
 
+	"github.com/cosi-project/runtime/pkg/resource"
+	"github.com/talos-systems/talos/pkg/machinery/client"
+	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
 	"github.com/talos-systems/talos/pkg/machinery/config"
-	"github.com/talos-systems/talos/pkg/machinery/config/configloader"
 	"github.com/talos-systems/talos/pkg/machinery/config/configpatcher"
-	"github.com/talos-systems/talos/pkg/machinery/config/decoder"
 	"github.com/talos-systems/talos/pkg/machinery/config/encoder"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/bundle"
@@ -20,6 +22,8 @@ import (
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
 	"github.com/talos-systems/talos/pkg/machinery/gendata"
+	"github.com/talos-systems/talos/pkg/machinery/resources/cluster"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,7 +36,7 @@ type machineConfigGenerateOptions struct {
 	talosVersion      string
 	docsEnabled       bool
 	examplesEnabled   bool
-	configPatch       string
+	configPatches     []string
 }
 
 func (m *machineConfigGenerateOptions) generate() (string, error) {
@@ -77,29 +81,28 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		),
 	}
 
-	addConfigPatch := func(configPatch string, configOpt func([]configpatcher.Patch) bundle.Option) error {
-		patch, err := genPatches([]byte(configPatch))
+	addConfigPatch := func(configPatches []string, configOpt func([]configpatcher.Patch) bundle.Option) error {
+		var patches []configpatcher.Patch
+
+		patches, err := configpatcher.LoadPatches(configPatches)
 		if err != nil {
-			return err
+			return fmt.Errorf("error parsing config JSON patch: %w", err)
 		}
 
-		configBundleOpts = append(configBundleOpts, configOpt(patch))
+		configBundleOpts = append(configBundleOpts, configOpt(patches))
 
 		return nil
 	}
 
-	if m.configPatch != "" {
+	switch m.machineType {
+	case machine.TypeControlPlane:
 
-		switch m.machineType {
-		case machine.TypeControlPlane:
-
-			if err := addConfigPatch(m.configPatch, bundle.WithPatchControlPlane); err != nil {
-				return "", err
-			}
-		case machine.TypeWorker:
-			if err := addConfigPatch(m.configPatch, bundle.WithPatchWorker); err != nil {
-				return "", err
-			}
+		if err := addConfigPatch(m.configPatches, bundle.WithPatchControlPlane); err != nil {
+			return "", err
+		}
+	case machine.TypeWorker:
+		if err := addConfigPatch(m.configPatches, bundle.WithPatchWorker); err != nil {
+			return "", err
 		}
 	}
 
@@ -186,32 +189,78 @@ func generateInstallerImage() string {
 	return fmt.Sprintf("%s/%s/installer:%s", gendata.ImagesRegistry, gendata.ImagesUsername, gendata.VersionTag)
 }
 
-func genPatches(in []byte) ([]configpatcher.Patch, error) {
-	cfg, err := configloader.NewFromBytes(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return []configpatcher.Patch{configpatcher.StrategicMergePatch{Provider: cfg}}, nil
-}
-
-func validatePatch(patch string) error {
-	dec := decoder.NewDecoder([]byte(patch))
-
-	_, err := dec.Decode()
-
-	return err
-}
-
 func validateVersionContract(version string) (*config.VersionContract, error) {
 	versionContract, err := config.ParseContractFromVersion(version)
 	if err != nil {
 		return nil, err
 	}
 
-	if !versionContract.Greater(config.TalosVersion1_1) {
-		return nil, errors.New("config generation only supported for Talos >= v1.2")
+	return versionContract, nil
+}
+
+func generateTalosClientConfiguration(secretsBundle *generate.SecretsBundle, clusterName string, endpoints, nodes []string) (string, error) {
+	generateInput, err := generate.NewInput(clusterName, "", "", secretsBundle)
+	if err != nil {
+		return "", err
 	}
 
-	return versionContract, nil
+	talosConfig, err := generate.Talosconfig(generateInput)
+	if err != nil {
+		return "", err
+	}
+
+	if len(endpoints) > 0 {
+		talosConfig.Contexts[talosConfig.Context].Endpoints = endpoints
+	}
+
+	if len(nodes) > 0 {
+		talosConfig.Contexts[talosConfig.Context].Nodes = nodes
+	}
+
+	talosConfigBytes, err := talosConfig.Bytes()
+	if err != nil {
+		return "", err
+	}
+
+	return string(talosConfigBytes), nil
+}
+
+func talosClientOp(ctx context.Context, endpoints, nodes []string, tc string, opFunc func(c *client.Client) error) error {
+	cfg, err := clientconfig.FromString(tc)
+	if err != nil {
+		return err
+	}
+
+	client.WithNodes(ctx, nodes...)
+
+	clientOpts := []client.OptionFunc{
+		client.WithConfig(cfg),
+		client.WithEndpoints(endpoints...),
+	}
+
+	c, err := client.New(ctx, append(clientOpts, client.WithTLSConfig(&tls.Config{
+		InsecureSkipVerify: true,
+	}))...)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.COSI.List(ctx, resource.NewMetadata(cluster.NamespaceName, cluster.IdentityType, "", resource.VersionUndefined))
+	if err != nil {
+		if s, ok := status.FromError(err); !ok || s.Message() != "connection closed before server preface received" {
+			return err
+		}
+
+		c, err = client.New(ctx, clientOpts...)
+		if err != nil {
+			return err
+		}
+	}
+	defer c.Close() //nolint:errcheck
+
+	if err := opFunc(c); err != nil {
+		return err
+	}
+
+	return nil
 }

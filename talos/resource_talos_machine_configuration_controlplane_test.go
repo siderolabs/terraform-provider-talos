@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/siderolabs/go-pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
@@ -32,7 +33,7 @@ func TestAccTalosMachineConfigurationControlPlane(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "cluster_endpoint", "https://example.com:6443"),
 					resource.TestCheckResourceAttrSet(name, "machine_secrets"),
 					resource.TestCheckResourceAttr(name, "kubernetes_version", constants.DefaultKubernetesVersion),
-					resource.TestCheckNoResourceAttr(name, "config_patch"),
+					resource.TestCheckNoResourceAttr(name, "config_patches.0"),
 					resource.TestCheckNoResourceAttr(name, "talos_version"),
 					resource.TestCheckResourceAttr(name, "config_version", "v1alpha1"),
 					resource.TestCheckResourceAttr(name, "docs_enabled", "true"),
@@ -48,7 +49,7 @@ func TestAccTalosMachineConfigurationControlPlane(t *testing.T) {
 					resource.TestCheckResourceAttr(name, "cluster_name", rString),
 					resource.TestCheckResourceAttr(name, "cluster_endpoint", "https://example-1.com:6443"),
 					resource.TestCheckResourceAttrSet(name, "machine_secrets"),
-					resource.TestCheckResourceAttrSet(name, "config_patch"),
+					resource.TestCheckResourceAttrSet(name, "config_patches.0"),
 					resource.TestCheckResourceAttr(name, "kubernetes_version", "1.24.0"),
 					resource.TestCheckResourceAttr(name, "talos_version", "v1.2"),
 					resource.TestCheckResourceAttr(name, "config_version", "v1alpha1"),
@@ -105,15 +106,10 @@ resource "talos_machine_configuration_controlplane" "%s" {
 	cluster_name = "%s"
 	cluster_endpoint = "%s"
 	machine_secrets = talos_machine_secrets.%s.machine_secrets
-	config_patch = <<EOT
-machine:
-  sysfs:
-    foo: bar
-cluster:
-  apiServer:
-    extraArgs:
-      foo: bar
-EOT
+	config_patches = [
+		templatefile("${path.module}/testdata/patch-strategic.yaml.tmpl", { hostname = "cp-test" }),
+		file("${path.module}/testdata/patch-json6502.json"),
+	]
 	kubernetes_version = "1.24.0"
 	talos_version = "v1.2"
 	config_version = "v1alpha1"
@@ -173,6 +169,9 @@ func validateGeneratedTalosMachineConfigControlPlaneOverride(t *testing.T, rName
 
 	assert.Equal(t, map[string]string{"foo": "bar"}, machineConfig.Machine().Sysfs())
 	assert.Equal(t, map[string]string{"foo": "bar"}, machineConfig.Cluster().APIServer().ExtraArgs())
+	assert.Equal(t, "cp-test", machineConfig.MachineConfig.Network().Hostname())
+	assert.Equal(t, pointer.To(true), machineConfig.ClusterConfig.AllowSchedulingOnControlPlanes)
+
 	assert.Equal(t, ep, machineConfig.Cluster().Endpoint())
 	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", "1.24.0"), machineConfig.Machine().Kubelet().Image())
 	assert.Equal(t, "v1alpha1", machineConfig.Version())

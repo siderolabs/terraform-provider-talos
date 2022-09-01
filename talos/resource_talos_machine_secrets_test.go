@@ -46,16 +46,6 @@ func TestAccTalosMachineSecrets(t *testing.T) {
 			},
 		},
 	})
-
-	resource.Test(t, resource.TestCase{
-		Providers: testAccProviders,
-		Steps: []resource.TestStep{
-			{
-				Config:      testAccTalosMachineSecretsConfig(rString, "v1.1"),
-				ExpectError: regexp.MustCompile("config generation only supported for Talos >= v1.2"),
-			},
-		},
-	})
 }
 
 func testAccTalosMachineSecretsConfig(rName, talosVersion string) string {

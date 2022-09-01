@@ -13,11 +13,16 @@ func Provider() *schema.Provider {
 	return &schema.Provider{
 		ResourcesMap: map[string]*schema.Resource{
 			"talos_machine_secrets":                    resourceTalosMachineSecrets(),
+			"talos_client_configuration":               resourceTalosClientConfiguration(),
 			"talos_machine_configuration_controlplane": resourceTalosMachineConfigurationControlPlane(),
 			"talos_machine_configuration_worker":       resourceTalosMachineConfigurationWorker(),
+			"talos_machine_configuration_apply":        resourceTalosMachineConfigurationApply(),
+			"talos_machine_bootstrap":                  resourceTalosMachineBootstrap(),
+			"talos_cluster_kubeconfig":                 resourceTalosClusterKubeconfig(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"talos_client_configuration": dataSourceTalosClientConfiguration(),
+			"talos_cluster_kubeconfig":   dataSourceTalosClusterKubeconfig(),
 		},
 	}
 }

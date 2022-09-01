@@ -23,7 +23,7 @@ Generate machine configuration for a Talos control plane node.
 
 ### Optional
 
-- `config_patch` (String) config patches to apply to the generated config
+- `config_patches` (List of String) config patches to apply to the generated config
 - `config_version` (String) the desired machine config version to generate
 - `docs_enabled` (Boolean) whether to render all machine configs adding the documentation for each field
 - `examples_enabled` (Boolean) whether to render all machine configs with the commented examples
