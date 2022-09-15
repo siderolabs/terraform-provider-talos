@@ -1,3 +1,6 @@
+TAG ?= $(shell git describe --tag --always --dirty)
+ARTIFACTS ?= _out
+
 .PHONY: generate
 generate:
 	go generate
