@@ -1,0 +1,33 @@
+---
+page_title: "Provider: Talos"
+description: |-
+  The Talos provider is used manage a Talos cluster config generation and initial setup.
+---
+
+# Talos Provider
+
+Talos provider allows to generate configs for a Talos cluster and apply them to the nodes. bootstrap nodes and retrieve `kubeconfig` and `talosconfig`.
+
+A complete example usage is available at [basic example](https://github.com/siderolabs/terraform-provider-talos/tree/main/examples/basic)
+
+The same example is also rendered below:
+
+`variables.tf`
+
+{{tffile "examples/basic/variables.tf"}}
+
+`main.tf`
+
+{{tffile "examples/basic/main.tf"}}
+
+`outputs.tf`
+
+{{tffile "examples/basic/outputs.tf"}}
+
+`files/patch.json`
+
+{{ codefile "json" "examples/basic/files/patch.json" }}
+
+`templates/patch.yaml.tmpl`
+
+{{ codefile "yaml" "examples/basic/templates/patch.yaml.tmpl" }}

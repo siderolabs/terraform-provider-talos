@@ -3,17 +3,17 @@ module github.com/siderolabs/terraform-provider-talos
 go 1.19
 
 require (
-	github.com/cosi-project/runtime v0.1.1
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.21.0
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/stretchr/testify v1.8.0
 	github.com/talos-systems/net v0.3.2
-	github.com/talos-systems/talos/pkg/machinery v1.2.0
+	github.com/talos-systems/talos/pkg/machinery v1.2.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/cosi-project/runtime v0.1.1 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2 // indirect
 	github.com/siderolabs/protoenc v0.1.3 // indirect
@@ -85,7 +85,7 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/talos-systems/crypto v0.3.6 // indirect
+	github.com/talos-systems/crypto v0.3.7 // indirect
 	github.com/talos-systems/go-blockdevice v0.3.4 // indirect
 	github.com/talos-systems/go-debug v0.2.1 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect

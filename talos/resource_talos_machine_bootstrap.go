@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	machineapi "github.com/talos-systems/talos/pkg/machinery/api/machine"
 	"github.com/talos-systems/talos/pkg/machinery/client"
-	"github.com/talos-systems/talos/pkg/machinery/generic/slices"
 )
 
 func resourceTalosMachineBootstrap() *schema.Resource {
@@ -26,43 +25,31 @@ func resourceTalosMachineBootstrap() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			"node": {
 				Type:        schema.TypeString,
-				Description: "nodes to bootstrap",
+				Description: "node to bootstrap",
 				Required:    true,
-				ForceNew:    true,
 			},
-			"endpoints": {
-				Type:        schema.TypeList,
+			"endpoint": {
+				Type:        schema.TypeString,
 				Description: "machine endpoint",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+				Required:    true,
 			},
 			"talos_config": {
 				Type:        schema.TypeString,
 				Description: "talos client configuration for authentication",
 				Required:    true,
-				ForceNew:    true,
 			},
 		},
 	}
 }
 
 func resourceTalosMachineBootstrapCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var endpoints []string
+	endpoint := d.Get("endpoint").(string)
 	node := d.Get("node").(string)
 	talosConfig := d.Get("talos_config").(string)
 
-	if val, ok := d.GetOk("endpoints"); ok {
-		endpointsRaw := val.([]interface{})
-		endpoints = slices.Map(endpointsRaw, func(val interface{}) string {
-			return val.(string)
-		})
-	}
-
 	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate)-time.Minute, func() *resource.RetryError {
-		if err := talosClientOp(ctx, endpoints, []string{node}, talosConfig, func(c *client.Client) error {
-			if err := c.Bootstrap(ctx, &machineapi.BootstrapRequest{}); err != nil {
+		if err := talosClientOp(ctx, endpoint, node, talosConfig, func(opContext context.Context, c *client.Client) error {
+			if err := c.Bootstrap(opContext, &machineapi.BootstrapRequest{}); err != nil {
 				return err
 			}
 

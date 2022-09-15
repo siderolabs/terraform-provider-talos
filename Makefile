@@ -6,8 +6,13 @@ generate:
 testacc:
 	TF_ACC=1 go test -v github.com/siderolabs/terraform-provider-talos/talos -timeout 30s
 
-check-dirty: generate ## Verifies that source tree is not dirty
+.PHONY: check-dirty
+check-dirty: generate fmt ## Verifies that source tree is not dirty
 	@if test -n "`git status --porcelain`"; then echo "Source tree is dirty"; git status; exit 1 ; fi
+
+.PHONY: fmt
+fmt:
+	@find . -type f -name "*.tf" -exec terraform fmt {} \;
 
 build:
 	go build -o terraform-provider-talos

@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: dirty-check
+        run: |
+          make check-dirty
+      - name: acceptance-test
+        run: |
+          make testacc

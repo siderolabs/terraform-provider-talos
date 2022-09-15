@@ -51,7 +51,6 @@ func resourceTalosMachineConfigurationWorker() *schema.Resource {
 			"config_patches": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "config patches to apply to the generated config",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
@@ -60,14 +59,12 @@ func resourceTalosMachineConfigurationWorker() *schema.Resource {
 			"kubernetes_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "desired kubernetes version to run",
 				Default:     constants.DefaultKubernetesVersion,
 			},
 			"talos_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "The version of Talos for which to generate configs",
 				ValidateDiagFunc: func(v interface{}, p cty.Path) diag.Diagnostics {
 					value := v.(string)
@@ -82,7 +79,6 @@ func resourceTalosMachineConfigurationWorker() *schema.Resource {
 			"config_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "the desired machine config version to generate",
 				Default:     "v1alpha1",
 				ValidateDiagFunc: func(i interface{}, p cty.Path) diag.Diagnostics {
@@ -97,14 +93,12 @@ func resourceTalosMachineConfigurationWorker() *schema.Resource {
 			"docs_enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "whether to render all machine configs adding the documentation for each field",
 				Default:     true,
 			},
 			"examples_enabled": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				ForceNew:    true,
 				Description: "whether to render all machine configs with the commented examples",
 				Default:     true,
 			},
@@ -166,7 +160,7 @@ func resourceTalosMachineConfigurationWorkerRead(ctx context.Context, d *schema.
 }
 
 func resourceTalosMachineConfigurationWorkerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return resourceTalosMachineConfigurationWorkerRead(ctx, d, meta)
+	return resourceTalosMachineConfigurationWorkerCreate(ctx, d, meta)
 }
 
 func resourceTalosMachineConfigurationWorkerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

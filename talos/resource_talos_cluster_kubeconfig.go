@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/talos-systems/talos/pkg/machinery/client"
-	"github.com/talos-systems/talos/pkg/machinery/generic/slices"
 )
 
 func resourceTalosClusterKubeconfig() *schema.Resource {
@@ -23,27 +22,20 @@ func resourceTalosClusterKubeconfig() *schema.Resource {
 		UpdateContext: resourceTalosClusterKubeconfigUpdate,
 		DeleteContext: resourceTalosClusterKubeconfigDelete,
 		Schema: map[string]*schema.Schema{
-			"nodes": {
-				Type:        schema.TypeList,
-				Description: "nodes to use",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+			"node": {
+				Type:        schema.TypeString,
+				Description: "node to use",
+				Required:    true,
 			},
-			"endpoints": {
-				Type:        schema.TypeList,
-				Description: "endpoints to use",
-				Optional:    true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
+			"endpoint": {
+				Type:        schema.TypeString,
+				Description: "machine endpoint",
+				Required:    true,
 			},
 			"talos_config": {
 				Type:        schema.TypeString,
 				Description: "talos client configuration for authentication",
 				Required:    true,
-				ForceNew:    true,
 			},
 			"kube_config": {
 				Type:        schema.TypeString,
@@ -56,27 +48,15 @@ func resourceTalosClusterKubeconfig() *schema.Resource {
 }
 
 func resourceTalosClusterKubeconfigCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var nodes, endpoints []string
 	var kubeConfig string
+
 	talosConfig := d.Get("talos_config").(string)
-
-	if val, ok := d.GetOk("nodes"); ok {
-		nodesRaw := val.([]interface{})
-		nodes = slices.Map(nodesRaw, func(val interface{}) string {
-			return val.(string)
-		})
-	}
-
-	if val, ok := d.GetOk("endpoints"); ok {
-		endpointsRaw := val.([]interface{})
-		endpoints = slices.Map(endpointsRaw, func(val interface{}) string {
-			return val.(string)
-		})
-	}
+	endpoint := d.Get("endpoint").(string)
+	node := d.Get("node").(string)
 
 	if err := resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate)-time.Minute, func() *resource.RetryError {
-		if err := talosClientOp(ctx, endpoints, nodes, talosConfig, func(c *client.Client) error {
-			kubeConfigBytes, err := c.Kubeconfig(ctx)
+		if err := talosClientOp(ctx, endpoint, node, talosConfig, func(opContext context.Context, c *client.Client) error {
+			kubeConfigBytes, err := c.Kubeconfig(opContext)
 			if err != nil {
 				return err
 			}
@@ -105,7 +85,7 @@ func resourceTalosClusterKubeconfigRead(ctx context.Context, d *schema.ResourceD
 }
 
 func resourceTalosClusterKubeconfigUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return resourceTalosClusterKubeconfigRead(ctx, d, meta)
+	return resourceTalosClusterKubeconfigCreate(ctx, d, meta)
 }
 
 func resourceTalosClusterKubeconfigDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

@@ -17,12 +17,9 @@ Retrieve Kubeconfig for a Talos cluster
 
 ### Required
 
+- `endpoint` (String) machine endpoint
+- `node` (String) node to use
 - `talos_config` (String) talos client configuration for authentication
-
-### Optional
-
-- `endpoints` (List of String) endpoints to use
-- `nodes` (List of String) nodes to use
 
 ### Read-Only
 

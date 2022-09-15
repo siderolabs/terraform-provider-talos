@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/talos-systems/talos/pkg/machinery/client"
 	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
 	"github.com/talos-systems/talos/pkg/machinery/config"
@@ -22,7 +21,6 @@ import (
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
 	"github.com/talos-systems/talos/pkg/machinery/gendata"
-	"github.com/talos-systems/talos/pkg/machinery/resources/cluster"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
@@ -225,17 +223,17 @@ func generateTalosClientConfiguration(secretsBundle *generate.SecretsBundle, clu
 	return string(talosConfigBytes), nil
 }
 
-func talosClientOp(ctx context.Context, endpoints, nodes []string, tc string, opFunc func(c *client.Client) error) error {
+func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(ctx context.Context, c *client.Client) error) error {
 	cfg, err := clientconfig.FromString(tc)
 	if err != nil {
 		return err
 	}
 
-	client.WithNodes(ctx, nodes...)
+	opCtx := client.WithNode(ctx, node)
 
 	clientOpts := []client.OptionFunc{
 		client.WithConfig(cfg),
-		client.WithEndpoints(endpoints...),
+		client.WithEndpoints([]string{endpoint}...),
 	}
 
 	c, err := client.New(ctx, append(clientOpts, client.WithTLSConfig(&tls.Config{
@@ -245,8 +243,9 @@ func talosClientOp(ctx context.Context, endpoints, nodes []string, tc string, op
 		return err
 	}
 
-	_, err = c.COSI.List(ctx, resource.NewMetadata(cluster.NamespaceName, cluster.IdentityType, "", resource.VersionUndefined))
+	_, err = c.Disks(ctx)
 	if err != nil {
+		c.Close()
 		if s, ok := status.FromError(err); !ok || s.Message() != "connection closed before server preface received" {
 			return err
 		}
@@ -258,7 +257,7 @@ func talosClientOp(ctx context.Context, endpoints, nodes []string, tc string, op
 	}
 	defer c.Close() //nolint:errcheck
 
-	if err := opFunc(c); err != nil {
+	if err := opFunc(opCtx, c); err != nil {
 		return err
 	}
 
