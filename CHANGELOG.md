@@ -1,3 +1,43 @@
+## [terraform-provider-talos 0.1.0-alpha.4](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.4) (2022-09-15)
+
+Welcome to the v0.1.0-alpha.4 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Talos Provider
+
+The Talos provider now requires `endpoint` and `node` to be set for `talos_machine_configuration_apply`, `talos_machine_bootstrap`, `talos_cluster_kubeconfig` resources.
+The `endpoints` and `nodes` arguments are removed for the above resources.
+
+This release also fixes a bug when multiple endpoitns were specified in the Talos client config.
+
+
+
+### Contributors
+
+* Noel Georgi
+* Nahuel Pastorale
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`ea5a4ba`](https://github.com/siderolabs/terraform-provider-talos/commit/ea5a4bab1d86f20fc832fd4ffacf5978699a716e) release(v0.1.0-alpha.4): prepare release
+* [`b9111db`](https://github.com/siderolabs/terraform-provider-talos/commit/b9111db42dade59000b26b313f7b7f0d5e6dc083) fix: client operations
+* [`e2d04ac`](https://github.com/siderolabs/terraform-provider-talos/commit/e2d04acbf10eb092effa60a1cbc0eb27325d4b19) docs: fix wrong resource reference
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.1.0-alpha.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.3)
+
 ## [terraform-provider-talos 0.1.0-alpha.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.3) (2022-09-08)
 
 Welcome to the v0.1.0-alpha.3 release of terraform-provider-talos!  

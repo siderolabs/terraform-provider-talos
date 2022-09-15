@@ -20,3 +20,7 @@ build:
 install: build
 	mkdir -p ~/.terraform.d/plugins/registry.local/siderolabs/talos/0.1.0/linux_amd64
 	cp terraform-provider-talos ~/.terraform.d/plugins/registry.local/siderolabs/talos/0.1.0/linux_amd64/terraform-provider-talos
+
+release-notes:
+	mkdir -p $(ARTIFACTS)
+	@ARTIFACTS=$(ARTIFACTS) ./hack/release.sh $@ $(ARTIFACTS)/RELEASE_NOTES.md $(TAG)

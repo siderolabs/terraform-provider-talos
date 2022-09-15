@@ -41,7 +41,7 @@ checksum:
 signs:
   - artifacts: checksum
     args:
-      # if you are using this in a GitHub action or some other automated pipeline, you 
+      # if you are using this in a GitHub action or some other automated pipeline, you
       # need to pass the batch flag to indicate its not interactive.
       - "--batch"
       - "--local-user"
@@ -57,4 +57,4 @@ release:
   # If you want to manually examine the release before its live, uncomment this line:
   # draft: true
 changelog:
-  skip: true
+  skip: false
