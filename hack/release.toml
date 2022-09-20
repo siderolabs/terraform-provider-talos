@@ -5,17 +5,8 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.1.0-alpha.5"
+previous = "v0.1.0-alpha.6"
 pre_release = true
 
 [notes]
 
-    [notes.provider]
-    title = "Talos Provider"
-    description = """\
-The Talos provider now requires `endpoint` and `node` to be set for `talos_machine_configuration_apply`, `talos_machine_bootstrap`, `talos_cluster_kubeconfig` resources.
-The `endpoints` and `nodes` arguments are removed for the above resources.
-
-This release also fixes a bug when multiple endpoitns were specified in the Talos client config.
-
-"""
