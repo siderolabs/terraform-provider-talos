@@ -118,8 +118,7 @@ func resourceTalosMachineConfigurationApplyCreate(ctx context.Context, d *schema
 
 			return nil
 		}); err != nil {
-			// TODO: remove status.Unknown check once we have 1.2.3
-			if s := status.Code(err); s == codes.InvalidArgument || s == codes.Unknown {
+			if s := status.Code(err); s == codes.InvalidArgument {
 				return resource.NonRetryableError(err)
 			}
 
