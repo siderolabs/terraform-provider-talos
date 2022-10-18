@@ -323,8 +323,8 @@ github.com/talos-systems/go-retry v0.1.1-0.20201113203059-8c63d290a688/go.mod h1
 github.com/talos-systems/go-retry v0.3.1 h1:GjjyHB8i1CJpb1O5qYPMljq74cRQ5uiDoyMaWddA5FA=
 github.com/talos-systems/net v0.3.2 h1:IMseRyuha8fNsv/3FbQPRE9hLVRBEFR+9sxcoETQ5vI=
 github.com/talos-systems/net v0.3.2/go.mod h1:zhcGixNJz9dgwFiUwc7gkkAqdVqXagU1SNNoIVXYKGo=
-github.com/talos-systems/talos/pkg/machinery v1.2.4 h1:xktg8Q74dJSWN5HVwwh+u9IKfoMZ2T1HpPJSBcDoQx4=
-github.com/talos-systems/talos/pkg/machinery v1.2.4/go.mod h1:bMaqe3cZ95419vkUt+zQQXXvgVcW7saTi80RsWyIC2M=
+github.com/talos-systems/talos/pkg/machinery v1.2.5 h1:cccQLWqb7kKp2UNDEwHGlJ6OkCBRq04/pj20HsQOxAU=
+github.com/talos-systems/talos/pkg/machinery v1.2.5/go.mod h1:bMaqe3cZ95419vkUt+zQQXXvgVcW7saTi80RsWyIC2M=
 github.com/vmihailenco/msgpack v3.3.3+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=
 github.com/vmihailenco/msgpack v4.0.4+incompatible h1:dSLoQfGFAo3F6OoNhwUmLwVgaUXK79GlxNBwueZn0xI=
 github.com/vmihailenco/msgpack v4.0.4+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=

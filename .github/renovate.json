@@ -1,0 +1,20 @@
+{
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": [
+        ":semanticCommitScopeDisabled",
+        "schedule:earlyMondays"
+    ],
+    "packageRules": [
+        {
+            "matchPackagePatterns": [
+                "*"
+            ],
+            "matchDatasources": [
+                "go",
+                "golang-version"
+            ],
+            "groupName": "go packages"
+        }
+    ],
+    "dependencyDashboard": true
+}

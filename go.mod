@@ -9,7 +9,7 @@ require (
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/stretchr/testify v1.8.0
 	github.com/talos-systems/net v0.3.2
-	github.com/talos-systems/talos/pkg/machinery v1.2.4
+	github.com/talos-systems/talos/pkg/machinery v1.2.5
 	gopkg.in/yaml.v3 v3.0.1
 )
 
