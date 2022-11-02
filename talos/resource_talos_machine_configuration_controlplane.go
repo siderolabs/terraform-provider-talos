@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/siderolabs/gen/slices"
-	talosnet "github.com/talos-systems/net"
+	sideronet "github.com/siderolabs/net"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
 )
@@ -199,7 +199,7 @@ func validateClusterEndpoint(endpoint string) error {
 		return fmt.Errorf("the control plane endpoint URL should have scheme https://\ntry: %q", fixControlPlaneEndpoint(u))
 	}
 
-	if err = talosnet.ValidateEndpointURI(endpoint); err != nil {
+	if err = sideronet.ValidateEndpointURI(endpoint); err != nil {
 		return fmt.Errorf("error validating the cluster endpoint URL: %w", err)
 	}
 

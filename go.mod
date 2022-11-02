@@ -7,17 +7,28 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.0
 	github.com/siderolabs/gen v0.4.0
 	github.com/siderolabs/go-pointer v1.0.0
-	github.com/stretchr/testify v1.8.0
-	github.com/talos-systems/net v0.3.2
-	github.com/talos-systems/talos/pkg/machinery v1.2.5
+	github.com/siderolabs/net v0.3.3
+	github.com/stretchr/testify v1.8.1
+	github.com/talos-systems/talos/pkg/machinery v1.2.6
+	google.golang.org/grpc v1.50.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/ProtonMail/go-crypto v0.0.0-20220930113650-c6815a8c17ad // indirect
+	github.com/ProtonMail/go-mime v0.0.0-20220302105931-303f85f7fe0f // indirect
+	github.com/ProtonMail/gopenpgp/v2 v2.4.10 // indirect
+	github.com/adrg/xdg v0.4.0 // indirect
+	github.com/cloudflare/circl v1.1.0 // indirect
 	github.com/cosi-project/runtime v0.1.1 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
+	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
+	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
+	github.com/siderolabs/go-api-signature v0.1.0 // indirect
 	github.com/siderolabs/protoenc v0.1.4-0.20220912144557-28f42ee12889 // indirect
+	github.com/sirupsen/logrus v1.4.2 // indirect
+	github.com/talos-systems/net v0.3.2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.22.0 // indirect
@@ -96,13 +107,12 @@ require (
 	go4.org/intern v0.0.0-20220617035311-6925f38cc365 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/net v0.0.0-20220812174116-3211cb980234 // indirect
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.3.8 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220812140447-cec7f5303424 // indirect
-	google.golang.org/grpc v1.48.0
+	google.golang.org/genproto v0.0.0-20221014213838-99cd37c6964a // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	inet.af/netaddr v0.0.0-20220811202034-502d2d690317 // indirect
