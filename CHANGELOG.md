@@ -1,3 +1,34 @@
+## [terraform-provider-talos 0.1.0-alpha.11](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.11) (2022-12-09)
+
+Welcome to the v0.1.0-alpha.11 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.2.7
+
+
+### Contributors
+
+
+### Changes
+<details><summary>0 commit</summary>
+<p>
+
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.1.0-alpha.10](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.10)
+
 ## [terraform-provider-talos 0.1.0-alpha.10](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.10) (2022-11-02)
 
 Welcome to the v0.1.0-alpha.10 release of terraform-provider-talos!  
