@@ -6,7 +6,6 @@ package talos
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"strings"
 
@@ -236,9 +235,7 @@ func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(c
 		client.WithEndpoints([]string{endpoint}...),
 	}
 
-	c, err := client.New(ctx, append(clientOpts, client.WithTLSConfig(&tls.Config{
-		InsecureSkipVerify: true,
-	}))...)
+	c, err := client.New(ctx, clientOpts...)
 	if err != nil {
 		return err
 	}
