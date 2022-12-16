@@ -5,13 +5,13 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.1.0-alpha.11"
+previous = "v0.1.0-alpha.12"
 pre_release = true
 
 [notes]
 
     [notes.updates]
-        title = "Fixes"
+        title = "Component Updates"
         description = """\
-Fixed an issue with the provider when using a secure Talos client.
+Talos sdk: v1.3.0
 """

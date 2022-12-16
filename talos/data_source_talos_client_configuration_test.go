@@ -10,8 +10,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/talos-systems/talos/pkg/machinery/client/config"
 	"gopkg.in/yaml.v3"
 )
 

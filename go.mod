@@ -8,8 +8,8 @@ require (
 	github.com/siderolabs/gen v0.4.2
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/siderolabs/net v0.4.0
+	github.com/siderolabs/talos/pkg/machinery v1.3.0
 	github.com/stretchr/testify v1.8.1
-	github.com/talos-systems/talos/pkg/machinery v1.2.7
 	google.golang.org/grpc v1.51.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -20,18 +20,20 @@ require (
 	github.com/ProtonMail/gopenpgp/v2 v2.4.10 // indirect
 	github.com/adrg/xdg v0.4.0 // indirect
 	github.com/cloudflare/circl v1.1.0 // indirect
-	github.com/cosi-project/runtime v0.1.1 // indirect
+	github.com/cosi-project/runtime v0.2.0 // indirect
 	github.com/gertd/go-pluralize v0.2.1 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.13.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
-	github.com/siderolabs/go-api-signature v0.1.0 // indirect
-	github.com/siderolabs/protoenc v0.1.4-0.20220912144557-28f42ee12889 // indirect
-	github.com/sirupsen/logrus v1.4.2 // indirect
-	github.com/talos-systems/net v0.3.2 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
+	github.com/siderolabs/crypto v0.4.0 // indirect
+	github.com/siderolabs/go-api-signature v0.2.2 // indirect
+	github.com/siderolabs/go-blockdevice v0.4.1 // indirect
+	github.com/siderolabs/go-debug v0.2.2 // indirect
+	github.com/siderolabs/protoenc v0.2.0 // indirect
+	github.com/sirupsen/logrus v1.7.0 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.22.0 // indirect
+	go.uber.org/zap v1.23.0 // indirect
 )
 
 require (
@@ -75,13 +77,13 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/josharian/native v1.0.0 // indirect
-	github.com/jsimonetti/rtnetlink v1.2.2 // indirect
+	github.com/jsimonetti/rtnetlink v1.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/mdlayher/ethtool v0.0.0-20220213132912-856bd6cb8a38 // indirect
+	github.com/mdlayher/ethtool v0.0.0-20220830195143-0e16326d06d1 // indirect
 	github.com/mdlayher/genetlink v1.2.0 // indirect
-	github.com/mdlayher/netlink v1.6.0 // indirect
-	github.com/mdlayher/socket v0.2.3 // indirect
+	github.com/mdlayher/netlink v1.7.0 // indirect
+	github.com/mdlayher/socket v0.4.0 // indirect
 	github.com/mitchellh/cli v1.1.4 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -97,23 +99,17 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/talos-systems/crypto v0.3.7 // indirect
-	github.com/talos-systems/go-blockdevice v0.3.4 // indirect
-	github.com/talos-systems/go-debug v0.2.1 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect
 	github.com/zclconf/go-cty v1.12.1 // indirect
-	go4.org/intern v0.0.0-20220617035311-6925f38cc365 // indirect
-	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
+	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sys v0.2.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221014213838-99cd37c6964a // indirect
+	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	inet.af/netaddr v0.0.0-20220811202034-502d2d690317 // indirect
 )
