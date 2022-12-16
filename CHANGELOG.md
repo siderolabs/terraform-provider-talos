@@ -1,3 +1,36 @@
+## [terraform-provider-talos 0.1.0-alpha.12](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.12) (2022-12-16)
+
+Welcome to the v0.1.0-alpha.12 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Fixes
+
+Fixed an issue with the provider when using a secure Talos client.
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`3c80f59`](https://github.com/siderolabs/terraform-provider-talos/commit/3c80f59ad7a8514b5481c84ca0d210c62ea06bcc) fix: handling talos secure client
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.1.0-alpha.11](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.11)
+
 ## [terraform-provider-talos 0.1.0-alpha.11](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.11) (2022-12-09)
 
 Welcome to the v0.1.0-alpha.11 release of terraform-provider-talos!  
