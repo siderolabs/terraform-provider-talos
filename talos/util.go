@@ -246,13 +246,16 @@ func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(c
 	_, err = c.Disks(ctx)
 	if err != nil {
 		c.Close()
-		if s, ok := status.FromError(err); !ok || s.Message() != "connection closed before server preface received" {
+		s, ok := status.FromError(err)
+		if !ok {
 			return err
 		}
 
-		c, err = client.New(ctx, clientOpts...)
-		if err != nil {
-			return err
+		if s.Message() == "connection closed before server preface received" || s.Message() == "connection error: desc = \"error reading server preface: remote error: tls: bad certificate\"" {
+			c, err = client.New(ctx, clientOpts...)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	defer c.Close() //nolint:errcheck
