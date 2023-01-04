@@ -69,7 +69,7 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 			"talos_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "The version of Talos for which to generate configs",
+				Description: "The version of Talos for which to generate configs. **Note**: This parameter defines the machine config schema version generated. To override the installer image (and actually install a different version of talos than the default) please use a config patch.",
 				ValidateDiagFunc: func(v interface{}, p cty.Path) diag.Diagnostics {
 					value := v.(string)
 					_, err := validateVersionContract(value)
@@ -83,7 +83,7 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 			"config_version": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Description: "the desired machine config version to generate",
+				Description: "the desired machine config version to generate (the `version` field of the generated config, currently `v1alpha1`)",
 				Default:     "v1alpha1",
 				ValidateDiagFunc: func(i interface{}, p cty.Path) diag.Diagnostics {
 					v := i.(string)
