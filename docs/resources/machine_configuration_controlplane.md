@@ -38,11 +38,11 @@ resource "talos_machine_configuration_controlplane" "machineconfig_cp" {
 ### Optional
 
 - `config_patches` (List of String) config patches to apply to the generated config
-- `config_version` (String) the desired machine config version to generate
+- `config_version` (String) the desired machine config version to generate (the `version` field of the generated config, currently `v1alpha1`)
 - `docs_enabled` (Boolean) whether to render all machine configs adding the documentation for each field
 - `examples_enabled` (Boolean) whether to render all machine configs with the commented examples
 - `kubernetes_version` (String) desired kubernetes version to run
-- `talos_version` (String) The version of Talos for which to generate configs
+- `talos_version` (String) The version of Talos for which to generate configs. **Note**: This parameter defines the machine config schema version generated. To override the installer image (and actually install a different version of talos than the default) please use a config patch.
 
 ### Read-Only
 
