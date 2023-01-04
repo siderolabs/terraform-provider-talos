@@ -3,12 +3,12 @@ module github.com/siderolabs/terraform-provider-talos
 go 1.19
 
 require (
-	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
+	github.com/hashicorp/go-cty v1.4.1-0.20200723130312-85980079f637
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.1
-	github.com/siderolabs/gen v0.4.2
+	github.com/siderolabs/gen v0.4.3
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos/pkg/machinery v1.3.0
+	github.com/siderolabs/talos/pkg/machinery v1.3.1
 	github.com/stretchr/testify v1.8.1
 	google.golang.org/grpc v1.51.0
 	gopkg.in/yaml.v3 v3.0.1
