@@ -1,3 +1,49 @@
+## [terraform-provider-talos 0.1.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0) (2023-01-04)
+
+Welcome to the v0.1.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.3.1
+
+
+### Contributors
+
+* Noel Georgi
+* Dmitriy Matrenichev
+* Robert Wunderer
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`ef1c72c`](https://github.com/siderolabs/terraform-provider-talos/commit/ef1c72cc149c7d02c3cc19e7d299b2adefab118b) docs: re-word `talos_version`
+* [`086b1e1`](https://github.com/siderolabs/terraform-provider-talos/commit/086b1e10c6aaeb71ff90dfd2f2feef6e99a1c294) chore: bump deps
+* [`acee3f9`](https://github.com/siderolabs/terraform-provider-talos/commit/acee3f9ff414a0620795b424481c2c37aa272aea) docs: clarify meaning of `talos_version` in `machine_configuration` resources
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>1 commit</summary>
+<p>
+
+* [`214c1ef`](https://github.com/siderolabs/gen/commit/214c1efe795cf426e5ebcc48cb305bfc7a16fdb8) chore: set `slice.Filter` result slice cap to len
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/go-cty**                d3edf31b6320 -> 85980079f637
+* **github.com/siderolabs/gen**                  v0.4.2 -> v0.4.3
+* **github.com/siderolabs/talos/pkg/machinery**  v1.3.0 -> v1.3.1
+
+Previous release can be found at [v0.1.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-beta.0)
+
 ## [terraform-provider-talos 0.1.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-beta.0) (2022-12-16)
 
 Welcome to the v0.1.0-beta.0 release of terraform-provider-talos!  
