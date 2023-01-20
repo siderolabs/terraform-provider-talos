@@ -43,6 +43,7 @@ func resourceTalosClientConfiguration() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
+				ForceNew: true,
 			},
 			"endpoints": {
 				Type:        schema.TypeList,
@@ -51,6 +52,7 @@ func resourceTalosClientConfiguration() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
+				ForceNew: true,
 			},
 			"talos_config": {
 				Type:        schema.TypeString,
