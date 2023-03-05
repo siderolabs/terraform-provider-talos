@@ -5,24 +5,47 @@
 package talos
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-// Provider -
-func Provider() *schema.Provider {
-	return &schema.Provider{
-		ResourcesMap: map[string]*schema.Resource{
-			"talos_machine_secrets":                    resourceTalosMachineSecrets(),
-			"talos_client_configuration":               resourceTalosClientConfiguration(),
-			"talos_machine_configuration_controlplane": resourceTalosMachineConfigurationControlPlane(),
-			"talos_machine_configuration_worker":       resourceTalosMachineConfigurationWorker(),
-			"talos_machine_configuration_apply":        resourceTalosMachineConfigurationApply(),
-			"talos_machine_bootstrap":                  resourceTalosMachineBootstrap(),
-			"talos_cluster_kubeconfig":                 resourceTalosClusterKubeconfig(),
-		},
-		DataSourcesMap: map[string]*schema.Resource{
-			"talos_client_configuration": dataSourceTalosClientConfiguration(),
-			"talos_cluster_kubeconfig":   dataSourceTalosClusterKubeconfig(),
-		},
+// talosProvider is the provider implementation.
+type talosProvider struct{}
+
+// New is a helper function to simplify provider server and testing implementation.
+func New() provider.Provider {
+	return &talosProvider{}
+}
+
+// Metadata returns the provider type name.
+func (p *talosProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "talos"
+}
+
+// Schema defines the provider-level schema for configuration data.
+func (p *talosProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{}
+}
+
+// Configure prepares a HashiCups API client for data sources and resources.
+func (p *talosProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+}
+
+// DataSources defines the data sources implemented in the provider.
+func (p *talosProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		NewTalosClientConfigurationDataSource,
+		NewTalosClusterKubeConfigDataSource,
+	}
+}
+
+// Resources defines the resources implemented in the provider.
+func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewTalosMachineSecretsResource,
 	}
 }

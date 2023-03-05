@@ -1,23 +1,27 @@
-resource "talos_machine_secrets" "machine_secrets" {}
+resource "talos_machine_secrets" "this" {}
 
-resource "talos_client_configuration" "talosconfig" {
-  cluster_name    = "example-cluster"
-  machine_secrets = talos_machine_secrets.machine_secrets.machine_secrets
-  endpoints       = ["10.5.0.2"]
-}
-
-resource "talos_machine_configuration_controlplane" "machineconfig_cp" {
-  cluster_name     = talos_client_configuration.talosconfig.cluster_name
+data "talos_machine_configuration" "this" {
+  cluster_name     = "example-cluster"
+  type             = "controlplane"
   cluster_endpoint = "https://cluster.local:6443"
-  machine_secrets  = talos_machine_secrets.machine_secrets.machine_secrets
+  machine_secrets  = talos_machine_secrets.this.machine_secrets
 }
 
-resource "talos_machine_configuration_apply" "config_apply" {
-  talos_config          = talos_client_configuration.talosconfig.talos_config
-  machine_configuration = talos_machine_configuration_controlplane.machineconfig_cp.machine_config
-  config_patches = [
-    file("${path.module}/files/worker.yaml"),
-  ]
-  endpoint = "10.5.0.2"
-  node     = "10.5.0.2"
+data "talos_client_configuration" "this" {
+  cluster_name         = "example-cluster"
+  client_configuration = talos_machine_secrets.this.client_configuration
+  node                 = ["10.5.0.2"]
+}
+
+resource "talos_machine_configuration_apply" "this" {
+  client_configuration  = talos_machine_secrets.this.client_configuration
+  machine_configuration = data.talos_machine_configuration.this.machine_configuration
+  node                  = "10.5.0.2"
+  config_patches = [{
+    machine = {
+      install = {
+        disk = "/dev/sdd"
+      }
+    }
+  }]
 }

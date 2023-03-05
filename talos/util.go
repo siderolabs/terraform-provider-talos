@@ -7,9 +7,14 @@ package talos
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
+	"net/url"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/siderolabs/crypto/x509"
+	sideronet "github.com/siderolabs/net"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/config"
@@ -22,14 +27,13 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"google.golang.org/grpc/status"
-	"gopkg.in/yaml.v3"
 )
 
 type machineConfigGenerateOptions struct {
 	machineType       machine.Type
 	clusterName       string
 	clusterEndpoint   string
-	machineSecrets    string
+	machineSecrets    *generate.SecretsBundle
 	kubernetesVersion string
 	talosVersion      string
 	docsEnabled       bool
@@ -116,20 +120,11 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		return "", fmt.Errorf(("generated input options are nil"))
 	}
 
-	var secretsBundle *generate.SecretsBundle
-
-	err := yaml.Unmarshal([]byte(m.machineSecrets), &secretsBundle)
-	if err != nil {
-		return "", err
-	}
-
-	secretsBundle.Clock = generate.NewClock()
-
 	input, err := generate.NewInput(
 		options.InputOptions.ClusterName,
 		options.InputOptions.Endpoint,
 		options.InputOptions.KubeVersion,
-		secretsBundle,
+		m.machineSecrets,
 		options.InputOptions.GenOptions...,
 	)
 	if err != nil {
@@ -196,43 +191,11 @@ func validateVersionContract(version string) (*config.VersionContract, error) {
 	return versionContract, nil
 }
 
-func generateTalosClientConfiguration(secretsBundle *generate.SecretsBundle, clusterName string, endpoints, nodes []string) (string, error) {
-	generateInput, err := generate.NewInput(clusterName, "", "", secretsBundle)
-	if err != nil {
-		return "", err
-	}
-
-	talosConfig, err := generate.Talosconfig(generateInput)
-	if err != nil {
-		return "", err
-	}
-
-	if len(endpoints) > 0 {
-		talosConfig.Contexts[talosConfig.Context].Endpoints = endpoints
-	}
-
-	if len(nodes) > 0 {
-		talosConfig.Contexts[talosConfig.Context].Nodes = nodes
-	}
-
-	talosConfigBytes, err := talosConfig.Bytes()
-	if err != nil {
-		return "", err
-	}
-
-	return string(talosConfigBytes), nil
-}
-
-func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(ctx context.Context, c *client.Client) error) error {
-	cfg, err := clientconfig.FromString(tc)
-	if err != nil {
-		return err
-	}
-
+func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.Config, opFunc func(ctx context.Context, c *client.Client) error) error {
 	opCtx := client.WithNode(ctx, node)
 
 	clientOpts := []client.OptionFunc{
-		client.WithConfig(cfg),
+		client.WithConfig(tc),
 		client.WithEndpoints([]string{endpoint}...),
 	}
 
@@ -251,6 +214,10 @@ func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(c
 			return err
 		}
 
+		if strings.Contains(s.Message(), "name resilver error") || strings.Contains(s.Message(), "i/o timeout") {
+			return err
+		}
+
 		if s.Message() == "connection closed before server preface received" || s.Message() == "connection error: desc = \"error reading server preface: remote error: tls: bad certificate\"" {
 			c, err = client.New(ctx, clientOpts...)
 			if err != nil {
@@ -265,4 +232,118 @@ func talosClientOp(ctx context.Context, endpoint, node, tc string, opFunc func(c
 	}
 
 	return nil
+}
+
+type talosVersionValidator struct{}
+
+func talosVersionValid() talosVersionValidator {
+	return talosVersionValidator{}
+}
+
+func (v talosVersionValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	version := req.ConfigValue.ValueString()
+
+	_, err := validateVersionContract(version)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid version", err.Error())
+	}
+
+}
+
+func (v talosVersionValidator) Description(_ context.Context) string {
+	return "Validates that the talos version is valid"
+}
+
+func (v talosVersionValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func validateClusterEndpoint(endpoint string) error {
+	// Validate url input to ensure it has https:// scheme before we attempt to gen
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		if !strings.Contains(endpoint, "/") {
+			// not a URL, could be just host:port
+			u = &url.URL{
+				Host: endpoint,
+			}
+		} else {
+			return fmt.Errorf("failed to parse the cluster endpoint URL: %w", err)
+		}
+	}
+
+	if u.Scheme == "" {
+		if u.Port() == "" {
+			return fmt.Errorf("no scheme and port specified for the cluster endpoint URL\ntry: %q", fixControlPlaneEndpoint(u))
+		}
+
+		return fmt.Errorf("no scheme specified for the cluster endpoint URL\ntry: %q", fixControlPlaneEndpoint(u))
+	}
+
+	if u.Scheme != "https" {
+		return fmt.Errorf("the control plane endpoint URL should have scheme https://\ntry: %q", fixControlPlaneEndpoint(u))
+	}
+
+	if err = sideronet.ValidateEndpointURI(endpoint); err != nil {
+		return fmt.Errorf("error validating the cluster endpoint URL: %w", err)
+	}
+
+	return nil
+}
+
+func fixControlPlaneEndpoint(u *url.URL) *url.URL {
+	// handle the case when the hostname/IP is given without the port, it parses as URL Path
+	if u.Scheme == "" && u.Host == "" && u.Path != "" {
+		u.Host = u.Path
+		u.Path = ""
+	}
+
+	u.Scheme = "https"
+
+	if u.Port() == "" {
+		u.Host = fmt.Sprintf("%s:%d", u.Host, constants.DefaultControlPlanePort)
+	}
+
+	return u
+}
+
+func bytesToBase64(b []byte) string {
+	return base64.StdEncoding.EncodeToString(b)
+}
+
+func base64ToBytes(in string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(in)
+}
+
+func talosClientTFConfigToTalosClientConfig(clusterName, ca, cert, key string) (*clientconfig.Config, error) {
+	caCert, err := base64ToBytes(ca)
+	if err != nil {
+		return nil, err
+	}
+
+	clientCert, err := base64ToBytes(cert)
+	if err != nil {
+		return nil, err
+	}
+
+	clientKey, err := base64ToBytes(key)
+	if err != nil {
+		return nil, err
+	}
+
+	talosConfig := clientconfig.NewConfig(
+		clusterName,
+		nil,
+		caCert,
+		&x509.PEMEncodedCertificateAndKey{
+			Crt: clientCert,
+			Key: clientKey,
+		},
+	)
+
+	return talosConfig, nil
 }

@@ -1,13 +1,13 @@
 ---
-page_title: "talos_machine_secrets Resource - terraform-provider-talos"
+page_title: "talos_machine_secrets Resource - talos"
 subcategory: ""
 description: |-
-  Generate machine secrets for a Talos cluster
+  Generate machine secrets for Talos cluster.
 ---
 
 # talos_machine_secrets (Resource)
 
-Generate machine secrets for a Talos cluster
+Generate machine secrets for Talos cluster.
 
 ## Example Usage
 
@@ -23,5 +23,107 @@ resource "talos_machine_secrets" "machine_secrets" {}
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
-- `machine_secrets` (String, Sensitive) The generated talos cluster secrets
+- `client_configuration` (Attributes) The generated client configuration data (see [below for nested schema](#nestedatt--client_configuration))
+- `machine_secrets` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets))
+
+<a id="nestedatt--client_configuration"></a>
+### Nested Schema for `client_configuration`
+
+Read-Only:
+
+- `ca_certificate` (String) The client CA certificate
+- `client_certificate` (String) The client certificate
+- `client_key` (String, Sensitive) The client key
+
+
+<a id="nestedatt--machine_secrets"></a>
+### Nested Schema for `machine_secrets`
+
+Read-Only:
+
+- `certs` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs))
+- `cluster` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--cluster))
+- `secrets` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--secrets))
+- `trustdinfo` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--trustdinfo))
+
+<a id="nestedatt--machine_secrets--certs"></a>
+### Nested Schema for `machine_secrets.certs`
+
+Read-Only:
+
+- `etcd` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--etcd))
+- `k8s` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s))
+- `k8s_aggregator` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_aggregator))
+- `k8s_serviceaccount` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_serviceaccount))
+- `os` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--os))
+
+<a id="nestedatt--machine_secrets--certs--etcd"></a>
+### Nested Schema for `machine_secrets.certs.etcd`
+
+Read-Only:
+
+- `cert` (String)
+- `key` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--certs--k8s"></a>
+### Nested Schema for `machine_secrets.certs.k8s`
+
+Read-Only:
+
+- `cert` (String)
+- `key` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--certs--k8s_aggregator"></a>
+### Nested Schema for `machine_secrets.certs.k8s_aggregator`
+
+Read-Only:
+
+- `cert` (String)
+- `key` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--certs--k8s_serviceaccount"></a>
+### Nested Schema for `machine_secrets.certs.k8s_serviceaccount`
+
+Read-Only:
+
+- `key` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--certs--os"></a>
+### Nested Schema for `machine_secrets.certs.os`
+
+Read-Only:
+
+- `cert` (String)
+- `key` (String, Sensitive)
+
+
+
+<a id="nestedatt--machine_secrets--cluster"></a>
+### Nested Schema for `machine_secrets.cluster`
+
+Read-Only:
+
+- `id` (String)
+- `secret` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--secrets"></a>
+### Nested Schema for `machine_secrets.secrets`
+
+Read-Only:
+
+- `aescbc_encryption_secret` (String, Sensitive)
+- `bootstrap_token` (String, Sensitive)
+- `secretbox_encryption_secret` (String, Sensitive)
+
+
+<a id="nestedatt--machine_secrets--trustdinfo"></a>
+### Nested Schema for `machine_secrets.trustdinfo`
+
+Read-Only:
+
+- `token` (String, Sensitive)

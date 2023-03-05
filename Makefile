@@ -18,11 +18,10 @@ fmt:
 	@find . -type f -name "*.tf" -exec terraform fmt {} \;
 
 build:
-	go build -o terraform-provider-talos
+	go build -o terraform-provider-talos .
 
-install: build
-	mkdir -p ~/.terraform.d/plugins/registry.local/siderolabs/talos/0.1.0/linux_amd64
-	cp terraform-provider-talos ~/.terraform.d/plugins/registry.local/siderolabs/talos/0.1.0/linux_amd64/terraform-provider-talos
+install:
+	go install .
 
 release-notes:
 	mkdir -p $(ARTIFACTS)
