@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/siderolabs/gen/slices"
@@ -27,6 +28,19 @@ func resourceTalosMachineConfigurationControlPlane() *schema.Resource {
 		ReadContext:   resourceTalosMachineConfigurationControlPlaneRead,
 		UpdateContext: resourceTalosMachineConfigurationControlPlaneUpdate,
 		DeleteContext: resourceTalosMachineConfigurationControlPlaneDelete,
+		CustomizeDiff: customdiff.All(
+			customdiff.ComputedIf("machine_config", func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("cluster_name") ||
+					d.HasChange("cluster_endpoint") ||
+					d.HasChange("machine_secrets") ||
+					d.HasChange("config_patches") ||
+					d.HasChange("kubernetes_version") ||
+					d.HasChange("talos_version") ||
+					d.HasChange("config_version") ||
+					d.HasChange("docs_enabled") ||
+					d.HasChange("examples_enabled")
+			}),
+		),
 		Schema: map[string]*schema.Schema{
 			"cluster_name": {
 				Type:         schema.TypeString,

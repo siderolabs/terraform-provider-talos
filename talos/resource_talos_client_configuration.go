@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/siderolabs/gen/slices"
@@ -23,6 +24,14 @@ func resourceTalosClientConfiguration() *schema.Resource {
 		ReadContext:   resourceTalosClientConfigurationRead,
 		UpdateContext: resourceTalosClientConfigurationUpdate,
 		DeleteContext: resourceTalosClientConfigurationDelete,
+		CustomizeDiff: customdiff.All(
+			customdiff.ComputedIf("talos_config", func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) bool {
+				return d.HasChange("cluster_name") ||
+					d.HasChange("machine_secrets") ||
+					d.HasChange("nodes") ||
+					d.HasChange("endpoints")
+			}),
+		),
 		Schema: map[string]*schema.Schema{
 			"cluster_name": {
 				Type:         schema.TypeString,
@@ -43,7 +52,6 @@ func resourceTalosClientConfiguration() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
-				ForceNew: true,
 			},
 			"endpoints": {
 				Type:        schema.TypeList,
@@ -52,7 +60,6 @@ func resourceTalosClientConfiguration() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
-				ForceNew: true,
 			},
 			"talos_config": {
 				Type:        schema.TypeString,
