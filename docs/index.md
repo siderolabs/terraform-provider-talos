@@ -8,7 +8,7 @@ description: |-
 
 Talos provider allows to generate configs for a Talos cluster and apply them to the nodes. bootstrap nodes and retrieve `kubeconfig` and `talosconfig`.
 
-A complete example usage is available at [basic example](https://github.com/siderolabs/terraform-provider-talos/tree/main/examples/basic)
+A complete example usage is available at [basic example](https://github.com/siderolabs/terraform-provider-talos/tree/release-0.1/examples/basic)
 
 The same example is also rendered below:
 
