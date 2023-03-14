@@ -1,3 +1,40 @@
+## [terraform-provider-talos 0.1.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.2) (2023-03-14)
+
+Welcome to the v0.1.2 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.3.6
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`7d6d491`](https://github.com/siderolabs/terraform-provider-talos/commit/7d6d49147136c08aa7f96ffedb065595c5d728ad) docs: update example usage
+* [`037c002`](https://github.com/siderolabs/terraform-provider-talos/commit/037c002e186370fa9c9c5b0912fd1fe8ef7fe43f) chore: bump talos machinery
+* [`f31b203`](https://github.com/siderolabs/terraform-provider-talos/commit/f31b20326388f91159893e58dfee79d1c6171001) fix: state update required two runs
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**    v0.13.0 -> v0.14.1
+* **github.com/hashicorp/terraform-plugin-sdk/v2**  v2.24.1 -> v2.25.0
+* **github.com/siderolabs/talos/pkg/machinery**     v1.3.1 -> v1.3.6
+* **github.com/stretchr/testify**                   v1.8.1 -> v1.8.2
+
+Previous release can be found at [v0.1.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.1)
+
 ## [terraform-provider-talos 0.1.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.1) (2023-02-10)
 
 Welcome to the v0.1.1 release of terraform-provider-talos!
