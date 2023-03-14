@@ -9,7 +9,7 @@ require (
 	github.com/siderolabs/gen v0.4.3
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos/pkg/machinery v1.3.5
+	github.com/siderolabs/talos/pkg/machinery v1.3.6
 	github.com/stretchr/testify v1.8.2
 	google.golang.org/grpc v1.51.0
 	gopkg.in/yaml.v3 v3.0.1
