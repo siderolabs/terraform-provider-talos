@@ -6,28 +6,13 @@ description: |-
 
 # Talos Provider
 
-Talos provider allows to generate configs for a Talos cluster and apply them to the nodes. bootstrap nodes and retrieve `kubeconfig` and `talosconfig`.
+Talos provider allows to generate configs for a Talos cluster and apply them to the nodes, bootstrap nodes and retrieve `kubeconfig` and `talosconfig`.
 
-A complete example usage is available at [basic example](https://github.com/siderolabs/terraform-provider-talos/tree/main/examples/basic)
+Complete usages for this provider can be found at:
 
-The same example is also rendered below:
+- [AWS](https://github.com/siderolabs/contrib/tree/main/examples/terraform/aws)
+- [Basic](https://github.com/siderolabs/contrib/tree/main/examples/terraform/basic)
+- [Equinix Metal](https://github.com/siderolabs/contrib/tree/main/examples/terraform/equinix-metal)
+- [Hetzner Cloud](https://github.com/siderolabs/contrib/tree/main/examples/terraform/hcloud)
+- [Vultr](https://github.com/siderolabs/contrib/tree/main/examples/terraform/vultr)
 
-`variables.tf`
-
-{{tffile "examples/basic/variables.tf"}}
-
-`main.tf`
-
-{{tffile "examples/basic/main.tf"}}
-
-`outputs.tf`
-
-{{tffile "examples/basic/outputs.tf"}}
-
-`files/patch.json`
-
-{{ codefile "json" "examples/basic/files/patch.json" }}
-
-`templates/patch.yaml.tmpl`
-
-{{ codefile "yaml" "examples/basic/templates/patch.yaml.tmpl" }}
