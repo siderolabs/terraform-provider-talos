@@ -1,6 +1,0 @@
-machine:
-  sysfs:
-    cpu: 1
-  kubelet:
-    extraArgs:
-      foo: bar

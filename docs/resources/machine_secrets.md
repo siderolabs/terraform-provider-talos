@@ -19,12 +19,13 @@ resource "talos_machine_secrets" "machine_secrets" {}
 
 ### Optional
 
-- `talos_version` (String) The version of Talos for which to generate secrets
+- `talos_version` (String) The version of talos features to use in generated machine configuration
 
 ### Read-Only
 
 - `client_configuration` (Attributes) The generated client configuration data (see [below for nested schema](#nestedatt--client_configuration))
-- `machine_secrets` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets))
+- `id` (String) The computed ID of the Talos cluster
+- `machine_secrets` (Attributes) The secrets for the talos cluster (see [below for nested schema](#nestedatt--machine_secrets))
 
 <a id="nestedatt--client_configuration"></a>
 ### Nested Schema for `client_configuration`
@@ -42,28 +43,28 @@ Read-Only:
 Read-Only:
 
 - `certs` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs))
-- `cluster` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--cluster))
-- `secrets` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--secrets))
-- `trustdinfo` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--trustdinfo))
+- `cluster` (Attributes) The cluster secrets (see [below for nested schema](#nestedatt--machine_secrets--cluster))
+- `secrets` (Attributes) kubernetes cluster secrets (see [below for nested schema](#nestedatt--machine_secrets--secrets))
+- `trustdinfo` (Attributes) trustd secrets (see [below for nested schema](#nestedatt--machine_secrets--trustdinfo))
 
 <a id="nestedatt--machine_secrets--certs"></a>
 ### Nested Schema for `machine_secrets.certs`
 
 Read-Only:
 
-- `etcd` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--etcd))
-- `k8s` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s))
-- `k8s_aggregator` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_aggregator))
-- `k8s_serviceaccount` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_serviceaccount))
-- `os` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--os))
+- `etcd` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--etcd))
+- `k8s` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s))
+- `k8s_aggregator` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_aggregator))
+- `k8s_serviceaccount` (Attributes) The service account secrets (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_serviceaccount))
+- `os` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--os))
 
 <a id="nestedatt--machine_secrets--certs--etcd"></a>
 ### Nested Schema for `machine_secrets.certs.etcd`
 
 Read-Only:
 
-- `cert` (String)
-- `key` (String, Sensitive)
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
 
 
 <a id="nestedatt--machine_secrets--certs--k8s"></a>
@@ -71,8 +72,8 @@ Read-Only:
 
 Read-Only:
 
-- `cert` (String)
-- `key` (String, Sensitive)
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
 
 
 <a id="nestedatt--machine_secrets--certs--k8s_aggregator"></a>
@@ -80,8 +81,8 @@ Read-Only:
 
 Read-Only:
 
-- `cert` (String)
-- `key` (String, Sensitive)
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
 
 
 <a id="nestedatt--machine_secrets--certs--k8s_serviceaccount"></a>
@@ -89,7 +90,7 @@ Read-Only:
 
 Read-Only:
 
-- `key` (String, Sensitive)
+- `key` (String, Sensitive) The service account key
 
 
 <a id="nestedatt--machine_secrets--certs--os"></a>
@@ -97,8 +98,8 @@ Read-Only:
 
 Read-Only:
 
-- `cert` (String)
-- `key` (String, Sensitive)
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
 
 
 
@@ -107,8 +108,8 @@ Read-Only:
 
 Read-Only:
 
-- `id` (String)
-- `secret` (String, Sensitive)
+- `id` (String) The cluster ID
+- `secret` (String, Sensitive) The cluster secret
 
 
 <a id="nestedatt--machine_secrets--secrets"></a>
@@ -116,9 +117,9 @@ Read-Only:
 
 Read-Only:
 
-- `aescbc_encryption_secret` (String, Sensitive)
-- `bootstrap_token` (String, Sensitive)
-- `secretbox_encryption_secret` (String, Sensitive)
+- `aescbc_encryption_secret` (String, Sensitive) The AES-CBC encryption secret
+- `bootstrap_token` (String, Sensitive) The bootstrap token
+- `secretbox_encryption_secret` (String, Sensitive) The secretbox encryption secret
 
 
 <a id="nestedatt--machine_secrets--trustdinfo"></a>
@@ -126,4 +127,12 @@ Read-Only:
 
 Read-Only:
 
-- `token` (String, Sensitive)
+- `token` (String, Sensitive) The trustd token
+## Import
+
+Import is supported using the following syntax:
+
+```terraform
+# machine secrets can be imported from an existing secrets file
+terraform import talos_machine_secrets.this <path-to-secrets.yaml>
+```

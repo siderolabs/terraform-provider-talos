@@ -2,12 +2,12 @@
 page_title: "talos_machine_bootstrap Resource - talos"
 subcategory: ""
 description: |-
-  Bootstrap etcd on a node.
+  The machine bootstrap resource allows you to bootstrap a Talos node.
 ---
 
 # talos_machine_bootstrap (Resource)
 
-Bootstrap etcd on a node.
+The machine bootstrap resource allows you to bootstrap a Talos node.
 
 ## Example Usage
 
@@ -31,13 +31,15 @@ resource "talos_machine_configuration_apply" "this" {
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.this.machine_configuration
   node                  = "10.5.0.2"
-  config_patches = [{
-    machine = {
-      install = {
-        disk = "/dev/sdd"
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "/dev/sdd"
+        }
       }
-    }
-  }]
+    })
+  ]
 }
 
 resource "talos_machine_bootstrap" "this" {
@@ -53,22 +55,39 @@ resource "talos_machine_bootstrap" "this" {
 
 ### Required
 
-- `client_configuration` (Attributes) The client configuration to use when connecting to the talos node (see [below for nested schema](#nestedatt--client_configuration))
-- `node` (String) The node to apply the configuration to.
+- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
+- `node` (String) The name of the node to bootstrap
 
 ### Optional
 
-- `endpoint` (String) The endpoint for the talos client. If not specified, the node will be used as the endpoint.
+- `endpoint` (String) The endpoint of the machine to bootstrap
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) This is a unique identifier for the machine
 
 <a id="nestedatt--client_configuration"></a>
 ### Nested Schema for `client_configuration`
 
 Required:
 
-- `ca_certificate` (String) The CA certificate to use when connecting to the talos node.
-- `client_certificate` (String) The client certificate to use when connecting to the talos node.
-- `client_key` (String) The client key to use when connecting to the talos node.
+- `ca_certificate` (String) The client CA certificate
+- `client_certificate` (String) The client certificate
+- `client_key` (String, Sensitive) The client key
+
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String)
+## Import
+
+Import is supported using the following syntax:
+
+```terraform
+# machine bootstrap can be imported to let terraform know that the machine is already bootstrapped
+terraform import talos_machine_bootstrap.this <any id>
+```

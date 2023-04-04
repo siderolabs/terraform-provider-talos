@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/crypto/x509"
 	sideronet "github.com/siderolabs/net"
 	"github.com/siderolabs/talos/pkg/machinery/client"
@@ -49,7 +50,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		generate.WithClusterDiscovery(true),
 		generate.WithDNSDomain(constants.DefaultDNSDomain),
 		generate.WithInstallDisk("/dev/sda"),
-		generate.WithInstallImage(generateInstallerImage()),
+		generate.WithInstallImage(GenerateInstallerImage()),
 		generate.WithPersist(true),
 	)
 
@@ -88,7 +89,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 
 		patches, err := configpatcher.LoadPatches(configPatches)
 		if err != nil {
-			return fmt.Errorf("error parsing config JSON patch: %w", err)
+			return fmt.Errorf("error parsing config patch: %w", err)
 		}
 
 		configBundleOpts = append(configBundleOpts, configOpt(patches))
@@ -178,8 +179,75 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 	return machineConfig, nil
 }
 
-func generateInstallerImage() string {
+func GenerateInstallerImage() string {
 	return fmt.Sprintf("%s/%s/installer:%s", gendata.ImagesRegistry, gendata.ImagesUsername, gendata.VersionTag)
+}
+
+func secretsBundleTomachineSecrets(secretsBundle *generate.SecretsBundle) (talosMachineSecretsResourceModelV1, error) {
+	if secretsBundle.Clock == nil {
+		secretsBundle.Clock = generate.NewClock()
+	}
+
+	model := talosMachineSecretsResourceModelV1{
+		Id: types.StringValue("machine_secrets"),
+		MachineSecrets: machineSecrets{
+			Cluster: machineSecretsCluster{
+				ID:     types.StringValue(secretsBundle.Cluster.ID),
+				Secret: types.StringValue(secretsBundle.Cluster.Secret),
+			},
+			Secrets: machineSecretsSecrets{
+				BootstrapToken:            types.StringValue(secretsBundle.Secrets.BootstrapToken),
+				SecretboxEncryptionSecret: types.StringValue(secretsBundle.Secrets.SecretboxEncryptionSecret),
+			},
+			TrustdInfo: machineSecretsTrustdInfo{
+				Token: types.StringValue(secretsBundle.TrustdInfo.Token),
+			},
+			Certs: machineSecretsCerts{
+				Etcd: machineSecretsCertKeyPair{
+					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.Etcd.Crt)),
+					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.Etcd.Key)),
+				},
+				K8s: machineSecretsCertKeyPair{
+					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Crt)),
+					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Key)),
+				},
+				K8sAggregator: machineSecretsCertKeyPair{
+					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Crt)),
+					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Key)),
+				},
+				K8sServiceAccount: machineSecretsCertsK8sServiceAccount{
+					Key: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sServiceAccount.Key)),
+				},
+				OS: machineSecretsCertKeyPair{
+					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.OS.Crt)),
+					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.OS.Key)),
+				},
+			},
+		},
+	}
+
+	// support for talos < 1.3
+	if secretsBundle.Secrets.AESCBCEncryptionSecret != "" {
+		model.MachineSecrets.Secrets.AESCBCEncryptionSecret = types.StringValue(secretsBundle.Secrets.AESCBCEncryptionSecret)
+	}
+
+	generateInput, err := generate.NewInput("", "", "", secretsBundle)
+	if err != nil {
+		return model, err
+	}
+
+	talosConfig, err := generate.Talosconfig(generateInput)
+	if err != nil {
+		return model, err
+	}
+
+	model.ClientConfiguration = clientConfiguration{
+		CA:   types.StringValue(talosConfig.Contexts[talosConfig.Context].CA),
+		Cert: types.StringValue(talosConfig.Contexts[talosConfig.Context].Crt),
+		Key:  types.StringValue(talosConfig.Contexts[talosConfig.Context].Key),
+	}
+
+	return model, nil
 }
 
 func validateVersionContract(version string) (*config.VersionContract, error) {
@@ -254,7 +322,7 @@ func (v talosVersionValidator) ValidateString(ctx context.Context, req validator
 
 }
 
-func (v talosVersionValidator) Description(_ context.Context) string {
+func (v talosVersionValidator) Description(ctx context.Context) string {
 	return "Validates that the talos version is valid"
 }
 

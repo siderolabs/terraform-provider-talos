@@ -17,13 +17,15 @@ resource "talos_machine_configuration_apply" "this" {
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.this.machine_configuration
   node                  = "10.5.0.2"
-  config_patches = [{
-    machine = {
-      install = {
-        disk = "/dev/sdd"
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "/dev/sdd"
+        }
       }
-    }
-  }]
+    })
+  ]
 }
 
 resource "talos_machine_bootstrap" "this" {

@@ -9,16 +9,12 @@ description: |-
 
 {{ .Description | trimspace }}
 
+> **Note:** It is recommended to set the optional `talos_version` attribute.
+> Otherwise when using a new version of the provider with a new major version of the Talos SDK, new machineconfig features will be enabled by default which could cause unexpected behavior.
+
 {{ if .HasExample -}}
 ## Example Usage
 
 {{ printf "{{tffile %q}}" .ExampleFile }}
 {{- end }}
 {{ .SchemaMarkdown | trimspace }}
-{{ if .HasImport -}}
-## Import
-
-Import is supported using the following syntax:
-
-{{ printf "{{tffile %q}}" .ImportFile }}
-{{- end }}

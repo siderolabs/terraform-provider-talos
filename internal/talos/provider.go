@@ -22,30 +22,33 @@ func New() provider.Provider {
 }
 
 // Metadata returns the provider type name.
-func (p *talosProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
+func (p *talosProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "talos"
 }
 
 // Schema defines the provider-level schema for configuration data.
-func (p *talosProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *talosProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{}
 }
 
-// Configure prepares a HashiCups API client for data sources and resources.
+// Configure prepares a Talos client for data sources and resources.
 func (p *talosProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 }
 
 // DataSources defines the data sources implemented in the provider.
-func (p *talosProvider) DataSources(_ context.Context) []func() datasource.DataSource {
+func (p *talosProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
+		NewTalosMachineConfigurationDataSource,
 		NewTalosClientConfigurationDataSource,
 		NewTalosClusterKubeConfigDataSource,
 	}
 }
 
 // Resources defines the resources implemented in the provider.
-func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource {
+func (p *talosProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewTalosMachineSecretsResource,
+		NewTalosMachineConfigurationApplyResource,
+		NewTalosMachineBootstrapResource,
 	}
 }

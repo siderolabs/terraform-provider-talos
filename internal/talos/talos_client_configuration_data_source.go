@@ -17,7 +17,8 @@ import (
 
 type talosClientConfigurationDataSource struct{}
 
-type talosClientConfigurationDataSourceModel struct {
+type talosClientConfigurationDataSourceModelV0 struct {
+	Id                  types.String        `tfsdk:"id"`
 	ClusterName         types.String        `tfsdk:"cluster_name"`
 	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
 	Endpoints           types.List          `tfsdk:"endpoints"`
@@ -41,6 +42,10 @@ func (d *talosClientConfigurationDataSource) Schema(_ context.Context, req datas
 	resp.Schema = schema.Schema{
 		Description: "Generate client configuration for a Talos cluster",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Description: "The ID of this resource",
+				Computed:    true,
+			},
 			"cluster_name": schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the cluster in the generated config",
@@ -87,7 +92,7 @@ func (d *talosClientConfigurationDataSource) Schema(_ context.Context, req datas
 }
 
 func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var state talosClientConfigurationDataSourceModel
+	var state talosClientConfigurationDataSourceModelV0
 
 	diags := req.Config.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -132,6 +137,7 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 	}
 
 	state.TalosConfig = basetypes.NewStringValue(string(talosConfigStringBytes))
+	state.Id = state.ClusterName
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)

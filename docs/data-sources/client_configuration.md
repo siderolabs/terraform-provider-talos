@@ -37,6 +37,7 @@ data "talos_client_configuration" "this" {
 
 ### Read-Only
 
+- `id` (String) The ID of this resource
 - `talos_config` (String, Sensitive) The generated client configuration
 
 <a id="nestedatt--client_configuration"></a>

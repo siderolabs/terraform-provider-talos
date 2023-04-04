@@ -32,13 +32,15 @@ resource "talos_machine_configuration_apply" "this" {
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.this.machine_configuration
   node                  = "10.5.0.2"
-  config_patches = [{
-    machine = {
-      install = {
-        disk = "/dev/sdd"
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "/dev/sdd"
+        }
       }
-    }
-  }]
+    })
+  ]
 }
 
 resource "talos_machine_bootstrap" "this" {
@@ -75,6 +77,7 @@ data "talos_cluster_kubeconfig" "this" {
 
 ### Read-Only
 
+- `id` (String) The ID of this resource.
 - `kubeconfig_raw` (String, Sensitive) The raw kubeconfig
 - `kubernetes_client_configuration` (Attributes) The kubernetes client configuration (see [below for nested schema](#nestedatt--kubernetes_client_configuration))
 

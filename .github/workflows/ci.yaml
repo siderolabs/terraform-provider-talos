@@ -2,21 +2,46 @@ name: ci
 on:
   pull_request:
 jobs:
-  metadata:
+  run-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Unshallow
-        run: git fetch --prune --unshallow
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
       - name: dirty-check
         run: |
           make check-dirty
-      - name: acceptance-test
+      - name: Set up libvirt
         run: |
-          make testacc
+          sudo apt-get update
+          sudo apt-get install -y \
+            bridge-utils \
+            dnsmasq-base \
+            virtinst \
+            libvirt-daemon \
+            libvirt-daemon-system \
+            qemu-kvm \
+          ;
+
+          echo -e "<pool type='dir'>\n<name>default</name>\n<target>\n<path>/pool-default</path>\n</target>\n</pool>" > pool.xml
+          sudo mkdir /pool-default
+          sudo chmod a+rwx /pool-default
+          sudo virsh pool-define pool.xml
+          sudo virsh pool-start default
+          echo 'security_driver = "none"' | sudo tee --append /etc/libvirt/qemu.conf
+          sudo systemctl restart libvirtd
+      - name: acceptance-test
+        env:
+          TERRAFORM_LIBVIRT_TEST_DOMAIN_TYPE: qemu
+          LIBVIRT_DEFAULT_URI: qemu:///system
+          CI: "true"
+        run: |
+          sudo -E make testacc

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -30,13 +29,21 @@ const (
 type talosClusterKubeConfigDataSource struct{}
 
 type talosClusterKubeConfigDataSourceModel struct {
-	Node                          types.String        `tfsdk:"node"`
-	Endpoint                      types.String        `tfsdk:"endpoint"`
-	ClientConfiguration           clientConfiguration `tfsdk:"client_configuration"`
-	KubeConfigRaw                 types.String        `tfsdk:"kubeconfig_raw"`
-	KubernetesClientConfiguration types.Object        `tfsdk:"kubernetes_client_configuration"`
-	Wait                          types.Bool          `tfsdk:"wait"`
-	Timeouts                      timeouts.Value      `tfsdk:"timeouts"`
+	Id                            types.String                  `tfsdk:"id"`
+	Node                          types.String                  `tfsdk:"node"`
+	Endpoint                      types.String                  `tfsdk:"endpoint"`
+	ClientConfiguration           clientConfiguration           `tfsdk:"client_configuration"`
+	KubeConfigRaw                 types.String                  `tfsdk:"kubeconfig_raw"`
+	KubernetesClientConfiguration kubernetesClientConfiguration `tfsdk:"kubernetes_client_configuration"`
+	Wait                          types.Bool                    `tfsdk:"wait"`
+	Timeouts                      timeouts.Value                `tfsdk:"timeouts"`
+}
+
+type kubernetesClientConfiguration struct {
+	Host              types.String `tfsdk:"host"`
+	CACertificate     types.String `tfsdk:"ca_certificate"`
+	ClientCertificate types.String `tfsdk:"client_certificate"`
+	ClientKey         types.String `tfsdk:"client_key"`
 }
 
 var (
@@ -55,6 +62,9 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, req datas
 	resp.Schema = schema.Schema{
 		Description: "Retrieves the kubeconfig for a Talos cluster",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
 			"node": schema.StringAttribute{
 				Required:    true,
 				Description: "controlplane node to retrieve the kubeconfig from",
@@ -123,9 +133,19 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, req datas
 }
 
 func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var state talosClusterKubeConfigDataSourceModel
+	var obj types.Object
 
-	diags := req.Config.Get(ctx, &state)
+	diags := req.Config.Get(ctx, &obj)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state talosClusterKubeConfigDataSourceModel
+	diags = obj.As(ctx, &state, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	})
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -186,7 +206,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 			return nil
 		}); err != nil {
-			if s := status.Code(err); s == codes.InvalidArgument || s == codes.Unavailable {
+			if s := status.Code(err); s == codes.InvalidArgument {
 				return retry.NonRetryableError(err)
 			}
 
@@ -216,23 +236,14 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 	clusterName := kubeConfig.Contexts[kubeConfig.CurrentContext].Cluster
 	authName := kubeConfig.Contexts[kubeConfig.CurrentContext].AuthInfo
 
-	clientConfig, diag := basetypes.NewObjectValue(map[string]attr.Type{
-		"host":               types.StringType,
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
-	}, map[string]attr.Value{
-		"host":               basetypes.NewStringValue(kubeConfig.Clusters[clusterName].Server),
-		"ca_certificate":     basetypes.NewStringValue(bytesToBase64(kubeConfig.Clusters[clusterName].CertificateAuthorityData)),
-		"client_certificate": basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientCertificateData)),
-		"client_key":         basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientKeyData)),
-	})
-	resp.Diagnostics.Append(diag...)
-	if resp.Diagnostics.HasError() {
-		return
+	state.KubernetesClientConfiguration = kubernetesClientConfiguration{
+		Host:              basetypes.NewStringValue(kubeConfig.Clusters[clusterName].Server),
+		CACertificate:     basetypes.NewStringValue(bytesToBase64(kubeConfig.Clusters[clusterName].CertificateAuthorityData)),
+		ClientCertificate: basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientCertificateData)),
+		ClientKey:         basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientKeyData)),
 	}
 
-	state.KubernetesClientConfiguration = clientConfig
+	state.Id = basetypes.NewStringValue(clusterName)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
