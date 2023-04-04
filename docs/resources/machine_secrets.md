@@ -24,6 +24,7 @@ resource "talos_machine_secrets" "machine_secrets" {}
 ### Read-Only
 
 - `client_configuration` (Attributes) The generated client configuration data (see [below for nested schema](#nestedatt--client_configuration))
+- `id` (String) The ID of this resource.
 - `machine_secrets` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets))
 
 <a id="nestedatt--client_configuration"></a>
@@ -127,3 +128,11 @@ Read-Only:
 Read-Only:
 
 - `token` (String, Sensitive)
+## Import
+
+Import is supported using the following syntax:
+
+```terraform
+# machine secrets can be imported from an existing secrets file
+terraform import talos_machine_secrets.this <path-to-secrets.yaml>
+```

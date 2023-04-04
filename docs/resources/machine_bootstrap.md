@@ -72,3 +72,4 @@ Required:
 - `ca_certificate` (String) The CA certificate to use when connecting to the talos node.
 - `client_certificate` (String) The client certificate to use when connecting to the talos node.
 - `client_key` (String) The client key to use when connecting to the talos node.
+

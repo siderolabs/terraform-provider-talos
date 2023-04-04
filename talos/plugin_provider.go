@@ -200,8 +200,8 @@ func PluginProviderServer() tfprotov6.ProviderServer {
 						},
 						{
 							Name: "config_patches",
-							Type: tftypes.List{
-								ElementType: tftypes.DynamicPseudoType,
+							Type: tftypes.Tuple{
+								ElementTypes: []tftypes.Type{tftypes.DynamicPseudoType},
 							},
 							Description: "The patches to apply to the generated talos configuration",
 							Optional:    true,
@@ -413,8 +413,8 @@ func PluginProviderServer() tfprotov6.ProviderServer {
 						},
 						{
 							Name: "config_patches",
-							Type: tftypes.List{
-								ElementType: tftypes.DynamicPseudoType,
+							Type: tftypes.Tuple{
+								ElementTypes: []tftypes.Type{tftypes.DynamicPseudoType},
 							},
 							Description: "The patches to apply to the generated talos configuration",
 							Optional:    true,
@@ -448,6 +448,7 @@ func PluginProviderServer() tfprotov6.ProviderServer {
 							Type:        tftypes.String,
 							Description: "The generated machine configuration for the talos cluster",
 							Computed:    true,
+							Sensitive:   true,
 						},
 					},
 				},

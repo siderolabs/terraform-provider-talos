@@ -35,7 +35,7 @@ data "talos_machine_configuration" "this" {
 
 ### Optional
 
-- `config_patches` (List of Dynamic) The patches to apply to the generated talos configuration
+- `config_patches` (Dynamic) The patches to apply to the generated talos configuration
 - `docs` (Boolean) Whether to generate docs for the talos cluster
 - `examples` (Boolean) Whether to generate examples for the talos cluster
 - `kubernetes_version` (String) The version of kubernetes to use for the talos cluster

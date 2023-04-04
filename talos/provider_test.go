@@ -5,16 +5,11 @@
 package talos
 
 import (
+	"context"
+
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-)
-
-const (
-	// providerConfig is a shared configuration to combine with the actual
-	// test configuration so the HashiCups client is properly configured.
-	providerConfig = `
-provider "talos" {}
-`
+	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
 )
 
 var (
@@ -23,6 +18,18 @@ var (
 	// CLI command executed to create a provider server to which the CLI can
 	// reattach.
 	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-		"talos": providerserver.NewProtocol6WithError(New()),
+		"talos": func() (tfprotov6.ProviderServer, error) {
+			ctx := context.Background()
+			providers := []func() tfprotov6.ProviderServer{
+				providerserver.NewProtocol6(New()),
+				PluginProviderServer,
+			}
+			muxServer, err := tf6muxserver.NewMuxServer(ctx, providers...)
+			if err != nil {
+				return nil, err
+			}
+
+			return muxServer.ProviderServer(), nil
+		},
 	}
 )

@@ -6,29 +6,41 @@ package talos
 
 import (
 	"context"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"golang.org/x/mod/semver"
+	"gopkg.in/yaml.v3"
 )
 
 var (
-	_ resource.Resource = &talosMachineSecretsResource{}
+	_ resource.Resource                 = &talosMachineSecretsResource{}
+	_ resource.ResourceWithUpgradeState = &talosMachineSecretsResource{}
+	_ resource.ResourceWithImportState  = &talosMachineSecretsResource{}
 )
 
 type talosMachineSecretsResource struct{}
 
-type talosMachineSecretsResourceModel struct {
+type talosMachineSecretsResourceModelV0 struct {
+	Id             types.String `tfsdk:"id"`
+	TalosVersion   types.String `tfsdk:"talos_version"`
+	MachineSecrets types.String `tfsdk:"machine_secrets"`
+}
+
+type talosMachineSecretsResourceModelV1 struct {
 	TalosVersion        types.String        `tfsdk:"talos_version"`
 	MachineSecrets      machineSecrets      `tfsdk:"machine_secrets"`
 	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
+	Id                  types.String        `tfsdk:"id"`
 }
 
 type clientConfiguration struct {
@@ -86,8 +98,15 @@ func (r *talosMachineSecretsResource) Metadata(_ context.Context, req resource.M
 
 func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Generate machine secrets for Talos cluster.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"talos_version": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -207,7 +226,7 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	var plan talosMachineSecretsResourceModel
+	var plan talosMachineSecretsResourceModelV1
 
 	diags = obj.As(ctx, &plan, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
@@ -244,75 +263,21 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	machineSecrets := machineSecrets{
-		Cluster: machineSecretsCluster{
-			ID:     types.StringValue(secretsBundle.Cluster.ID),
-			Secret: types.StringValue(secretsBundle.Cluster.Secret),
-		},
-		Secrets: machineSecretsSecrets{
-			BootstrapToken:            types.StringValue(secretsBundle.Secrets.BootstrapToken),
-			SecretboxEncryptionSecret: types.StringValue(secretsBundle.Secrets.SecretboxEncryptionSecret),
-		},
-		TrustdInfo: machineSecretsTrustdInfo{
-			Token: types.StringValue(secretsBundle.TrustdInfo.Token),
-		},
-		Certs: machineSecretsCerts{
-			Etcd: machineSecretsCertKeyPair{
-				Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.Etcd.Crt)),
-				Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.Etcd.Key)),
-			},
-			K8s: machineSecretsCertKeyPair{
-				Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Crt)),
-				Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Key)),
-			},
-			K8sAggregator: machineSecretsCertKeyPair{
-				Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Crt)),
-				Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Key)),
-			},
-			K8sServiceAccount: machineSecretsCertsK8sServiceAccount{
-				Key: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sServiceAccount.Key)),
-			},
-			OS: machineSecretsCertKeyPair{
-				Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.OS.Crt)),
-				Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.OS.Key)),
-			},
-		},
-	}
-
-	// support for talos < 1.3
-	if secretsBundle.Secrets.AESCBCEncryptionSecret != "" {
-		machineSecrets.Secrets.AESCBCEncryptionSecret = types.StringValue(secretsBundle.Secrets.AESCBCEncryptionSecret)
-	}
-
-	plan.MachineSecrets = machineSecrets
-
-	generateInput, err := generate.NewInput("", "", "", secretsBundle)
+	state, err := secretsBundleTomachineSecrets(secretsBundle)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talosconfig inputs", err.Error())
+		resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
 
 		return
 	}
 
-	talosConfig, err := generate.Talosconfig(generateInput)
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talosconfig", err.Error())
-
-		return
-	}
-
-	plan.ClientConfiguration = clientConfiguration{
-		CA:   types.StringValue(talosConfig.Contexts[talosConfig.Context].CA),
-		Cert: types.StringValue(talosConfig.Contexts[talosConfig.Context].Crt),
-		Key:  types.StringValue(talosConfig.Contexts[talosConfig.Context].Key),
-	}
+	state.TalosVersion = plan.TalosVersion
 
 	// Set state to fully populated data
-	diags = resp.State.Set(ctx, plan)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 }
 
 func (r *talosMachineSecretsResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -355,6 +320,10 @@ func (apm *talosSecretsSchemaVersionPlanModifier) MarkdownDescription(ctx contex
 }
 
 func (apm *talosSecretsSchemaVersionPlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
+	if req.ConfigValue.IsUnknown() {
+		return
+	}
+
 	// setting default value
 	if req.PlanValue.IsUnknown() || req.PlanValue.IsNull() {
 		res.PlanValue = basetypes.NewStringValue(semver.MajorMinor(gendata.VersionTag))
@@ -362,7 +331,108 @@ func (apm *talosSecretsSchemaVersionPlanModifier) PlanModifyString(ctx context.C
 		return
 	}
 
-	if semver.MajorMinor(req.PlanValue.ValueString()) != semver.MajorMinor(req.StateValue.ValueString()) {
+	if semver.Compare(req.PlanValue.ValueString(), req.StateValue.ValueString()) < 0 {
 		res.RequiresReplace = true
+	}
+}
+
+func (r *talosMachineSecretsResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"id": schema.StringAttribute{
+						Computed: true,
+					},
+					"talos_version": schema.StringAttribute{
+						Optional: true,
+					},
+					"machine_secrets": schema.StringAttribute{
+						Computed: true,
+					},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				var priorStateData talosMachineSecretsResourceModelV0
+
+				diags := req.State.Get(ctx, &priorStateData)
+				resp.Diagnostics.Append(diags...)
+
+				if resp.Diagnostics.HasError() {
+					return
+				}
+
+				var secretsBundle *generate.SecretsBundle
+				if err := yaml.Unmarshal([]byte(priorStateData.MachineSecrets.ValueString()), &secretsBundle); err != nil {
+					resp.Diagnostics.AddError("failed to unmarshal machine secrets", err.Error())
+
+					return
+				}
+
+				state, err := secretsBundleTomachineSecrets(secretsBundle)
+				if err != nil {
+					resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+
+					return
+				}
+
+				state.TalosVersion = basetypes.NewStringValue("v1.3")
+
+				if secretsBundle.Secrets.AESCBCEncryptionSecret != "" {
+					state.TalosVersion = basetypes.NewStringValue("v1.2")
+				}
+
+				// Set state to fully populated data
+				diags = resp.State.Set(ctx, state)
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+			},
+		},
+	}
+}
+
+func (r *talosMachineSecretsResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	id := req.ID
+
+	if _, err := os.Stat(id); err != nil {
+		resp.Diagnostics.AddError("failed to import state", err.Error())
+
+		return
+	}
+
+	secretBytes, err := os.ReadFile(id)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to read machine secrets file", err.Error())
+
+		return
+	}
+
+	var secretsBundle *generate.SecretsBundle
+	if err = yaml.Unmarshal(secretBytes, &secretsBundle); err != nil {
+		resp.Diagnostics.AddError("failed to unmarshal machine secrets", err.Error())
+
+		return
+	}
+
+	state, err := secretsBundleTomachineSecrets(secretsBundle)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+
+		return
+	}
+
+	state.TalosVersion = basetypes.NewStringValue("v1.3")
+
+	if secretsBundle.Secrets.AESCBCEncryptionSecret != "" {
+		state.TalosVersion = basetypes.NewStringValue("v1.2")
+	}
+
+	// Set state to fully populated data
+	diags := resp.State.Set(ctx, state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 }

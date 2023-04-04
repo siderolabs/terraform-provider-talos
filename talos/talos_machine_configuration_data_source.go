@@ -17,8 +17,10 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
+	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"github.com/siderolabs/terraform-provider-talos/talos/internal/tfutils"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
+	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 )
 
@@ -76,7 +78,7 @@ func (d *talosMachineConfigurationDataSource) ReadDataSource(ctx context.Context
 		"cluster_endpoint":      tftypes.NewValue(tftypes.String, d.clusterEndpoint),
 		"machine_secrets":       tftypes.NewValue(machineSecretsSchemaObject(), d.machineSecretsType),
 		"type":                  tftypes.NewValue(tftypes.String, d.machineType),
-		"config_patches":        tftypes.NewValue(tftypes.List{ElementType: tftypes.DynamicPseudoType}, d.configPatchesType),
+		"config_patches":        tftypes.NewValue(tftypes.Tuple{ElementTypes: []tftypes.Type{tftypes.DynamicPseudoType}}, d.configPatchesType),
 		"kubernetes_version":    tftypes.NewValue(tftypes.String, d.kubernetesVersion),
 		"talos_version":         tftypes.NewValue(tftypes.String, d.talosVersion),
 		"docs":                  tftypes.NewValue(tftypes.Bool, d.docs),
@@ -107,6 +109,7 @@ func (d *talosMachineConfigurationDataSource) populateConfigValues(config *tfpro
 	d.docs = true
 	d.examples = true
 	d.kubernetesVersion = constants.DefaultKubernetesVersion
+	d.talosVersion = semver.MajorMinor(gendata.VersionTag)
 
 	val, err := config.Unmarshal(machineConfigurationDataSourceSchemaObject())
 	if err != nil {
@@ -312,19 +315,13 @@ func (d *talosMachineConfigurationDataSource) populateConfigValues(config *tfpro
 
 		d.configPatchesType = configPatchesType
 
-		for _, configPatch := range configPatchesType {
-			intf, err := tfutils.TFTypesToInterface(configPatch, tftypes.NewAttributePath())
-			if err != nil {
-				return err
-			}
-
-			patchBytes, err := yaml.Marshal(intf)
-			if err != nil {
-				return err
-			}
-
-			d.configPatches = append(d.configPatches, string(patchBytes))
+		if err := d.parseConfigPatches(configPatchesType); err != nil {
+			return err
 		}
+	}
+
+	if d.configPatchesType == nil {
+		d.configPatchesType = []tftypes.Value{tftypes.NewValue(tftypes.Tuple{ElementTypes: []tftypes.Type{tftypes.DynamicPseudoType}}, nil)}
 	}
 
 	if !valMap["kubernetes_version"].IsNull() && valMap["kubernetes_version"].IsFullyKnown() {
@@ -474,7 +471,7 @@ func machineConfigurationDataSourceSchemaObject() tftypes.Object {
 			"cluster_endpoint":      tftypes.String,
 			"machine_secrets":       machineSecretsSchemaObject(),
 			"type":                  tftypes.String,
-			"config_patches":        tftypes.List{ElementType: tftypes.DynamicPseudoType},
+			"config_patches":        tftypes.Tuple{ElementTypes: []tftypes.Type{tftypes.DynamicPseudoType}},
 			"kubernetes_version":    tftypes.String,
 			"talos_version":         tftypes.String,
 			"docs":                  tftypes.Bool,
@@ -516,4 +513,46 @@ func machineSecretsSchemaObject() tftypes.Object {
 			},
 		},
 	}
+}
+
+func (d *talosMachineConfigurationDataSource) parseConfigPatches(configPatches []tftypes.Value) error {
+	// handle a single element list
+	if configPatches[0].Type().Is(tftypes.Object{}) {
+		intf, err := tfutils.TFTypesToInterface(configPatches[0], tftypes.NewAttributePath())
+		if err != nil {
+			return err
+		}
+
+		patchBytes, err := yaml.Marshal(intf)
+		if err != nil {
+			return err
+		}
+
+		d.configPatches = append(d.configPatches, string(patchBytes))
+
+		return nil
+	}
+
+	for _, v := range configPatches {
+		var patches []tftypes.Value
+		if err := v.As(&patches); err != nil {
+			return err
+		}
+
+		for _, patch := range patches {
+			intf, err := tfutils.TFTypesToInterface(patch, tftypes.NewAttributePath())
+			if err != nil {
+				return err
+			}
+
+			patchBytes, err := yaml.Marshal(intf)
+			if err != nil {
+				return err
+			}
+
+			d.configPatches = append(d.configPatches, string(patchBytes))
+		}
+	}
+
+	return nil
 }

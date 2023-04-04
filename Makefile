@@ -1,13 +1,18 @@
 TAG ?= $(shell git describe --tag --always --dirty)
 ARTIFACTS ?= _out
 
+ifneq ($(origin TESTS), undefined)
+	RUNARGS = -run='$(TESTS)'
+endif
+
 .PHONY: generate
 generate:
 	go generate
 
 .PHONY: testacc
 testacc:
-	TF_ACC=1 go test -v github.com/siderolabs/terraform-provider-talos/talos -timeout 30s
+	# TF_CLI_CONFIG_FILE is set here to avoid using the user's .terraformrc file. Ref: https://github.com/hashicorp/terraform-plugin-sdk/issues/1171
+	TF_CLI_CONFIG_FILE="thisfiledoesnotexist" TF_ACC=1 go test -v github.com/siderolabs/terraform-provider-talos/talos -timeout 300s $(RUNARGS)
 
 .PHONY: check-dirty
 check-dirty: generate fmt ## Verifies that source tree is not dirty
@@ -16,9 +21,6 @@ check-dirty: generate fmt ## Verifies that source tree is not dirty
 .PHONY: fmt
 fmt:
 	@find . -type f -name "*.tf" -exec terraform fmt {} \;
-
-build:
-	go build -o terraform-provider-talos .
 
 install:
 	go install .
