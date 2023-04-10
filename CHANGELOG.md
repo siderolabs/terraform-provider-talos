@@ -1,3 +1,102 @@
+## [terraform-provider-talos 0.2.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.0) (2023-04-10)
+
+Welcome to the v0.2.0-alpha.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Provider Changes
+
+This version of the provider includes some breaking changes. Make sure to follow the provider upgrade guide at https://registry.terraform.io/providers/siderolabs/talos/latest/docs/guides/version-0.2-upgrade
+
+
+### Component Updates
+
+Talos sdk: v1.4.0-beta.0
+
+
+### Contributors
+
+* Andrey Smirnov
+* Noel Georgi
+* Alexey Palazhchenko
+* Andrey Smirnov
+* Spencer Smith
+* Andrew Rynhard
+* Artem Chernyshev
+* Robert Wunderer
+* Serge Logvinov
+
+### Changes
+<details><summary>10 commits</summary>
+<p>
+
+* [`6b2182b`](https://github.com/siderolabs/terraform-provider-talos/commit/6b2182be4015eb21d936930cfa108159b3fa16f6) chore: ci cleanup
+* [`ea07caa`](https://github.com/siderolabs/terraform-provider-talos/commit/ea07caa6f39d159b286db76c525ed7cb1892f1e6) feat: code cleanup and tests
+* [`4e5c210`](https://github.com/siderolabs/terraform-provider-talos/commit/4e5c210c219ddeb0ccf68cd80cb2988ce0ab5ccd) feat: use new tf sdk
+* [`d1438b7`](https://github.com/siderolabs/terraform-provider-talos/commit/d1438b71d94b0ee0d0f3f5feb12317344c6e2a3e) chore: bump talos machinery
+* [`aed502e`](https://github.com/siderolabs/terraform-provider-talos/commit/aed502e51945bad2493c521672a52111fcd1eca6) fix: state update required two runs
+* [`dc00baa`](https://github.com/siderolabs/terraform-provider-talos/commit/dc00baad8d85e2786789ea03ac8e35d0b613bd70) fix: force new talosconfig if endpoints or nodes change
+* [`b7d84ba`](https://github.com/siderolabs/terraform-provider-talos/commit/b7d84ba4e297271b1599de20310640c4ebffccb9) chore: update registry index file, remove example
+* [`158dbbd`](https://github.com/siderolabs/terraform-provider-talos/commit/158dbbde42326fed9ada2a97a2a25c625c0a783e) docs: re-word `talos_version`
+* [`f3b4a5b`](https://github.com/siderolabs/terraform-provider-talos/commit/f3b4a5b24362c264a642e5bc5a28bba0e70a86fc) chore: bump deps
+* [`d2b6df0`](https://github.com/siderolabs/terraform-provider-talos/commit/d2b6df03e44a9150445209d3bd118c5d4417547c) docs: clarify meaning of `talos_version` in `machine_configuration` resources
+</p>
+</details>
+
+### Changes from siderolabs/crypto
+<details><summary>27 commits</summary>
+<p>
+
+* [`c3225ee`](https://github.com/siderolabs/crypto/commit/c3225eee603a8d1218c67e1bfe33ddde7953ed74) feat: allow CSR template subject field to be overridden
+* [`8570669`](https://github.com/siderolabs/crypto/commit/85706698dac8cddd0e9f41006bed059347d2ea26) chore: rename to siderolabs/crypto
+* [`e9df1b8`](https://github.com/siderolabs/crypto/commit/e9df1b8ca74c6efdc7f72191e5d2613830162fd5) feat: add support for generating keys from RSA-SHA256 CAs
+* [`510b0d2`](https://github.com/siderolabs/crypto/commit/510b0d2753a89170d0c0f60e052a66484997a5b2) chore: add json tags
+* [`6fa2d93`](https://github.com/siderolabs/crypto/commit/6fa2d93d0382299d5471e0de8e831c923398aaa8) fix: deepcopy nil fields as `nil`
+* [`9a63cba`](https://github.com/siderolabs/crypto/commit/9a63cba8dabd278f3080fa8c160613efc48c43f8) fix: add back support for generating ECDSA keys with P-256 and SHA512
+* [`893bc66`](https://github.com/siderolabs/crypto/commit/893bc66e4716a4cb7d1d5e66b5660ffc01f22823) fix: use SHA256 for ECDSA-P256
+* [`deec8d4`](https://github.com/siderolabs/crypto/commit/deec8d47700e10e3ea813bdce01377bd93c83367) chore: implement DeepCopy methods for PEMEncoded* types
+* [`d3cb772`](https://github.com/siderolabs/crypto/commit/d3cb77220384b3a3119a6f3ddb1340bbc811f1d1) feat: make possible to change KeyUsage
+* [`6bc5bb5`](https://github.com/siderolabs/crypto/commit/6bc5bb50c52767296a1b1cab6580e3fcf1358f34) chore: remove unused argument
+* [`cd18ef6`](https://github.com/siderolabs/crypto/commit/cd18ef62eb9f65d8b6730a2eb73e47e629949e1b) feat: add support for several organizations
+* [`97c888b`](https://github.com/siderolabs/crypto/commit/97c888b3924dd5ac70b8d30dd66b4370b5ab1edc) chore: add options to CSR
+* [`7776057`](https://github.com/siderolabs/crypto/commit/7776057f5086157873f62f6a21ec23fa9fd86e05) chore: fix typos
+* [`80df078`](https://github.com/siderolabs/crypto/commit/80df078327030af7e822668405bb4853c512bd7c) chore: remove named result parameters
+* [`15bdd28`](https://github.com/siderolabs/crypto/commit/15bdd282b74ac406ab243853c1b50338a1bc29d0) chore: minor updates
+* [`4f80b97`](https://github.com/siderolabs/crypto/commit/4f80b976b640d773fb025d981bf85bcc8190815b) fix: verify CSR signature before issuing a certificate
+* [`39584f1`](https://github.com/siderolabs/crypto/commit/39584f1b6e54e9966db1f16369092b2215707134) feat: support for key/certificate types RSA, Ed25519, ECDSA
+* [`cf75519`](https://github.com/siderolabs/crypto/commit/cf75519cab82bd1b128ae9b45107c6bb422bd96a) fix: function NewKeyPair should create certificate with proper subject
+* [`751c95a`](https://github.com/siderolabs/crypto/commit/751c95aa9434832a74deb6884cff7c5fd785db0b) feat: add 'PEMEncodedKey' which allows to transport keys in YAML
+* [`562c3b6`](https://github.com/siderolabs/crypto/commit/562c3b66f89866746c0ba47927c55f41afed0f7f) feat: add support for public RSA key in RSAKey
+* [`bda0e9c`](https://github.com/siderolabs/crypto/commit/bda0e9c24e80c658333822e2002e0bc671ac53a3) feat: enable more conversions between encoded and raw versions
+* [`e0dd56a`](https://github.com/siderolabs/crypto/commit/e0dd56ac47456f85c0b247999afa93fb87ebc78b) feat: add NotBefore option for x509 cert creation
+* [`12a4897`](https://github.com/siderolabs/crypto/commit/12a489768a6bb2c13e16e54617139c980f99a658) feat: add support for SPKI fingerprint generation and matching
+* [`d0c3eef`](https://github.com/siderolabs/crypto/commit/d0c3eef149ec9b713e7eca8c35a6214bd0a64bc4) fix: implement NewKeyPair
+* [`196679e`](https://github.com/siderolabs/crypto/commit/196679e9ec77cb709db54879ddeddd4eaafaea01) feat: move `pkg/grpc/tls` from `github.com/talos-systems/talos` as `./tls`
+* [`1ff6242`](https://github.com/siderolabs/crypto/commit/1ff6242c91bb298ceeb4acd65685cba952fe4178) chore: initial version as imported from talos-systems/talos
+* [`835063e`](https://github.com/siderolabs/crypto/commit/835063e055b28a525038b826a6d80cbe76402414) chore: initial commit
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework**             v1.2.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-framework-timeouts**    v0.3.1 **_new_**
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.10.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-go**                    v0.15.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.25.0 -> v2.26.1
+* **github.com/hashicorp/terraform-plugin-testing**               v1.2.0 **_new_**
+* **github.com/siderolabs/crypto**                                v0.4.0 **_new_**
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.3.6 -> v1.4.0-beta.0
+* **golang.org/x/mod**                                            v0.10.0 **_new_**
+* **google.golang.org/grpc**                                      v1.51.0 -> v1.54.0
+* **k8s.io/client-go**                                            v0.26.3 **_new_**
+
+Previous release can be found at [v0.1.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.2)
+
 ## [terraform-provider-talos 0.1.0-alpha.12](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.1.0-alpha.12) (2022-12-16)
 
 Welcome to the v0.1.0-alpha.12 release of terraform-provider-talos!  
