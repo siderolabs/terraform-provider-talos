@@ -5,7 +5,7 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.1.0-alpha.0"
+previous = "v0.2.0-alpha.0"
 pre_release = true
 
 [notes]
