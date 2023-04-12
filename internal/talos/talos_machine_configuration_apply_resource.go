@@ -69,7 +69,7 @@ func (p *talosMachineConfigurationApplyResource) Metadata(_ context.Context, req
 func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Version:     1,
-		Description: "The machine bootstrap resource allows you to bootstrap a Talos node.",
+		Description: "The machine configuration apply resource allows to apply machine configuration to a node",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,

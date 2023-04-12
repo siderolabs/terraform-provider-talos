@@ -1,12 +1,15 @@
+---
 page_title: "Terraform Talos Provider Version 0.2 Upgrade Guide"
 description: |-
   Terraform Talos Provider Version 0.2 Upgrade Guide
+---
 
-# Terraform Talos Provider Version 0.2 Upgrade Guide
+# Terraform Talos Provider Version 0.2 Upgrade Guide <!-- omit in toc -->
 
 Version 0.2 of the Talos Terraform provider is a major release and include some breaking chages. This guide will walk you through the changes and how to upgrade your Terraform configuration.
 
-> **NOTE:** Version 0.2 of the Talos Terraform provider drops support for the following resources:
+~> **NOTE:** Version 0.2 of the Talos Terraform provider drops support for the following resources:
+
 > * `talos_client_configuration`
 > * `talos_cluster_kubeconfig`
 > * `talos_machine_configuration_controlplane`
@@ -21,15 +24,12 @@ The following table lists the resources that have been removed and the new resou
 | `talos_machine_configuration_controlplane` | Resource | `talos_machine_configuration` | Data Resource |
 | `talos_machine_configuration_worker`       | Resource | `talos_machine_configuration` | Data Resource |
 
-## Upgrade topics:
+## Upgrade topics: <!-- omit in toc -->
 
-- [Terraform Talos Provider Version 0.2 Upgrade Guide](#terraform-talos-provider-version-02-upgrade-guide)
-  - [Upgrade topics:](#upgrade-topics)
-    - [Upgrading `talos_client_configuration` resource](#upgrading-talos_client_configuration-resource)
-    - [Upgrading `talos_cluster_kubeconfig` resource](#upgrading-talos_cluster_kubeconfig-resource)
-  - [Upgrading `talos_machine_configuration_controlplane` resource](#upgrading-talos_machine_configuration_controlplane-resource)
-  - [Upgrading `talos_machine_configuration_worker` resource](#upgrading-talos_machine_configuration_worker-resource)
-
+- [Upgrading `talos_client_configuration` resource](#upgrading-talos_client_configuration-resource)
+- [Upgrading `talos_cluster_kubeconfig` resource](#upgrading-talos_cluster_kubeconfig-resource)
+- [Upgrading `talos_machine_configuration_controlplane` resource](#upgrading-talos_machine_configuration_controlplane-resource)
+- [Upgrading `talos_machine_configuration_worker` resource](#upgrading-talos_machine_configuration_worker-resource)
 
 ### Upgrading `talos_client_configuration` resource
 
@@ -101,7 +101,7 @@ data "talos_cluster_kubeconfig" "this" {
 }
 ```
 
-## Upgrading `talos_machine_configuration_controlplane` resource
+### Upgrading `talos_machine_configuration_controlplane` resource
 
 The `talos_machine_configuration_controlplane` resource has been removed. The `talos_machine_configuration` data source should be used instead.
 
@@ -155,7 +155,7 @@ resource "talos_machine_configuration_apply" "this" {
 }
 ```
 
-## Upgrading `talos_machine_configuration_worker` resource
+### Upgrading `talos_machine_configuration_worker` resource
 
 The `talos_machine_configuration_worker` resource has been removed. The `talos_machine_configuration` data source should be used instead.
 

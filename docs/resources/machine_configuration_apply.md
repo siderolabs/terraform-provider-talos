@@ -2,12 +2,12 @@
 page_title: "talos_machine_configuration_apply Resource - talos"
 subcategory: ""
 description: |-
-  The machine bootstrap resource allows you to bootstrap a Talos node.
+  The machine configuration apply resource allows to apply machine configuration to a node
 ---
 
 # talos_machine_configuration_apply (Resource)
 
-The machine bootstrap resource allows you to bootstrap a Talos node.
+The machine configuration apply resource allows to apply machine configuration to a node
 
 ## Example Usage
 
@@ -28,9 +28,9 @@ data "talos_client_configuration" "this" {
 }
 
 resource "talos_machine_configuration_apply" "this" {
-  client_configuration  = talos_machine_secrets.this.client_configuration
-  machine_configuration = data.talos_machine_configuration.this.machine_configuration
-  node                  = "10.5.0.2"
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
+  node                        = "10.5.0.2"
   config_patches = [
     yamlencode({
       machine = {

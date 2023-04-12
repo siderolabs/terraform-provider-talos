@@ -28,7 +28,7 @@ const (
 
 type talosClusterKubeConfigDataSource struct{}
 
-type talosClusterKubeConfigDataSourceModel struct {
+type talosClusterKubeConfigDataSourceModelV0 struct {
 	Id                            types.String                  `tfsdk:"id"`
 	Node                          types.String                  `tfsdk:"node"`
 	Endpoint                      types.String                  `tfsdk:"endpoint"`
@@ -141,7 +141,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 		return
 	}
 
-	var state talosClusterKubeConfigDataSourceModel
+	var state talosClusterKubeConfigDataSourceModelV0
 	diags = obj.As(ctx, &state, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,
