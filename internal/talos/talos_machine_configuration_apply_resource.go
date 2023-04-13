@@ -432,7 +432,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(ctx context.Contex
 				}
 
 				var patches []string
-				diags = append(diags, priorStateData.ConfigPatches.ElementsAs(ctx, &patches, false)...)
+				diags = append(diags, priorStateData.ConfigPatches.ElementsAs(ctx, &patches, true)...)
 				resp.Diagnostics.Append(diags...)
 				if diags.HasError() {
 					return

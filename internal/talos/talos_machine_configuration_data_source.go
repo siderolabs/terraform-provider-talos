@@ -253,7 +253,7 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	machineSecrets.Certs = machineSecretsCerts
 
 	var configPatches []string
-	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, false)...)
+	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -320,7 +320,7 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 	}
 
 	var configPatches []string
-	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, false)...)
+	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

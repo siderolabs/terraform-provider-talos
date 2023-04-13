@@ -103,8 +103,8 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 	var endpoints []string
 	var nodes []string
 
-	resp.Diagnostics.Append(state.Endpoints.ElementsAs(ctx, &endpoints, false)...)
-	resp.Diagnostics.Append(state.Nodes.ElementsAs(ctx, &nodes, false)...)
+	resp.Diagnostics.Append(state.Endpoints.ElementsAs(ctx, &endpoints, true)...)
+	resp.Diagnostics.Append(state.Nodes.ElementsAs(ctx, &nodes, true)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
