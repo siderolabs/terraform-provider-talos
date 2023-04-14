@@ -1,3 +1,144 @@
+## [terraform-provider-talos 0.2.0-alpha.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.2) (2023-04-14)
+
+Welcome to the v0.2.0-alpha.2 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Data Sources
+
+`talos_machine_disks` data source is added to list disks on a machine.
+
+
+### Provider Changes
+
+This version of the provider includes some breaking changes. Make sure to follow the provider upgrade guide at https://registry.terraform.io/providers/siderolabs/talos/latest/docs/guides/version-0.2-upgrade.html
+
+
+### Component Updates
+
+Talos sdk: v1.4.0-beta.1
+
+
+### Contributors
+
+* Andrey Smirnov
+* Andrey Smirnov
+* Artem Chernyshev
+* Dmitriy Matrenichev
+* Artem Chernyshev
+* Noel Georgi
+* Serge Logvinov
+* Andrew Rynhard
+* Andrew Rynhard
+* Matt Zahorik
+* Olli Janatuinen
+* Seán C McCord
+* Spencer Smith
+
+### Changes
+<details><summary>2 commits</summary>
+<p>
+
+* [`187e434`](https://github.com/siderolabs/terraform-provider-talos/commit/187e434235da1107eaefc1656147900fa8c1d082) feat: `talos_machine_disks` data source
+* [`a29e1e7`](https://github.com/siderolabs/terraform-provider-talos/commit/a29e1e7894776a4c796712163e64084e73b1ffa7) fix: handle unknown types at plan time
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>9 commits</summary>
+<p>
+
+* [`214c1ef`](https://github.com/siderolabs/gen/commit/214c1efe795cf426e5ebcc48cb305bfc7a16fdb8) chore: set `slice.Filter` result slice cap to len
+* [`8e89b1e`](https://github.com/siderolabs/gen/commit/8e89b1ede9f35ff4c18a41ee44a69259181c892b) feat: add GetOrCreate and GetOrCall methods
+* [`7c7ccc3`](https://github.com/siderolabs/gen/commit/7c7ccc3d973621b2fa7adfef10241ecc1f7a644d) feat: introduce channel SendWithContext
+* [`b3b6db8`](https://github.com/siderolabs/gen/commit/b3b6db858cb6ce46005edeb70776608e3f9bc402) fix: fix Copy documentation and implementation
+* [`521f737`](https://github.com/siderolabs/gen/commit/521f7371f40556ddce7f730c8de5e1888e40b621) feat: add xerrors package which contains additions to the std errors
+* [`726e066`](https://github.com/siderolabs/gen/commit/726e066dcb35c86f82866097bed806f22b936292) fix: rename tuples.go to pair.go and set proper package name
+* [`d8d7d25`](https://github.com/siderolabs/gen/commit/d8d7d25ce9a588609c00cb798206a01a866bf7a6) chore: minor additions
+* [`338a650`](https://github.com/siderolabs/gen/commit/338a65065f92eb6426a66c4a88a0cc02cc02e529) chore: add initial implementation and documentation
+* [`4fd8667`](https://github.com/siderolabs/gen/commit/4fd866707052c792a6adccbc28efec5debdd18a8) Initial commit
+</p>
+</details>
+
+### Changes from siderolabs/go-blockdevice
+<details><summary>59 commits</summary>
+<p>
+
+* [`b4386f3`](https://github.com/siderolabs/go-blockdevice/commit/b4386f37510bc25e39b231fa587288ad0abf0b68) feat: make disk utils read subsystem information from the `/sys/block`
+* [`8c7ea19`](https://github.com/siderolabs/go-blockdevice/commit/8c7ea1910b27e0660e3e1a6f98b9f7e24bc11ff0) fix: blockdevice size is reported by Linux in 512 blocks always
+* [`e52e012`](https://github.com/siderolabs/go-blockdevice/commit/e52e012a6935a99a1b344a898f281cf7d6a78e69) feat: add ext4 filesystem detection logic
+* [`694ac62`](https://github.com/siderolabs/go-blockdevice/commit/694ac62b3dcf995beea95a77659fdc6064b457b3) chore: update imports to siderolabs, rekres
+* [`dcf6044`](https://github.com/siderolabs/go-blockdevice/commit/dcf6044c906b36f183e11b6553458c680126d1d9) chore: rekres and rename
+* [`9c4af49`](https://github.com/siderolabs/go-blockdevice/commit/9c4af492cc17279f0281fcd271e7423be78442bb) fix: cryptsetup remove slot
+* [`74ea471`](https://github.com/siderolabs/go-blockdevice/commit/74ea47109c4525bec139640fed6354ad3097f5fb) feat: add freebsd stubs
+* [`9fa801c`](https://github.com/siderolabs/go-blockdevice/commit/9fa801cf4da184e3560b9a18ba43d13316f172f9) feat: add ReadOnly attribute to Disk
+* [`fccee8b`](https://github.com/siderolabs/go-blockdevice/commit/fccee8bb082b105cb60db40cb01636efc3241b5f) chore: rekres the source, fix issues
+* [`d9c3a27`](https://github.com/siderolabs/go-blockdevice/commit/d9c3a273886113e24809ef1e9930fc982318217d) feat: support probing FAT12/FAT16 filesystems
+* [`b374eb4`](https://github.com/siderolabs/go-blockdevice/commit/b374eb48148dc92a82d8bf9540432bb8531f73f3) fix: align partition to 1M boundary by default
+* [`ec428fe`](https://github.com/siderolabs/go-blockdevice/commit/ec428fed2ecd5a389833a88f8dc333762816db99) fix: lookup filesystem labels on the actual device path
+* [`7b9de26`](https://github.com/siderolabs/go-blockdevice/commit/7b9de26bc6bc3d54b95bd8e8fb3aade4b45adc6c) feat: read symlink fullpath in block device list function
+* [`6928ee4`](https://github.com/siderolabs/go-blockdevice/commit/6928ee43c3034549e32f000f8b7bc16a6ebb7ed4) refactor: rewrite GPT serialize/deserialize functions
+* [`0c7e429`](https://github.com/siderolabs/go-blockdevice/commit/0c7e4296e01b3df815a935db3e30de6b9d4cc1d1) refactor: simplify middle endian functions
+* [`15b182d`](https://github.com/siderolabs/go-blockdevice/commit/15b182db0cd233b163ed83d1724c7e28cf29d71a) fix: return partition table not exist when trying to read an empty dev
+* [`b9517d5`](https://github.com/siderolabs/go-blockdevice/commit/b9517d51120d385f97b0026f99ce3c4782940c37) fix: resize partition
+* [`70d2865`](https://github.com/siderolabs/go-blockdevice/commit/70d28650b398a14469cbb5356417355b0ba62956) fix: try to find cdrom disks
+* [`667bf53`](https://github.com/siderolabs/go-blockdevice/commit/667bf539b99ac34b629a0103ef7a7278a5a5f35d) fix: revert gpt partition not found
+* [`d7d4cdd`](https://github.com/siderolabs/go-blockdevice/commit/d7d4cdd7ac56c82caab19246b5decd59f12195eb) fix: gpt partition not found
+* [`33afba3`](https://github.com/siderolabs/go-blockdevice/commit/33afba347c0dce38a436c46a0aac26d2f99427c1) fix: also open in readonly mode when running `All` lookup method
+* [`e367f9d`](https://github.com/siderolabs/go-blockdevice/commit/e367f9dc7fa935f11672de0fdc8a89429285a07a) feat: make probe always open blockdevices in readonly mode
+* [`d981156`](https://github.com/siderolabs/go-blockdevice/commit/d9811569588ba44be878a00ce316f59a37abed8b) fix: allow Build for Windows
+* [`fe24303`](https://github.com/siderolabs/go-blockdevice/commit/fe2430349e9d734ce6dbf4e7b2e0f8a37bb22679) fix: perform correct PMBR partition calculations
+* [`2ec0c3c`](https://github.com/siderolabs/go-blockdevice/commit/2ec0c3cc0ff5ff705ed5c910ca1bcd5d93c7b102) fix: preserve the PMBR bootable flag when opening GPT partition
+* [`87816a8`](https://github.com/siderolabs/go-blockdevice/commit/87816a81cefc728cfe3cb221b476d8ed4b609fd8) feat: align partition to minimum I/O size
+* [`c34b59f`](https://github.com/siderolabs/go-blockdevice/commit/c34b59fb33a7ad8be18bb19bc8c8d8294b4b3a78) feat: expose more encryption options in the LUKS module
+* [`30c2bc3`](https://github.com/siderolabs/go-blockdevice/commit/30c2bc3cb62af52f0aea9ce347923b0649fb7928) feat: mark MBR bootable
+* [`1292574`](https://github.com/siderolabs/go-blockdevice/commit/1292574643e06512255fb0f45107e0c296eb5a3b) fix: make disk type matcher parser case insensitive
+* [`b77400e`](https://github.com/siderolabs/go-blockdevice/commit/b77400e0a7261bf25da77c1f28c2f393f367bfa9) fix: properly detect nvme and sd card disk types
+* [`1d830a2`](https://github.com/siderolabs/go-blockdevice/commit/1d830a25f64f6fb96a1bedd800c0b40b107dc833) fix: revert mark the EFI partition in PMBR as bootable
+* [`bec914f`](https://github.com/siderolabs/go-blockdevice/commit/bec914ffdda42abcfe642bc2cdfc9fcda56a74ee) fix: mark the EFI partition in PMBR as bootable
+* [`776b37d`](https://github.com/siderolabs/go-blockdevice/commit/776b37d31de0781f098f5d9d1894fbea3f2dfa1d) feat: add options to probe disk by various sysblock parameters
+* [`bb3ad73`](https://github.com/siderolabs/go-blockdevice/commit/bb3ad73f69836acc2785ec659435e24a531359e7) fix: align partition start to physical sector size
+* [`8f976c2`](https://github.com/siderolabs/go-blockdevice/commit/8f976c2031108651738ebd4db69fb09758754a28) feat: replace exec.Command with go-cmd module
+* [`1cf7f25`](https://github.com/siderolabs/go-blockdevice/commit/1cf7f252c38cf11ef07723de2debc27d1da6b520) fix: properly handle no child processes error from cmd.Wait
+* [`04a9851`](https://github.com/siderolabs/go-blockdevice/commit/04a98510c07fe8477f598befbfe6eaec4f4b73a2) feat: implement luks encryption provider
+* [`b0375e4`](https://github.com/siderolabs/go-blockdevice/commit/b0375e4267fdc6108bd9ff7a5dc97b80cd924b1d) feat: add an option to open block device with exclusive flock
+* [`5a1c7f7`](https://github.com/siderolabs/go-blockdevice/commit/5a1c7f768e016c93f6c0be130ffeaf34109b5b4d) refactor: add devname into gpt.Partition, refactor probe package
+* [`f2728a5`](https://github.com/siderolabs/go-blockdevice/commit/f2728a581972be977d863d5d9177a873b8f3fc7b) fix: keep contents of PMBR when writing it
+* [`2878460`](https://github.com/siderolabs/go-blockdevice/commit/2878460b54e8b8c3846c6a882ca9e1472c8b6b3b) fix: write second copy of partition entries
+* [`943b08b`](https://github.com/siderolabs/go-blockdevice/commit/943b08bc32a2156cffb23e92b8be9288de4a7421) fix: blockdevice reset should read partition table from disk
+* [`5b4ee44`](https://github.com/siderolabs/go-blockdevice/commit/5b4ee44cfd434a03ec2d7167bcc56d0f164c3fa2) fix: ignore `/dev/ram` devices
+* [`98754ec`](https://github.com/siderolabs/go-blockdevice/commit/98754ec2bb200acc9e9e573fa766754d60e25ff2) refactor: rewrite GPT library
+* [`2a1baad`](https://github.com/siderolabs/go-blockdevice/commit/2a1baadffdf8c9b65355e9af6e744aeab838c9db) fix: correctly build paths for `mmcblk` devices
+* [`8076344`](https://github.com/siderolabs/go-blockdevice/commit/8076344a95021f25ab5d1fbf5ea4fefc790f6c3c) fix: return proper disk size from GetDisks function
+* [`8742133`](https://github.com/siderolabs/go-blockdevice/commit/874213371a3fb0925aab45cbba68a957e3319525) chore: add common method to list available disks using /sys/block
+* [`c4b5833`](https://github.com/siderolabs/go-blockdevice/commit/c4b583363d63503ed7e4adb9a9fa64335f7e198d) feat: implement "fast" wipe
+* [`b4e67d7`](https://github.com/siderolabs/go-blockdevice/commit/b4e67d73d70d8dc06aa2b4986622dcb854dfc40c) feat: return resize status from Resize() function
+* [`ceae64e`](https://github.com/siderolabs/go-blockdevice/commit/ceae64edb3a591c6f6bbd75b1149d1cfe426dd8e) fix: sync kernel partition table incrementally
+* [`2cb9516`](https://github.com/siderolabs/go-blockdevice/commit/2cb95165aa67b0b839863b5ad89920c3ac7e2c82) fix: return correct error value from blkpg functions
+* [`cebe43d`](https://github.com/siderolabs/go-blockdevice/commit/cebe43d1fdc1e509437198e578faa9d5a804cc37) refactor: expose `InsertAt` method via interface
+* [`c40dcd8`](https://github.com/siderolabs/go-blockdevice/commit/c40dcd80c50b41c1f2a60ea6aa9d5fb3d3b180a3) fix: properly inform kernel about partition deletion
+* [`bb8ac5d`](https://github.com/siderolabs/go-blockdevice/commit/bb8ac5d6a25e279e16213f585dc8d02ba6ed645f) feat: implement disk wiping via several methods
+* [`23fb7dc`](https://github.com/siderolabs/go-blockdevice/commit/23fb7dc755325cfe12e48c8e8e31bebab9ddc2bc) feat: expose partition name (label)
+* [`ff3a821`](https://github.com/siderolabs/go-blockdevice/commit/ff3a8210be999b8bfb2019f19f8a8b50901c64cc) feat: implement 'InsertAt' method to insert partitions at any position
+* [`3d1ce4f`](https://github.com/siderolabs/go-blockdevice/commit/3d1ce4fc859fa614a4c5c54a10c0f5f4fce38bb6) fix: calculate last lba of partition correctly
+* [`b71540f`](https://github.com/siderolabs/go-blockdevice/commit/b71540f6c398e958bdb7c118396a736419f735d4) feat: copy initial version from talos-systems/talos
+* [`ca3c078`](https://github.com/siderolabs/go-blockdevice/commit/ca3c078da95e6497c9d41667dc242e32682e517d) Initial commit
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/dustin/go-humanize**         v1.0.1 **_new_**
+* **github.com/siderolabs/gen**             v0.4.3 **_new_**
+* **github.com/siderolabs/go-blockdevice**  v0.4.4 **_new_**
+* **k8s.io/client-go**                      v0.26.3 -> v0.27.0
+
+Previous release can be found at [v0.2.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.1)
+
 ## [terraform-provider-talos 0.2.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.1) (2023-04-12)
 
 Welcome to the v0.2.0-alpha.1 release of terraform-provider-talos!  
