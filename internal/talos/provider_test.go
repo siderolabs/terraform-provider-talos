@@ -17,20 +17,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
+
 	"github.com/siderolabs/terraform-provider-talos/internal/talos"
 )
 
-var (
-	// testAccProtoV6ProviderFactories are used to instantiate a provider during
-	// acceptance testing. The factory function will be invoked for every Terraform
-	// CLI command executed to create a provider server to which the CLI can
-	// reattach.
-	testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-		"talos": providerserver.NewProtocol6WithError(talos.New()),
-	}
-)
+// testAccProtoV6ProviderFactories are used to instantiate a provider during
+// acceptance testing. The factory function will be invoked for every Terraform
+// CLI command executed to create a provider server to which the CLI can
+// reattach.
+var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"talos": providerserver.NewProtocol6WithError(talos.New()),
+}
 
-func downloadTalosISO(dir, isoPath string) error {
+func downloadTalosISO(isoPath string) error {
 	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/talos-amd64.iso", gendata.VersionTag)
 
 	if _, err := os.Stat(isoPath); err == nil {
@@ -41,13 +40,13 @@ func downloadTalosISO(dir, isoPath string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer out.Close() //nolint:errcheck
 
-	resp, err := http.Get(isoURL)
+	resp, err := http.Get(isoURL) //nolint:noctx
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
@@ -66,7 +65,25 @@ func testAccCheckResourceDisappears(resourceNames []string) resource.TestCheckFu
 	}
 }
 
-func testAccDynamicConfig(provider, resourceName, cpuMode, isoPath string, withBootstrap, withRetrieveKubeConfig bool) string {
+type dynamicConfig struct {
+	Provider               string
+	ResourceName           string
+	IsoPath                string
+	CPUMode                string
+	DiskSizeFilter         string
+	WithApplyConfig        bool
+	WithBootstrap          bool
+	WithRetrieveKubeConfig bool
+}
+
+func (c *dynamicConfig) render() string {
+	cpuMode := "host-passthrough"
+	if os.Getenv("CI") != "" {
+		cpuMode = "host-model"
+	}
+
+	c.CPUMode = cpuMode
+
 	configTemplate := `
 resource "talos_machine_secrets" "this" {}
 
@@ -74,6 +91,13 @@ resource "libvirt_volume" "cp" {
   name = "{{ .ResourceName }}"
   size = 6442450944
 }
+
+{{ if .DiskSizeFilter }}
+resource "libvirt_volume" "extra_disk" {
+  name = "{{ .ResourceName }}-extra-disk"
+  size = 2000000000
+}
+{{ end }}
 
 resource "libvirt_domain" "cp" {
   name     = "{{ .ResourceName }}"
@@ -85,7 +109,7 @@ resource "libvirt_domain" "cp" {
     ]
   }
   cpu {
-    mode = "{{ .CpuMode }}"
+    mode = "{{ .CPUMode }}"
   }
   console {
     type        = "pty"
@@ -97,6 +121,11 @@ resource "libvirt_domain" "cp" {
   disk {
     volume_id = libvirt_volume.cp.id
   }
+{{ if .DiskSizeFilter }}
+  disk {
+    volume_id = libvirt_volume.extra_disk.id
+  }
+{{ end }}
   boot_device {
     dev = ["cdrom"]
   }
@@ -120,6 +149,7 @@ resource "talos_machine_configuration_controlplane" "this" {
   machine_secrets  = talos_machine_secrets.this.machine_secrets
 }
 
+{{ if .WithApplyConfig }}
 resource "talos_machine_configuration_apply" "this" {
   talos_config          = talos_client_configuration.this.talos_config
   machine_configuration = talos_machine_configuration_controlplane.this.machine_config
@@ -135,6 +165,7 @@ resource "talos_machine_configuration_apply" "this" {
     }),
   ]
 }
+{{ end }}
 
 {{ if .WithBootstrap }}
 resource "talos_machine_bootstrap" "this" {
@@ -156,6 +187,17 @@ data "talos_machine_configuration" "this" {
   examples         = false
 }
 
+data "talos_machine_disks" "this" {
+  client_configuration = talos_machine_secrets.this.client_configuration
+  node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+{{ if .DiskSizeFilter }}
+  filters = {
+    size = "{{ .DiskSizeFilter }}"
+  }
+{{ end }}
+}
+
+{{ if .WithApplyConfig }}
 resource "talos_machine_configuration_apply" "this" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
@@ -164,12 +206,13 @@ resource "talos_machine_configuration_apply" "this" {
     yamlencode({
       machine = {
         install = {
-          disk = "/dev/vda"
+          disk = data.talos_machine_disks.this.disks[0].name
         }
       }
     }),
   ]
 }
+{{ end }}
 
 {{ if .WithBootstrap }}
 resource "talos_machine_bootstrap" "this" {
@@ -195,21 +238,8 @@ data "talos_cluster_kubeconfig" "this" {
 `
 
 	var config strings.Builder
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, struct {
-		Provider               string
-		ResourceName           string
-		CpuMode                string
-		IsoPath                string
-		WithBootstrap          bool
-		WithRetrieveKubeConfig bool
-	}{
-		Provider:               provider,
-		ResourceName:           resourceName,
-		CpuMode:                cpuMode,
-		IsoPath:                isoPath,
-		WithBootstrap:          withBootstrap,
-		WithRetrieveKubeConfig: withRetrieveKubeConfig,
-	})
+
+	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, c) //nolint:errcheck
 
 	return config.String()
 }

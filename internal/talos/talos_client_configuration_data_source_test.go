@@ -71,10 +71,11 @@ data "talos_client_configuration" "this" {
   {{- end }}
   ]{{end }}
 }
-
 `
+
 	var config strings.Builder
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, struct {
+
+	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, struct { //nolint:errcheck
 		ClusterName string
 		Endpoints   []string
 		Nodes       []string

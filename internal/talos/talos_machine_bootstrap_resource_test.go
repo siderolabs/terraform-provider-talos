@@ -48,7 +48,8 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(testDir)
+
+	defer os.RemoveAll(testDir) //nolint:errcheck
 
 	if err := os.Chmod(testDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -58,18 +59,13 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
-	cpuMode := "host-passthrough"
-	if os.Getenv("CI") != "" {
-		cpuMode = "host-model"
-	}
-
 	resource.ParallelTest(t, resource.TestCase{
 		WorkingDir: testDir,
 		Steps: []resource.TestStep{
 			// create TF config with v0.1.2 of the talos provider
 			{
 				PreConfig: func() {
-					if err := downloadTalosISO(testDir, isoPath); err != nil {
+					if err := downloadTalosISO(isoPath); err != nil {
 						t.Fatal(err)
 					}
 				},
@@ -82,7 +78,7 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 						Source: "dmacvicar/libvirt",
 					},
 				},
-				Config: testAccTalosMachineBootstrapResourceConfigV0("talosv1", rName, cpuMode, isoPath),
+				Config: testAccTalosMachineBootstrapResourceConfigV0("talosv1", rName, isoPath),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckResourceDisappears([]string{
 						"talos_client_configuration.this",
@@ -94,7 +90,7 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 			// now test state migration with the latest version of the provider
 			{
 				PreConfig: func() {
-					if err := downloadTalosISO(testDir, isoPath); err != nil {
+					if err := downloadTalosISO(isoPath); err != nil {
 						t.Fatal(err)
 					}
 				},
@@ -104,7 +100,7 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 						Source: "dmacvicar/libvirt",
 					},
 				},
-				Config: testAccTalosMachineBootstrapResourceConfigV1("talos", rName, cpuMode, isoPath),
+				Config: testAccTalosMachineBootstrapResourceConfigV1("talos", rName, isoPath),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine_bootstrap.this", "id", "machine_bootstrap"),
 					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "node"),
@@ -117,7 +113,7 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 			// ensure there is no diff
 			{
 				PreConfig: func() {
-					if err := downloadTalosISO(testDir, isoPath); err != nil {
+					if err := downloadTalosISO(isoPath); err != nil {
 						t.Fatal(err)
 					}
 				},
@@ -127,19 +123,35 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 						Source: "dmacvicar/libvirt",
 					},
 				},
-				Config:   testAccTalosMachineBootstrapResourceConfigV1("talos", rName, cpuMode, isoPath),
+				Config:   testAccTalosMachineBootstrapResourceConfigV1("talos", rName, isoPath),
 				PlanOnly: true,
 			},
 		},
 	})
 }
 
-func testAccTalosMachineBootstrapResourceConfigV0(providerName, rName, cpuMode, isoPath string) string {
-	return testAccDynamicConfig(providerName, rName, cpuMode, isoPath, true, false)
+func testAccTalosMachineBootstrapResourceConfigV0(providerName, rName, isoPath string) string {
+	config := dynamicConfig{
+		Provider:        providerName,
+		ResourceName:    rName,
+		IsoPath:         isoPath,
+		WithApplyConfig: true,
+		WithBootstrap:   true,
+	}
+
+	return config.render()
 }
 
-func testAccTalosMachineBootstrapResourceConfigV1(providerName, rName, cpuMode, isoPath string) string {
-	return testAccDynamicConfig(providerName, rName, cpuMode, isoPath, true, false)
+func testAccTalosMachineBootstrapResourceConfigV1(providerName, rName, isoPath string) string {
+	config := dynamicConfig{
+		Provider:        providerName,
+		ResourceName:    rName,
+		IsoPath:         isoPath,
+		WithApplyConfig: true,
+		WithBootstrap:   true,
+	}
+
+	return config.render()
 }
 
 func testAccTalosMachineBootstrapResourceConfigImport(node string) string {

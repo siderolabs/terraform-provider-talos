@@ -1,0 +1,19 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+-> **Note:** Since Talos natively supports `.machine.install.diskSelector`, the `talos_machine_disks` data source maybe just used to query disk information that could be used elsewhere. It's recommended to use `machine.install.diskSelector` in Talos machine configuration.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ tffile (printf .ExampleFile) }}
+{{- end }}
+{{ .SchemaMarkdown | trimspace }}

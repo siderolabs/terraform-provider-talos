@@ -18,10 +18,11 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
-	"github.com/siderolabs/terraform-provider-talos/internal/talos"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
+
+	"github.com/siderolabs/terraform-provider-talos/internal/talos"
 )
 
 func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
@@ -211,17 +212,27 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 	})
 }
 
-func testAccTalosMachineConfigurationDataSourceConfig(talosConfigVersion, clusterName, machineType, clusterEndpoint, kubernetesVersion string, configPatches, invalidPatch, docsEnabled, examplesEnabled bool) string {
+func testAccTalosMachineConfigurationDataSourceConfig(
+	talosConfigVersion,
+	clusterName,
+	machineType,
+	clusterEndpoint,
+	kubernetesVersion string,
+	configPatches,
+	invalidPatch,
+	docsEnabled,
+	examplesEnabled bool,
+) string {
 	type templateConfigModel struct {
 		TalosVersion      string
 		ClusterName       string
 		ClusterEndpoint   string
 		MachineType       string
+		KubernetesVersion string
 		ConfigPatches     bool
 		InvalidPatch      bool
 		DocsEnabled       bool
 		ExamplesEnabled   bool
-		KubernetesVersion string
 	}
 
 	templateConfig := templateConfigModel{
@@ -273,12 +284,24 @@ data "talos_machine_configuration" "this" {
 `
 
 	var config strings.Builder
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, templateConfig)
+
+	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, templateConfig) //nolint:errcheck
 
 	return config.String()
 }
 
-func validateGeneratedTalosMachineConfig(t *testing.T, clusterName, endpoint, installDisk, k8sVersion, machineType, mc string, docs, examples bool, extraChecks func(t *testing.T, config v1alpha1.Config) error) error {
+func validateGeneratedTalosMachineConfig(
+	t *testing.T,
+	clusterName,
+	endpoint,
+	installDisk,
+	k8sVersion,
+	machineType,
+	mc string,
+	docs,
+	examples bool,
+	extraChecks func(t *testing.T, config v1alpha1.Config) error,
+) error {
 	var machineConfig v1alpha1.Config
 
 	if err := yaml.Unmarshal([]byte(mc), &machineConfig); err != nil {

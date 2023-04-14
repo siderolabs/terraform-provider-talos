@@ -18,7 +18,8 @@ func TestAccTalosClusterKubeconfigDataSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(testDir)
+
+	defer os.RemoveAll(testDir) //nolint:errcheck
 
 	if err := os.Chmod(testDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -27,11 +28,6 @@ func TestAccTalosClusterKubeconfigDataSource(t *testing.T) {
 	isoPath := filepath.Join(testDir, "talos.iso")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
-	cpuMode := "host-passthrough"
-	if os.Getenv("CI") != "" {
-		cpuMode = "host-model"
-	}
 
 	resource.ParallelTest(t, resource.TestCase{
 		WorkingDir: testDir,
@@ -44,11 +40,11 @@ func TestAccTalosClusterKubeconfigDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				PreConfig: func() {
-					if err := downloadTalosISO(testDir, isoPath); err != nil {
+					if err := downloadTalosISO(isoPath); err != nil {
 						t.Fatal(err)
 					}
 				},
-				Config: testAccTalosClusterKubeconfigDataSourceConfig("talos", rName, cpuMode, isoPath),
+				Config: testAccTalosClusterKubeconfigDataSourceConfig("talos", rName, isoPath),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_cluster_kubeconfig.this", "id", "example-cluster"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_kubeconfig.this", "node"),
@@ -67,17 +63,26 @@ func TestAccTalosClusterKubeconfigDataSource(t *testing.T) {
 			// make sure there are no changes
 			{
 				PreConfig: func() {
-					if err := downloadTalosISO(testDir, isoPath); err != nil {
+					if err := downloadTalosISO(isoPath); err != nil {
 						t.Fatal(err)
 					}
 				},
-				Config:   testAccTalosClusterKubeconfigDataSourceConfig("talos", rName, cpuMode, isoPath),
+				Config:   testAccTalosClusterKubeconfigDataSourceConfig("talos", rName, isoPath),
 				PlanOnly: true,
 			},
 		},
 	})
 }
 
-func testAccTalosClusterKubeconfigDataSourceConfig(providerName, rName, cpuMode, isoPath string) string {
-	return testAccDynamicConfig(providerName, rName, cpuMode, isoPath, true, true)
+func testAccTalosClusterKubeconfigDataSourceConfig(providerName, rName, isoPath string) string {
+	config := dynamicConfig{
+		Provider:               providerName,
+		ResourceName:           rName,
+		IsoPath:                isoPath,
+		WithApplyConfig:        true,
+		WithBootstrap:          true,
+		WithRetrieveKubeConfig: true,
+	}
+
+	return config.render()
 }

@@ -26,17 +26,17 @@ import (
 )
 
 type talosMachineConfigurationDataSourceModelV0 struct {
-	Id                   types.String   `tfsdk:"id"`
+	ID                   types.String   `tfsdk:"id"`
 	ClusterName          types.String   `tfsdk:"cluster_name"`
 	ClusterEndpoint      types.String   `tfsdk:"cluster_endpoint"`
-	MachineSecrets       machineSecrets `tfsdk:"machine_secrets"`
 	MachineType          types.String   `tfsdk:"machine_type"`
-	ConfigPatches        types.List     `tfsdk:"config_patches"`
 	KubernetesVersion    types.String   `tfsdk:"kubernetes_version"`
 	TalosVersion         types.String   `tfsdk:"talos_version"`
+	MachineSecrets       machineSecrets `tfsdk:"machine_secrets"`
+	MachineConfiguration types.String   `tfsdk:"machine_configuration"`
+	ConfigPatches        types.List     `tfsdk:"config_patches"`
 	Docs                 types.Bool     `tfsdk:"docs"`
 	Examples             types.Bool     `tfsdk:"examples"`
-	MachineConfiguration types.String   `tfsdk:"machine_configuration"`
 }
 
 type talosMachineConfigurationDataSource struct{}
@@ -46,16 +46,16 @@ var (
 	_ datasource.DataSourceWithValidateConfig = &talosMachineConfigurationDataSource{}
 )
 
-// NewTalosMachineConfigurationDataSource is a helper function to simplify the provider implementation.
+// NewTalosMachineConfigurationDataSource implements the datasource.DataSource interface.
 func NewTalosMachineConfigurationDataSource() datasource.DataSource {
 	return &talosMachineConfigurationDataSource{}
 }
 
-func (d *talosMachineConfigurationDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *talosMachineConfigurationDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_machine_configuration"
 }
 
-func (d *talosMachineConfigurationDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Generate a machine configuration for a node type",
 		Attributes: map[string]schema.Attribute{
@@ -191,6 +191,7 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 
 	diags := req.Config.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -253,7 +254,9 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	machineSecrets.Certs = machineSecretsCerts
 
 	var configPatches []string
+
 	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -281,10 +284,11 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	}
 
 	state.MachineConfiguration = basetypes.NewStringValue(machineConfiguration)
-	state.Id = state.ClusterName
+	state.ID = state.ClusterName
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -295,6 +299,7 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 
 	diags := req.Config.Get(ctx, &obj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -306,6 +311,7 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -320,7 +326,9 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 	}
 
 	var configPatches []string
+
 	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}

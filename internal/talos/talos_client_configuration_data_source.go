@@ -18,7 +18,7 @@ import (
 type talosClientConfigurationDataSource struct{}
 
 type talosClientConfigurationDataSourceModelV0 struct {
-	Id                  types.String        `tfsdk:"id"`
+	ID                  types.String        `tfsdk:"id"`
 	ClusterName         types.String        `tfsdk:"cluster_name"`
 	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
 	Endpoints           types.List          `tfsdk:"endpoints"`
@@ -26,10 +26,9 @@ type talosClientConfigurationDataSourceModelV0 struct {
 	TalosConfig         types.String        `tfsdk:"talos_config"`
 }
 
-var (
-	_ datasource.DataSource = &talosClientConfigurationDataSource{}
-)
+var _ datasource.DataSource = &talosClientConfigurationDataSource{}
 
+// NewTalosClientConfigurationDataSource implements the datasource.DataSource interface.
 func NewTalosClientConfigurationDataSource() datasource.DataSource {
 	return &talosClientConfigurationDataSource{}
 }
@@ -38,7 +37,7 @@ func (d *talosClientConfigurationDataSource) Metadata(_ context.Context, req dat
 	resp.TypeName = req.ProviderTypeName + "_client_configuration"
 }
 
-func (d *talosClientConfigurationDataSource) Schema(_ context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *talosClientConfigurationDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Generate client configuration for a Talos cluster",
 		Attributes: map[string]schema.Attribute{
@@ -96,15 +95,23 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 
 	diags := req.Config.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	var endpoints []string
+
 	var nodes []string
 
 	resp.Diagnostics.Append(state.Endpoints.ElementsAs(ctx, &endpoints, true)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(state.Nodes.ElementsAs(ctx, &nodes, true)...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -137,10 +144,11 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 	}
 
 	state.TalosConfig = basetypes.NewStringValue(string(talosConfigStringBytes))
-	state.Id = state.ClusterName
+	state.ID = state.ClusterName
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}

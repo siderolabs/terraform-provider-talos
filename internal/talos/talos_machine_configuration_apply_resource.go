@@ -46,8 +46,8 @@ type talosMachineConfigurationApplyResourceModelV0 struct {
 	ConfigPatches        types.List   `tfsdk:"config_patches"`
 }
 
-type talosMachineConfigurationApplyResourceModelV1 struct {
-	Id                        types.String        `tfsdk:"id"`
+type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
+	ID                        types.String        `tfsdk:"id"`
 	ApplyMode                 types.String        `tfsdk:"apply_mode"`
 	Node                      types.String        `tfsdk:"node"`
 	Endpoint                  types.String        `tfsdk:"endpoint"`
@@ -58,6 +58,7 @@ type talosMachineConfigurationApplyResourceModelV1 struct {
 	Timeouts                  timeouts.Value      `tfsdk:"timeouts"`
 }
 
+// NewTalosMachineConfigurationApplyResource implements the resource.Resource interface.
 func NewTalosMachineConfigurationApplyResource() resource.Resource {
 	return &talosMachineConfigurationApplyResource{}
 }
@@ -66,7 +67,7 @@ func (p *talosMachineConfigurationApplyResource) Metadata(_ context.Context, req
 	resp.TypeName = req.ProviderTypeName + "_machine_configuration_apply"
 }
 
-func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Version:     1,
 		Description: "The machine configuration apply resource allows to apply machine configuration to a node",
@@ -138,11 +139,12 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, req
 	}
 }
 
-func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) { //nolint:dupl
 	var state talosMachineConfigurationApplyResourceModelV1
 
 	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if diags.HasError() {
 		return
 	}
@@ -164,6 +166,7 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 
 	createTimeout, diags := state.Timeouts.Create(ctx, 10*time.Minute)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -200,24 +203,26 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 		return
 	}
 
-	state.Id = basetypes.NewStringValue("machine_configuration_apply")
+	state.ID = basetypes.NewStringValue("machine_configuration_apply")
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (p *talosMachineConfigurationApplyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (p *talosMachineConfigurationApplyResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 }
 
-func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) { //nolint:dupl
 	var state talosMachineConfigurationApplyResourceModelV1
 
 	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if diags.HasError() {
 		return
 	}
@@ -239,6 +244,7 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 
 	updateTimeout, diags := state.Timeouts.Update(ctx, 10*time.Minute)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -275,20 +281,21 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 		return
 	}
 
-	state.Id = basetypes.NewStringValue("machine_configuration_apply")
+	state.ID = basetypes.NewStringValue("machine_configuration_apply")
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (p *talosMachineConfigurationApplyResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
 }
 
-func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) { //nolint:gocyclo,cyclop
 	// delete is a no-op
 	if req.Plan.Raw.IsNull() {
 		return
@@ -298,6 +305,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 	diags := req.Config.Get(ctx, &configObj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -309,6 +317,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -322,6 +331,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 	diags = req.Plan.Get(ctx, &planObj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -333,6 +343,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -340,6 +351,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 	if planState.Endpoint.IsUnknown() || planState.Endpoint.IsNull() {
 		diags = resp.Plan.SetAttribute(ctx, path.Root("endpoint"), planState.Node.ValueString())
 		resp.Diagnostics.Append(diags...)
+
 		if diags.HasError() {
 			return
 		}
@@ -347,6 +359,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 	if !planState.MachineConfigurationInput.IsUnknown() && !planState.MachineConfigurationInput.IsNull() {
 		configPatches := make([]string, len(planState.ConfigPatches))
+
 		for i, patch := range planState.ConfigPatches {
 			// if any of the patches is unknown, return early
 			if patch.IsUnknown() {
@@ -390,13 +403,14 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 		diags = resp.Plan.SetAttribute(ctx, path.Root("machine_configuration"), string(cfgBytes))
 		resp.Diagnostics.Append(diags...)
+
 		if diags.HasError() {
 			return
 		}
 	}
 }
 
-func (p *talosMachineConfigurationApplyResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return map[int64]resource.StateUpgrader{
 		0: {
 			PriorSchema: &schema.Schema{
@@ -456,7 +470,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(ctx context.Contex
 				}
 
 				state := talosMachineConfigurationApplyResourceModelV1{
-					Id:                        basetypes.NewStringValue("machine_configuration_apply"),
+					ID:                        basetypes.NewStringValue("machine_configuration_apply"),
 					ApplyMode:                 priorStateData.Mode,
 					Node:                      priorStateData.Node,
 					Endpoint:                  priorStateData.Endpoint,

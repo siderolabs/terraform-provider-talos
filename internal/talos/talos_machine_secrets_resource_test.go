@@ -78,7 +78,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 			},
 			// test that setting the talos_version to a lower version causes a diff
 			// also test that the aescbc_encryption_secret is set
-			{
+			{ //nolint:dupl
 				Config: testAccTalosMachineSecretsResourceConfig("v1.2.0"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
@@ -110,7 +110,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 			},
 			// test that setting the talos_version to a higher version does not cause a diff
 			// also test that the aescbc_encryption_secret is still set when upgrading
-			{
+			{ //nolint:dupl
 				Config: testAccTalosMachineSecretsResourceConfig("v1.4"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
@@ -283,7 +283,7 @@ func TestAccTalosMachineSecretsResourceUpgrade1(t *testing.T) {
 	})
 }
 
-func TestAccTalosMachineSecretsResourceUpgrade2(t *testing.T) {
+func TestAccTalosMachineSecretsResourceUpgrade2(t *testing.T) { //nolint:dupl
 	resource.ParallelTest(t, resource.TestCase{
 		IsUnitTest: true, // this is a local only resource, so can be unit tested
 		Steps: []resource.TestStep{
@@ -329,7 +329,7 @@ func TestAccTalosMachineSecretsResourceUpgrade2(t *testing.T) {
 	})
 }
 
-func TestAccTalosMachineSecretsResourceUpgrade3(t *testing.T) {
+func TestAccTalosMachineSecretsResourceUpgrade3(t *testing.T) { //nolint:dupl
 	resource.ParallelTest(t, resource.TestCase{
 		IsUnitTest: true, // this is a local only resource, so can be unit tested
 		Steps: []resource.TestStep{

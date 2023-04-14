@@ -3,6 +3,7 @@ module github.com/siderolabs/terraform-provider-talos
 go 1.20
 
 require (
+	github.com/dustin/go-humanize v1.0.1
 	github.com/hashicorp/terraform-plugin-docs v0.14.1
 	github.com/hashicorp/terraform-plugin-framework v1.2.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.3.1
@@ -10,6 +11,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.15.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.26.1
 	github.com/hashicorp/terraform-plugin-testing v1.2.0
+	github.com/siderolabs/gen v0.4.3
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/siderolabs/net v0.4.0
 	github.com/siderolabs/talos/pkg/machinery v1.4.0-beta.1
@@ -33,7 +35,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/siderolabs/crypto v0.4.0
 	github.com/siderolabs/go-api-signature v0.2.2 // indirect
-	github.com/siderolabs/go-blockdevice v0.4.4 // indirect
+	github.com/siderolabs/go-blockdevice v0.4.4
 	github.com/siderolabs/go-debug v0.2.2 // indirect
 	github.com/siderolabs/protoenc v0.2.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
@@ -53,7 +55,6 @@ require (
 	github.com/containerd/go-cni v1.1.9 // indirect
 	github.com/containernetworking/cni v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.14.1 // indirect
@@ -116,7 +117,6 @@ require (
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/siderolabs/gen v0.4.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect

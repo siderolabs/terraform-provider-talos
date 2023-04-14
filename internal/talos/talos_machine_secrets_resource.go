@@ -31,13 +31,13 @@ var (
 type talosMachineSecretsResource struct{}
 
 type talosMachineSecretsResourceModelV0 struct {
-	Id             types.String `tfsdk:"id"`
+	ID             types.String `tfsdk:"id"`
 	TalosVersion   types.String `tfsdk:"talos_version"`
 	MachineSecrets types.String `tfsdk:"machine_secrets"`
 }
 
 type talosMachineSecretsResourceModelV1 struct {
-	Id                  types.String        `tfsdk:"id"`
+	ID                  types.String        `tfsdk:"id"`
 	TalosVersion        types.String        `tfsdk:"talos_version"`
 	MachineSecrets      machineSecrets      `tfsdk:"machine_secrets"`
 	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
@@ -88,6 +88,7 @@ type machineSecretsCertKeyPair struct {
 	Key  types.String `tfsdk:"key"`
 }
 
+// NewTalosMachineSecretsResource implements the resource.Resource interface.
 func NewTalosMachineSecretsResource() resource.Resource {
 	return &talosMachineSecretsResource{}
 }
@@ -116,7 +117,7 @@ func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.Schem
 					talosVersionValid(),
 				},
 				PlanModifiers: []planmodifier.String{
-					TalosMachineFeaturesVersionPlanModifier(),
+					talosMachineFeaturesVersionDefaults(),
 				},
 			},
 			"machine_secrets": schema.SingleNestedAttribute{
@@ -238,6 +239,7 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 
 	diags := req.Plan.Get(ctx, &obj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -249,6 +251,7 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -291,12 +294,13 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (r *talosMachineSecretsResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *talosMachineSecretsResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 }
 
 func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -304,6 +308,7 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 
 	diags := req.Plan.GetAttribute(ctx, path.Root("talos_version"), &obj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -311,15 +316,16 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 	// Set state to fully populated data
 	diags = resp.State.SetAttribute(ctx, path.Root("talos_version"), obj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (r *talosMachineSecretsResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *talosMachineSecretsResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
 }
 
-func TalosMachineFeaturesVersionPlanModifier() planmodifier.String {
+func talosMachineFeaturesVersionDefaults() planmodifier.String {
 	return &talosMachineFeaturesVersionPlanModifier{}
 }
 
@@ -327,7 +333,7 @@ type talosMachineFeaturesVersionPlanModifier struct{}
 
 var _ planmodifier.String = (*talosMachineFeaturesVersionPlanModifier)(nil)
 
-func (apm *talosMachineFeaturesVersionPlanModifier) Description(ctx context.Context) string {
+func (apm *talosMachineFeaturesVersionPlanModifier) Description(_ context.Context) string {
 	return "sets default value for talos_version if not set"
 }
 
@@ -335,7 +341,7 @@ func (apm *talosMachineFeaturesVersionPlanModifier) MarkdownDescription(ctx cont
 	return apm.Description(ctx)
 }
 
-func (apm *talosMachineFeaturesVersionPlanModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
+func (apm *talosMachineFeaturesVersionPlanModifier) PlanModifyString(_ context.Context, req planmodifier.StringRequest, res *planmodifier.StringResponse) {
 	if req.ConfigValue.IsUnknown() {
 		return
 	}
@@ -352,7 +358,7 @@ func (apm *talosMachineFeaturesVersionPlanModifier) PlanModifyString(ctx context
 	}
 }
 
-func (r *talosMachineSecretsResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return map[int64]resource.StateUpgrader{
 		0: {
 			PriorSchema: &schema.Schema{
@@ -448,6 +454,7 @@ func (r *talosMachineSecretsResource) ImportState(ctx context.Context, req resou
 	// Set state to fully populated data
 	diags := resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}

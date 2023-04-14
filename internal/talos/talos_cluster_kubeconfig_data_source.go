@@ -22,14 +22,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	kubernetesAPIUnavailableError = "kubernetes api is unavailable"
-)
+type kubernetesAPIUnavailableError struct{}
+
+func (e kubernetesAPIUnavailableError) Error() string {
+	return "kubernetes api is unavailable"
+}
 
 type talosClusterKubeConfigDataSource struct{}
 
-type talosClusterKubeConfigDataSourceModelV0 struct {
-	Id                            types.String                  `tfsdk:"id"`
+type talosClusterKubeConfigDataSourceModelV0 struct { //nolint:govet
+	ID                            types.String                  `tfsdk:"id"`
 	Node                          types.String                  `tfsdk:"node"`
 	Endpoint                      types.String                  `tfsdk:"endpoint"`
 	ClientConfiguration           clientConfiguration           `tfsdk:"client_configuration"`
@@ -46,19 +48,18 @@ type kubernetesClientConfiguration struct {
 	ClientKey         types.String `tfsdk:"client_key"`
 }
 
-var (
-	_ datasource.DataSource = &talosClusterKubeConfigDataSource{}
-)
+var _ datasource.DataSource = &talosClusterKubeConfigDataSource{}
 
+// NewTalosClusterKubeConfigDataSource implements the datasource.DataSource interface.
 func NewTalosClusterKubeConfigDataSource() datasource.DataSource {
 	return &talosClusterKubeConfigDataSource{}
 }
 
-func (d *talosClusterKubeConfigDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *talosClusterKubeConfigDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_cluster_kubeconfig"
 }
 
-func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Retrieves the kubeconfig for a Talos cluster",
 		Attributes: map[string]schema.Attribute{
@@ -132,11 +133,12 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, req datas
 	}
 }
 
-func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) { //nolint:gocognit
 	var obj types.Object
 
 	diags := req.Config.Get(ctx, &obj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -147,6 +149,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -169,6 +172,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 	readTimeout, diags := state.Timeouts.Read(ctx, 10*time.Minute)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -176,42 +180,42 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 	ctxDeadline, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
-	if err := retry.RetryContext(ctxDeadline, readTimeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, state.Node.ValueString(), state.Endpoint.ValueString(), talosConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			kubeConfigBytes, err := c.Kubeconfig(opFuncCtx)
-			if err != nil {
-				return err
+	if retryErr := retry.RetryContext(ctxDeadline, readTimeout, func() *retry.RetryError {
+		if clientOpErr := talosClientOp(ctx, state.Node.ValueString(), state.Endpoint.ValueString(), talosConfig, func(opFuncCtx context.Context, c *client.Client) error {
+			kubeConfigBytes, clientErr := c.Kubeconfig(opFuncCtx)
+			if clientErr != nil {
+				return clientErr
 			}
 
 			state.KubeConfigRaw = basetypes.NewStringValue(string(kubeConfigBytes))
 
 			if state.Wait.ValueBool() {
-				clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
-				if err != nil {
-					return err
+				clientConfig, configErr := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
+				if configErr != nil {
+					return configErr
 				}
-				restConfig, err := clientConfig.ClientConfig()
-				if err != nil {
-					return err
+				restConfig, configErr := clientConfig.ClientConfig()
+				if configErr != nil {
+					return configErr
 				}
-				clientset, err := kubernetes.NewForConfig(restConfig)
-				if err != nil {
-					return err
+				clientset, configErr := kubernetes.NewForConfig(restConfig)
+				if configErr != nil {
+					return configErr
 				}
 
-				if _, err := clientset.ServerVersion(); err != nil {
-					return errors.New(kubernetesAPIUnavailableError)
+				if _, err = clientset.ServerVersion(); err != nil {
+					return kubernetesAPIUnavailableError{}
 				}
 			}
 
 			return nil
-		}); err != nil {
+		}); clientOpErr != nil {
 			if s := status.Code(err); s == codes.InvalidArgument {
 				return retry.NonRetryableError(err)
 			}
 
 			if state.Wait.ValueBool() {
-				if errors.Is(err, errors.New(kubernetesAPIUnavailableError)) {
+				if errors.Is(err, kubernetesAPIUnavailableError{}) {
 					return retry.RetryableError(err)
 				}
 			}
@@ -220,8 +224,8 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 		}
 
 		return nil
-	}); err != nil {
-		resp.Diagnostics.AddError("failed to retrieve kubeconfig", err.Error())
+	}); retryErr != nil {
+		resp.Diagnostics.AddError("failed to retrieve kubeconfig", retryErr.Error())
 
 		return
 	}
@@ -243,10 +247,11 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 		ClientKey:         basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientKeyData)),
 	}
 
-	state.Id = basetypes.NewStringValue(clusterName)
+	state.ID = basetypes.NewStringValue(clusterName)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -2,14 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// Package main is the entrypoint for the provider server.
 package main
 
 import (
 	"context"
 	"log"
 
-	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+
 	"github.com/siderolabs/terraform-provider-talos/internal/talos"
 )
 
@@ -27,10 +28,7 @@ func main() {
 		Address: "registry.terraform.io/siderolabs/talos",
 	}
 
-	err := providerserver.Serve(context.Background(), func() provider.Provider {
-		return talos.New()
-	}, opts)
-
+	err := providerserver.Serve(context.Background(), talos.New, opts)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

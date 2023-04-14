@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type machineConfigGenerateOptions struct {
+type machineConfigGenerateOptions struct { //nolint:govet
 	machineType       machine.Type
 	clusterName       string
 	clusterEndpoint   string
@@ -42,7 +42,7 @@ type machineConfigGenerateOptions struct {
 	configPatches     []string
 }
 
-func (m *machineConfigGenerateOptions) generate() (string, error) {
+func (m *machineConfigGenerateOptions) generate() (string, error) { //nolint:gocyclo,cyclop
 	genOptions := make([]generate.GenOption, 0)
 
 	// default gen options
@@ -97,9 +97,8 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		return nil
 	}
 
-	switch m.machineType {
+	switch m.machineType { //nolint:exhaustive
 	case machine.TypeControlPlane:
-
 		if err := addConfigPatch(m.configPatches, bundle.WithPatchControlPlane); err != nil {
 			return "", err
 		}
@@ -141,7 +140,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		machineConfig   string
 	)
 
-	switch m.machineType {
+	switch m.machineType { //nolint:exhaustive
 	case machine.TypeControlPlane:
 		generatedConfig, err = generate.Config(machine.TypeControlPlane, input)
 		if err != nil {
@@ -150,7 +149,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 
 		bundle.ControlPlaneCfg = generatedConfig
 
-		if err := bundle.ApplyPatches(options.PatchesControlPlane, true, false); err != nil {
+		if err = bundle.ApplyPatches(options.PatchesControlPlane, true, false); err != nil {
 			return "", err
 		}
 
@@ -166,7 +165,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 
 		bundle.WorkerCfg = generatedConfig
 
-		if err := bundle.ApplyPatches(options.PatchesWorker, false, true); err != nil {
+		if err = bundle.ApplyPatches(options.PatchesWorker, false, true); err != nil {
 			return "", err
 		}
 
@@ -179,6 +178,7 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 	return machineConfig, nil
 }
 
+// GenerateInstallerImage generates the installer image name.
 func GenerateInstallerImage() string {
 	return fmt.Sprintf("%s/%s/installer:%s", gendata.ImagesRegistry, gendata.ImagesUsername, gendata.VersionTag)
 }
@@ -189,7 +189,7 @@ func secretsBundleTomachineSecrets(secretsBundle *generate.SecretsBundle) (talos
 	}
 
 	model := talosMachineSecretsResourceModelV1{
-		Id: types.StringValue("machine_secrets"),
+		ID: types.StringValue("machine_secrets"),
 		MachineSecrets: machineSecrets{
 			Cluster: machineSecretsCluster{
 				ID:     types.StringValue(secretsBundle.Cluster.ID),
@@ -276,7 +276,8 @@ func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.
 
 	_, err = c.Disks(ctx)
 	if err != nil {
-		c.Close()
+		c.Close() //nolint:errcheck
+
 		s, ok := status.FromError(err)
 		if !ok {
 			return err
@@ -295,11 +296,7 @@ func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.
 	}
 	defer c.Close() //nolint:errcheck
 
-	if err := opFunc(opCtx, c); err != nil {
-		return err
-	}
-
-	return nil
+	return opFunc(opCtx, c)
 }
 
 type talosVersionValidator struct{}
@@ -308,7 +305,7 @@ func talosVersionValid() talosVersionValidator {
 	return talosVersionValidator{}
 }
 
-func (v talosVersionValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v talosVersionValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
@@ -319,10 +316,9 @@ func (v talosVersionValidator) ValidateString(ctx context.Context, req validator
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid version", err.Error())
 	}
-
 }
 
-func (v talosVersionValidator) Description(ctx context.Context) string {
+func (v talosVersionValidator) Description(_ context.Context) string {
 	return "Validates that the talos version is valid"
 }
 

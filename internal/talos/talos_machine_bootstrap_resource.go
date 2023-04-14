@@ -34,20 +34,21 @@ var (
 )
 
 type talosMachineBootstrapResourceModelV0 struct {
-	Id          types.String `tfsdk:"id"`
+	ID          types.String `tfsdk:"id"`
 	Endpoint    types.String `tfsdk:"endpoint"`
 	Node        types.String `tfsdk:"node"`
 	TalosConfig types.String `tfsdk:"talos_config"`
 }
 
 type talosMachineBootstrapResourceModelV1 struct {
-	Id                  types.String        `tfsdk:"id"`
+	ID                  types.String        `tfsdk:"id"`
 	Endpoint            types.String        `tfsdk:"endpoint"`
 	Node                types.String        `tfsdk:"node"`
 	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
 	Timeouts            timeouts.Value      `tfsdk:"timeouts"`
 }
 
+// NewTalosMachineBootstrapResource implements the resource.Resource interface.
 func NewTalosMachineBootstrapResource() resource.Resource {
 	return &talosMachineBootstrapResource{}
 }
@@ -108,6 +109,7 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 
 	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if diags.HasError() {
 		return
 	}
@@ -129,6 +131,7 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 
 	createTimeout, diags := state.Timeouts.Create(ctx, 10*time.Minute)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -138,11 +141,7 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 
 	if err := retry.RetryContext(ctxDeadline, createTimeout, func() *retry.RetryError {
 		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			if err := c.Bootstrap(opFuncCtx, &machineapi.BootstrapRequest{}); err != nil {
-				return err
-			}
-
-			return nil
+			return c.Bootstrap(opFuncCtx, &machineapi.BootstrapRequest{})
 		}); err != nil {
 			if s := status.Code(err); s == codes.InvalidArgument {
 				return retry.NonRetryableError(err)
@@ -161,17 +160,18 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	state.Id = basetypes.NewStringValue("machine_bootstrap")
+	state.ID = basetypes.NewStringValue("machine_bootstrap")
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (r *talosMachineBootstrapResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *talosMachineBootstrapResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 }
 
 func (r *talosMachineBootstrapResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -179,6 +179,7 @@ func (r *talosMachineBootstrapResource) Update(ctx context.Context, req resource
 
 	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if diags.HasError() {
 		return
 	}
@@ -186,12 +187,13 @@ func (r *talosMachineBootstrapResource) Update(ctx context.Context, req resource
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
-func (r *talosMachineBootstrapResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *talosMachineBootstrapResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
 }
 
 func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
@@ -204,6 +206,7 @@ func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resou
 
 	diags := req.Config.Get(ctx, &configObj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -215,6 +218,7 @@ func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resou
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -228,6 +232,7 @@ func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resou
 
 	diags = req.Plan.Get(ctx, &planObj)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -239,6 +244,7 @@ func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resou
 		UnhandledUnknownAsEmpty: true,
 	})
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -246,13 +252,14 @@ func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resou
 	if planState.Endpoint.IsUnknown() || planState.Endpoint.IsNull() {
 		diags = resp.Plan.SetAttribute(ctx, path.Root("endpoint"), planState.Node.ValueString())
 		resp.Diagnostics.Append(diags...)
+
 		if diags.HasError() {
 			return
 		}
 	}
 }
 
-func (r *talosMachineBootstrapResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return map[int64]resource.StateUpgrader{
 		0: {
 			PriorSchema: &schema.Schema{
@@ -291,7 +298,7 @@ func (r *talosMachineBootstrapResource) UpgradeState(ctx context.Context) map[in
 				}
 
 				state := talosMachineBootstrapResourceModelV1{
-					Id:       basetypes.NewStringValue("machine_bootstrap"),
+					ID:       basetypes.NewStringValue("machine_bootstrap"),
 					Endpoint: priorStateData.Endpoint,
 					Node:     priorStateData.Node,
 					Timeouts: timeouts.Value{
@@ -310,19 +317,20 @@ func (r *talosMachineBootstrapResource) UpgradeState(ctx context.Context) map[in
 	}
 }
 
-func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, _ resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
 		"create": types.StringType,
 	}, map[string]attr.Value{
 		"create": basetypes.NewStringNull(),
 	})
 	resp.Diagnostics.Append(diag...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	state := talosMachineBootstrapResourceModelV1{
-		Id: basetypes.NewStringValue("machine_bootstrap"),
+		ID: basetypes.NewStringValue("machine_bootstrap"),
 		Timeouts: timeouts.Value{
 			Object: timeout,
 		},
@@ -331,6 +339,7 @@ func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, req res
 	// Set state to fully populated data
 	diags := resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 	if resp.Diagnostics.HasError() {
 		return
 	}
