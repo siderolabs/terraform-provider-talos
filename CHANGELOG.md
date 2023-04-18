@@ -1,3 +1,46 @@
+## [terraform-provider-talos 0.2.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-beta.0) (2023-04-18)
+
+Welcome to the v0.2.0-beta.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Data Sources
+
+`talos_machine_disks` data source is added to list disks on a machine.
+
+
+### Provider Changes
+
+This version of the provider includes some breaking changes. Make sure to follow the provider upgrade guide at https://registry.terraform.io/providers/siderolabs/talos/latest/docs/guides/version-0.2-upgrade.html
+
+
+### Component Updates
+
+Talos sdk: v1.4.0-beta.1
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`606f408`](https://github.com/siderolabs/terraform-provider-talos/commit/606f408dc2acc11dfa231eaad6dc4e79b67f76d9) chore: bump deps
+</p>
+</details>
+
+### Dependency Changes
+
+* **k8s.io/client-go**  v0.27.0 -> v0.27.1
+
+Previous release can be found at [v0.2.0-alpha.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.2)
+
 ## [terraform-provider-talos 0.2.0-alpha.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.2) (2023-04-14)
 
 Welcome to the v0.2.0-alpha.2 release of terraform-provider-talos!  
