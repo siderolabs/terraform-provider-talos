@@ -8,7 +8,7 @@ endif
 
 ifneq ($(origin CI), undefined)
 	RUNARGS += -parallel=2
-	TEST_TIMEOUT = 1500s
+	TEST_TIMEOUT = 1800s
 endif
 
 .PHONY: generate
