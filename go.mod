@@ -11,10 +11,11 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.15.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.26.1
 	github.com/hashicorp/terraform-plugin-testing v1.2.0
-	github.com/siderolabs/gen v0.4.3
+	github.com/siderolabs/gen v0.4.4
+	github.com/siderolabs/go-blockdevice v0.4.5
 	github.com/siderolabs/go-pointer v1.0.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos/pkg/machinery v1.4.0
+	github.com/siderolabs/talos/pkg/machinery v1.4.1
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/mod v0.10.0
 	google.golang.org/grpc v1.54.0
@@ -35,7 +36,6 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/siderolabs/crypto v0.4.0
 	github.com/siderolabs/go-api-signature v0.2.2 // indirect
-	github.com/siderolabs/go-blockdevice v0.4.4
 	github.com/siderolabs/go-debug v0.2.2 // indirect
 	github.com/siderolabs/protoenc v0.2.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
