@@ -1,3 +1,83 @@
+## [terraform-provider-talos 0.2.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.1) (2023-08-04)
+
+Welcome to the 0.2.1 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.4.7
+
+
+### Contributors
+
+* Artem Chernyshev
+* Dmitriy Matrenichev
+* Noel Georgi
+* Utku Ozdemir
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`9b57d5e`](https://github.com/siderolabs/terraform-provider-talos/commit/9b57d5e87e4824f8cdba25684e4c07004d4fb4cb) fix: ci failures due to TF state removal
+</p>
+</details>
+
+### Changes from siderolabs/crypto
+<details><summary>2 commits</summary>
+<p>
+
+* [`8f77da3`](https://github.com/siderolabs/crypto/commit/8f77da30a5193d207a6660b562a273a06d73aae0) feat: add a method to load PEM key from file
+* [`c03ff58`](https://github.com/siderolabs/crypto/commit/c03ff58af5051acb9b56e08377200324a3ea1d5e) feat: add a way to represent redacted x509 private keys
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>3 commits</summary>
+<p>
+
+* [`f9f5805`](https://github.com/siderolabs/gen/commit/f9f5805973d30fe6bbac2f4a79ad4197fe59970e) chore: bump rekres and add functions from exp
+* [`b968d21`](https://github.com/siderolabs/gen/commit/b968d21c9671d97e54317f80cdf781d6f963e44b) feat: add `TryRecv` and `RecvWithContext` functions
+* [`476dfea`](https://github.com/siderolabs/gen/commit/476dfeae70882e1ca6e5cfed3d6e12dc36841a26) feat: add foreach and clear to lazymap
+</p>
+</details>
+
+### Changes from siderolabs/go-blockdevice
+<details><summary>4 commits</summary>
+<p>
+
+* [`fbb01f7`](https://github.com/siderolabs/go-blockdevice/commit/fbb01f714bdc9c32ea3459345b730b1043ce10c0) fix: properly detect token not found error
+* [`3e08968`](https://github.com/siderolabs/go-blockdevice/commit/3e089682439e885c6386f833e35728ce54daff44) fix: do not attach token to a key slot
+* [`f2c419e`](https://github.com/siderolabs/go-blockdevice/commit/f2c419e81dcba3c5be007130f677d2075e2aec3c) feat: support LUKS token management
+* [`076874a`](https://github.com/siderolabs/go-blockdevice/commit/076874a155ad44d764d25081125f950e8194d023) chore: resolve blockdevice symlinks
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**                  v0.14.1 -> v0.16.0
+* **github.com/hashicorp/terraform-plugin-framework**             v1.2.0 -> v1.3.4
+* **github.com/hashicorp/terraform-plugin-framework-timeouts**    v0.3.1 -> v0.4.1
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.10.0 -> v0.11.0
+* **github.com/hashicorp/terraform-plugin-go**                    v0.15.0 -> v0.18.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.26.1 -> v2.27.0
+* **github.com/hashicorp/terraform-plugin-testing**               v1.2.0 -> v1.4.0
+* **github.com/siderolabs/crypto**                                v0.4.0 -> v0.4.1
+* **github.com/siderolabs/gen**                                   v0.4.3 -> v0.4.5
+* **github.com/siderolabs/go-blockdevice**                        v0.4.4 -> v0.4.6
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.4.0 -> v1.4.7
+* **github.com/stretchr/testify**                                 v1.8.2 -> v1.8.4
+* **golang.org/x/mod**                                            v0.10.0 -> v0.12.0
+* **google.golang.org/grpc**                                      v1.54.0 -> v1.57.0
+* **k8s.io/client-go**                                            v0.27.1 -> v0.27.4
+
+Previous release can be found at [v0.2.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0)
+
 ## [terraform-provider-talos 0.2.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0) (2023-04-24)
 
 Welcome to the v0.2.0 release of terraform-provider-talos!

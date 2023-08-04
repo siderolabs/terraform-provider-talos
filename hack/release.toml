@@ -5,25 +5,13 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.1.2"
+previous = "v0.2.0"
 pre_release = false
 
 [notes]
 
-    [notes.datasources]
-        title = "Data Sources"
-        description = """\
-`talos_machine_disks` data source is added to list disks on a machine.
-"""
-
-    [notes.provider]
-        title = "Provider Changes"
-        description = """\
-This version of the provider includes some breaking changes. Make sure to follow the provider upgrade guide at https://registry.terraform.io/providers/siderolabs/talos/latest/docs/guides/version-0.2-upgrade.html
-"""
-
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.4.0
+Talos sdk: v1.4.7
 """
