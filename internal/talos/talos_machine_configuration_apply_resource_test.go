@@ -74,6 +74,9 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 }
 
 func TestAccTalosMachineConfigurationApplyResourceUpgrade(t *testing.T) {
+	// ref: https://github.com/hashicorp/terraform-plugin-testing/pull/118
+	t.Skip("skipping until TF test framework has a way to remove state resource")
+
 	testDir, err := os.MkdirTemp("", "talos-machine-configuration-apply-resource")
 	if err != nil {
 		t.Fatal(err)

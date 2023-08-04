@@ -210,17 +210,17 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 			return nil
 		}); clientOpErr != nil {
-			if s := status.Code(err); s == codes.InvalidArgument {
-				return retry.NonRetryableError(err)
+			if s := status.Code(clientOpErr); s == codes.InvalidArgument {
+				return retry.NonRetryableError(clientOpErr)
 			}
 
 			if state.Wait.ValueBool() {
-				if errors.Is(err, kubernetesAPIUnavailableError{}) {
-					return retry.RetryableError(err)
+				if errors.Is(clientOpErr, kubernetesAPIUnavailableError{}) {
+					return retry.RetryableError(clientOpErr)
 				}
 			}
 
-			return retry.RetryableError(err)
+			return retry.RetryableError(clientOpErr)
 		}
 
 		return nil

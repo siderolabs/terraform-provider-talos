@@ -48,5 +48,3 @@ Required:
 - `ca_certificate` (String) The client CA certificate
 - `client_certificate` (String) The client certificate
 - `client_key` (String, Sensitive) The client key
-
-
