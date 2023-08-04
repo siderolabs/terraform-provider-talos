@@ -69,9 +69,6 @@ linters-settings:
   govet:
     check-shadowing: true
     enable-all: true
-  depguard:
-    list-type: blacklist
-    include-go-root: false
   lll:
     line-length: 200
     tab-width: 4
@@ -121,6 +118,7 @@ linters:
   disable:
     - exhaustruct
     - exhaustivestruct
+    - depguard # ref: https://github.com/golangci/golangci-lint/issues/3906
     - forbidigo
     - funlen
     - gas

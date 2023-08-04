@@ -195,7 +195,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			// test validating kubernetes compatibility with the default talos version
 			{
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.24.0", false, false, true, true),
-				ExpectError: regexp.MustCompile("version of Kubernetes 1.24.0 is too old to be used with Talos 1.4.0"),
+				ExpectError: regexp.MustCompile("version of Kubernetes 1.24.0 is too old to be used with Talos 1.4.7"),
 			},
 			// test validating kubernetes compatibility with a specific talos version
 			{

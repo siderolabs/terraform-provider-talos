@@ -96,7 +96,7 @@ Required:
 
 Optional:
 
-- `read` (String)
+- `read` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Read operations occur during any refresh or planning operation when refresh is enabled.
 
 
 <a id="nestedatt--kubernetes_client_configuration"></a>
@@ -108,5 +108,3 @@ Read-Only:
 - `client_certificate` (String) The kubernetes client certificate
 - `client_key` (String, Sensitive) The kubernetes client key
 - `host` (String) The kubernetes host
-
-
