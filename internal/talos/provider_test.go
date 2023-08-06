@@ -30,7 +30,7 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 func downloadTalosISO(isoPath string) error {
-	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/talos-amd64.iso", gendata.VersionTag)
+	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
 
 	if _, err := os.Stat(isoPath); err == nil {
 		return nil

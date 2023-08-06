@@ -13,9 +13,8 @@ import (
 	"text/template"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/siderolabs/go-pointer"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"github.com/stretchr/testify/assert"
@@ -94,8 +93,8 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							func(t *testing.T, config v1alpha1.Config) error {
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Machine().Sysfs())
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Cluster().APIServer().ExtraArgs())
-								assert.Equal(t, "cp-test", config.MachineConfig.Network().Hostname())
-								assert.Equal(t, pointer.To(true), config.ClusterConfig.AllowSchedulingOnControlPlanes)
+								assert.Equal(t, "cp-test", config.Machine().Network().Hostname())
+								assert.Equal(t, true, config.Cluster().ScheduleOnControlPlanes())
 								assert.Empty(t, config.Cluster().AESCBCEncryptionSecret())
 								assert.NotEmpty(t, config.Cluster().SecretboxEncryptionSecret())
 
@@ -194,8 +193,8 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test validating kubernetes compatibility with the default talos version
 			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.24.0", false, false, true, true),
-				ExpectError: regexp.MustCompile("version of Kubernetes 1.24.0 is too old to be used with Talos 1.4.7"),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.25.0", false, false, true, true),
+				ExpectError: regexp.MustCompile("version of Kubernetes 1.25.0 is too old to be used with Talos 1.5.0-beta.0"),
 			},
 			// test validating kubernetes compatibility with a specific talos version
 			{
@@ -332,7 +331,7 @@ func validateGeneratedTalosMachineConfig(
 	assert.Equal(t, talos.GenerateInstallerImage(), machineConfig.Machine().Install().Image())
 	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", k8sVersion), machineConfig.Machine().Kubelet().Image())
 	assert.Equal(t, true, machineConfig.Persist())
-	assert.Equal(t, "v1alpha1", machineConfig.Version())
+	assert.Equal(t, "v1alpha1", machineConfig.ConfigVersion)
 	assert.Equal(t, true, machineConfig.Cluster().Discovery().Enabled())
 
 	if docs {

@@ -7,6 +7,7 @@ package talos
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -16,7 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/generate"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
@@ -256,23 +257,17 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
-	genOptions := make([]generate.GenOption, 0, 1)
+	versionContract, err := validateVersionContract(plan.TalosVersion.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"failed to validate talos version",
+			err.Error(),
+		)
 
-	if plan.TalosVersion.ValueString() != "" {
-		versionContract, err := validateVersionContract(plan.TalosVersion.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"failed to validate talos version",
-				err.Error(),
-			)
-
-			return
-		}
-
-		genOptions = append(genOptions, generate.WithVersionContract(versionContract))
+		return
 	}
 
-	secretsBundle, err := generate.NewSecretsBundle(generate.NewClock(), genOptions...)
+	secretsBundle, err := secrets.NewBundle(secrets.NewFixedClock(time.Now()), versionContract)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"failed to generate secrets bundle",
@@ -384,7 +379,7 @@ func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]
 					return
 				}
 
-				var secretsBundle *generate.SecretsBundle
+				var secretsBundle *secrets.Bundle
 				if err := yaml.Unmarshal([]byte(priorStateData.MachineSecrets.ValueString()), &secretsBundle); err != nil {
 					resp.Diagnostics.AddError("failed to unmarshal machine secrets", err.Error())
 
@@ -431,7 +426,7 @@ func (r *talosMachineSecretsResource) ImportState(ctx context.Context, req resou
 		return
 	}
 
-	var secretsBundle *generate.SecretsBundle
+	var secretsBundle *secrets.Bundle
 	if err = yaml.Unmarshal(secretBytes, &secretsBundle); err != nil {
 		resp.Diagnostics.AddError("failed to unmarshal machine secrets", err.Error())
 

@@ -7,6 +7,7 @@ package talos
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -18,8 +19,8 @@ import (
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/compatibility"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/generate"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/machine"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"golang.org/x/mod/semver"
@@ -222,17 +223,17 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 		machineType = machine.TypeWorker
 	}
 
-	machineSecrets := &generate.SecretsBundle{
-		Clock: generate.NewClock(),
-		Cluster: &generate.Cluster{
+	machineSecrets := &secrets.Bundle{
+		Clock: secrets.NewFixedClock(time.Now()),
+		Cluster: &secrets.Cluster{
 			ID:     state.MachineSecrets.Cluster.ID.ValueString(),
 			Secret: state.MachineSecrets.Cluster.Secret.ValueString(),
 		},
-		Secrets: &generate.Secrets{
+		Secrets: &secrets.Secrets{
 			BootstrapToken:            state.MachineSecrets.Secrets.BootstrapToken.ValueString(),
 			SecretboxEncryptionSecret: state.MachineSecrets.Secrets.SecretboxEncryptionSecret.ValueString(),
 		},
-		TrustdInfo: &generate.TrustdInfo{
+		TrustdInfo: &secrets.TrustdInfo{
 			Token: state.MachineSecrets.TrustdInfo.Token.ValueString(),
 		},
 	}
@@ -406,7 +407,7 @@ func certSchemaInput() schema.SingleNestedAttribute {
 	}
 }
 
-func machineSecretsCertsToSecretsBundleCerts(machineSecretsCerts machineSecretsCerts) (*generate.Certs, error) {
+func machineSecretsCertsToSecretsBundleCerts(machineSecretsCerts machineSecretsCerts) (*secrets.Certs, error) {
 	etcdCertDataX509, err := certDataToX509PEMEncodedCertificateAndKey(machineSecretsCerts.Etcd.Cert.ValueString(), machineSecretsCerts.Etcd.Key.ValueString())
 	if err != nil {
 		return nil, err
@@ -432,7 +433,7 @@ func machineSecretsCertsToSecretsBundleCerts(machineSecretsCerts machineSecretsC
 		return nil, err
 	}
 
-	return &generate.Certs{
+	return &secrets.Certs{
 		Etcd:              etcdCertDataX509,
 		K8s:               k8sCertDataX509,
 		K8sAggregator:     k8sAggregatorCertDataX509,

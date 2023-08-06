@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,12 +20,12 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/config"
+	"github.com/siderolabs/talos/pkg/machinery/config/bundle"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/encoder"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/bundle"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/generate"
-	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1/machine"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"google.golang.org/grpc/status"
@@ -34,7 +35,7 @@ type machineConfigGenerateOptions struct { //nolint:govet
 	machineType       machine.Type
 	clusterName       string
 	clusterEndpoint   string
-	machineSecrets    *generate.SecretsBundle
+	machineSecrets    *secrets.Bundle
 	kubernetesVersion string
 	talosVersion      string
 	docsEnabled       bool
@@ -42,8 +43,8 @@ type machineConfigGenerateOptions struct { //nolint:govet
 	configPatches     []string
 }
 
-func (m *machineConfigGenerateOptions) generate() (string, error) { //nolint:gocyclo,cyclop
-	genOptions := make([]generate.GenOption, 0)
+func (m *machineConfigGenerateOptions) generate() (string, error) {
+	genOptions := make([]generate.Option, 0)
 
 	// default gen options
 	genOptions = append(genOptions,
@@ -52,16 +53,15 @@ func (m *machineConfigGenerateOptions) generate() (string, error) { //nolint:goc
 		generate.WithInstallDisk("/dev/sda"),
 		generate.WithInstallImage(GenerateInstallerImage()),
 		generate.WithPersist(true),
+		generate.WithSecretsBundle(m.machineSecrets),
 	)
 
-	if m.talosVersion != "" {
-		versionContract, err := validateVersionContract(m.talosVersion)
-		if err != nil {
-			return "", err
-		}
-
-		genOptions = append(genOptions, generate.WithVersionContract(versionContract))
+	versionContract, err := validateVersionContract(m.talosVersion)
+	if err != nil {
+		return "", err
 	}
+
+	genOptions = append(genOptions, generate.WithVersionContract(versionContract))
 
 	commentsFlags := encoder.CommentsDisabled
 
@@ -82,12 +82,13 @@ func (m *machineConfigGenerateOptions) generate() (string, error) { //nolint:goc
 				GenOptions:  genOptions,
 			},
 		),
+		bundle.WithVerbose(false),
 	}
 
 	addConfigPatch := func(configPatches []string, configOpt func([]configpatcher.Patch) bundle.Option) error {
 		var patches []configpatcher.Patch
 
-		patches, err := configpatcher.LoadPatches(configPatches)
+		patches, err = configpatcher.LoadPatches(configPatches)
 		if err != nil {
 			return fmt.Errorf("error parsing config patch: %w", err)
 		}
@@ -99,83 +100,26 @@ func (m *machineConfigGenerateOptions) generate() (string, error) { //nolint:goc
 
 	switch m.machineType { //nolint:exhaustive
 	case machine.TypeControlPlane:
-		if err := addConfigPatch(m.configPatches, bundle.WithPatchControlPlane); err != nil {
+		if err = addConfigPatch(m.configPatches, bundle.WithPatchControlPlane); err != nil {
 			return "", err
 		}
 	case machine.TypeWorker:
-		if err := addConfigPatch(m.configPatches, bundle.WithPatchWorker); err != nil {
+		if err = addConfigPatch(m.configPatches, bundle.WithPatchWorker); err != nil {
 			return "", err
 		}
 	}
 
-	options := bundle.Options{}
-
-	for _, opt := range configBundleOpts {
-		if err := opt(&options); err != nil {
-			return "", err
-		}
-	}
-
-	if options.InputOptions == nil {
-		return "", fmt.Errorf(("generated input options are nil"))
-	}
-
-	input, err := generate.NewInput(
-		options.InputOptions.ClusterName,
-		options.InputOptions.Endpoint,
-		options.InputOptions.KubeVersion,
-		m.machineSecrets,
-		options.InputOptions.GenOptions...,
-	)
+	configBundle, err := bundle.NewBundle(configBundleOpts...)
 	if err != nil {
 		return "", err
 	}
 
-	bundle := &bundle.ConfigBundle{
-		InitCfg: &v1alpha1.Config{},
+	machineConfigBytes, err := configBundle.Serialize(commentsFlags, m.machineType)
+	if err != nil {
+		return "", err
 	}
 
-	var (
-		generatedConfig *v1alpha1.Config
-		machineConfig   string
-	)
-
-	switch m.machineType { //nolint:exhaustive
-	case machine.TypeControlPlane:
-		generatedConfig, err = generate.Config(machine.TypeControlPlane, input)
-		if err != nil {
-			return "", err
-		}
-
-		bundle.ControlPlaneCfg = generatedConfig
-
-		if err = bundle.ApplyPatches(options.PatchesControlPlane, true, false); err != nil {
-			return "", err
-		}
-
-		machineConfig, err = bundle.ControlPlaneCfg.EncodeString(encoder.WithComments(commentsFlags))
-		if err != nil {
-			return "", err
-		}
-	case machine.TypeWorker:
-		generatedConfig, err = generate.Config(machine.TypeWorker, input)
-		if err != nil {
-			return "", err
-		}
-
-		bundle.WorkerCfg = generatedConfig
-
-		if err = bundle.ApplyPatches(options.PatchesWorker, false, true); err != nil {
-			return "", err
-		}
-
-		machineConfig, err = bundle.WorkerCfg.EncodeString(encoder.WithComments(commentsFlags))
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return machineConfig, nil
+	return string(machineConfigBytes), nil
 }
 
 // GenerateInstallerImage generates the installer image name.
@@ -183,9 +127,9 @@ func GenerateInstallerImage() string {
 	return fmt.Sprintf("%s/%s/installer:%s", gendata.ImagesRegistry, gendata.ImagesUsername, gendata.VersionTag)
 }
 
-func secretsBundleTomachineSecrets(secretsBundle *generate.SecretsBundle) (talosMachineSecretsResourceModelV1, error) {
+func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineSecretsResourceModelV1, error) {
 	if secretsBundle.Clock == nil {
-		secretsBundle.Clock = generate.NewClock()
+		secretsBundle.Clock = secrets.NewFixedClock(time.Now())
 	}
 
 	model := talosMachineSecretsResourceModelV1{
@@ -231,12 +175,12 @@ func secretsBundleTomachineSecrets(secretsBundle *generate.SecretsBundle) (talos
 		model.MachineSecrets.Secrets.AESCBCEncryptionSecret = types.StringValue(secretsBundle.Secrets.AESCBCEncryptionSecret)
 	}
 
-	generateInput, err := generate.NewInput("", "", "", secretsBundle)
+	generateInput, err := generate.NewInput("", "", "", generate.WithSecretsBundle(secretsBundle))
 	if err != nil {
 		return model, err
 	}
 
-	talosConfig, err := generate.Talosconfig(generateInput)
+	talosConfig, err := generateInput.Talosconfig()
 	if err != nil {
 		return model, err
 	}
