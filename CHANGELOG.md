@@ -1,3 +1,42 @@
+## [terraform-provider-talos 0.3.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.0-beta.0) (2023-08-07)
+
+Welcome to the 0.3.0-beta.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.5.0-beta.0
+
+
+### Contributors
+
+* Noel Georgi
+* Ole-Martin Bratteng
+* Spencer Smith
+
+### Changes
+<details><summary>5 commits</summary>
+<p>
+
+* [`3f02af3`](https://github.com/siderolabs/terraform-provider-talos/commit/3f02af32747ab97d56d274eecbb3cc12bdaa7d1c) feat: update to talos 1.5 sdk
+* [`ff0e2ad`](https://github.com/siderolabs/terraform-provider-talos/commit/ff0e2adec13192716b9cf2180baa1bff2843387d) fix: ci failures due to TF state removal
+* [`ee150ce`](https://github.com/siderolabs/terraform-provider-talos/commit/ee150ce9925aac49e324ba4909104cba5a9ad50e) docs: update link to contrib repo
+* [`df4f876`](https://github.com/siderolabs/terraform-provider-talos/commit/df4f876ce18e8239bb1cabec7437a0f62ed1f5f7) docs: replace `type` with `machine_type`
+* [`f6c8715`](https://github.com/siderolabs/terraform-provider-talos/commit/f6c871516635dbb402bfe24bd47759537c7fee46) chore: bump deps
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/talos/pkg/machinery**  v1.4.7 -> v1.5.0-beta.0
+
+Previous release can be found at [v0.2.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.1)
+
 ## [terraform-provider-talos 0.2.0-alpha.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.2.0-alpha.2) (2023-04-14)
 
 Welcome to the v0.2.0-alpha.2 release of terraform-provider-talos!  
