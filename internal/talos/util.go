@@ -28,7 +28,6 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
-	"google.golang.org/grpc/status"
 )
 
 type machineConfigGenerateOptions struct { //nolint:govet
@@ -206,36 +205,20 @@ func validateVersionContract(version string) (*config.VersionContract, error) {
 func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.Config, opFunc func(ctx context.Context, c *client.Client) error) error {
 	opCtx := client.WithNode(ctx, node)
 
-	clientOpts := []client.OptionFunc{
-		client.WithConfig(tc),
-		client.WithEndpoints([]string{endpoint}...),
-	}
-
-	c, err := client.New(ctx, append(clientOpts, client.WithTLSConfig(&tls.Config{
+	c, err := client.New(ctx, client.WithTLSConfig(&tls.Config{
 		InsecureSkipVerify: true,
-	}))...)
+	}), client.WithEndpoints(endpoint))
 	if err != nil {
 		return err
 	}
 
-	_, err = c.Disks(ctx)
+	_, err = c.Disks(opCtx)
 	if err != nil {
 		c.Close() //nolint:errcheck
 
-		s, ok := status.FromError(err)
-		if !ok {
+		c, err = client.New(ctx, client.WithConfig(tc), client.WithEndpoints(endpoint))
+		if err != nil {
 			return err
-		}
-
-		if strings.Contains(s.Message(), "name resilver error") || strings.Contains(s.Message(), "i/o timeout") {
-			return err
-		}
-
-		if s.Message() == "connection closed before server preface received" || s.Message() == "connection error: desc = \"error reading server preface: remote error: tls: bad certificate\"" {
-			c, err = client.New(ctx, clientOpts...)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	defer c.Close() //nolint:errcheck
