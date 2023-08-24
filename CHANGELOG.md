@@ -1,3 +1,30 @@
+## [terraform-provider-talos 0.3.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.1) (2023-08-24)
+
+Welcome to the 0.3.1 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`17fde7a`](https://github.com/siderolabs/terraform-provider-talos/commit/17fde7a102eb6403d3c50f9f1ea0b3a341862fcc) fix: creation of talos client
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.3.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.0)
+
 ## [terraform-provider-talos 0.3.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.0) (2023-08-17)
 
 Welcome to the 0.3.0 release of terraform-provider-talos!

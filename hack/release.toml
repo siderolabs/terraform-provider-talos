@@ -5,13 +5,8 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.2.1"
+previous = "v0.3.0"
 pre_release = false
 
 [notes]
 
-    [notes.updates]
-        title = "Component Updates"
-        description = """\
-Talos sdk: v1.5.0
-"""
