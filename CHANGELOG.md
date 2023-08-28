@@ -1,3 +1,30 @@
+## [terraform-provider-talos 0.3.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.2) (2023-08-28)
+
+Welcome to the 0.3.2 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`90ba5ad`](https://github.com/siderolabs/terraform-provider-talos/commit/90ba5ad802e4f4c616a4e99caeec2ccf697db0eb) fix: node/endpoint were swapped for some resources.
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.3.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.1)
+
 ## [terraform-provider-talos 0.3.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.1) (2023-08-24)
 
 Welcome to the 0.3.1 release of terraform-provider-talos!
