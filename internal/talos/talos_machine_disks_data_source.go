@@ -339,8 +339,8 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 	}
 
 	if err := retry.RetryContext(ctxDeadline, readTimeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, state.Node.ValueString(), state.Endpoint.ValueString(), talosConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			diskResp, err := c.Disks(opFuncCtx)
+		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+			diskResp, err := c.Disks(nodeCtx)
 			if err != nil {
 				return err
 			}

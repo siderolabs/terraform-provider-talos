@@ -181,8 +181,8 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 	defer cancel()
 
 	if retryErr := retry.RetryContext(ctxDeadline, readTimeout, func() *retry.RetryError {
-		if clientOpErr := talosClientOp(ctx, state.Node.ValueString(), state.Endpoint.ValueString(), talosConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			kubeConfigBytes, clientErr := c.Kubeconfig(opFuncCtx)
+		if clientOpErr := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+			kubeConfigBytes, clientErr := c.Kubeconfig(nodeCtx)
 			if clientErr != nil {
 				return clientErr
 			}

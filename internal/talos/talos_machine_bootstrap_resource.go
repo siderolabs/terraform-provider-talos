@@ -140,8 +140,8 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 	defer cancel()
 
 	if err := retry.RetryContext(ctxDeadline, createTimeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			return c.Bootstrap(opFuncCtx, &machineapi.BootstrapRequest{})
+		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(nodeCtx context.Context, c *client.Client) error {
+			return c.Bootstrap(nodeCtx, &machineapi.BootstrapRequest{})
 		}); err != nil {
 			if s := status.Code(err); s == codes.InvalidArgument {
 				return retry.NonRetryableError(err)
