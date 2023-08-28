@@ -66,7 +66,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test data source with custom values
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-1", "controlplane", "https://cluster-1.local:6443", "v1.26.3", true, false, false, false),
+				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-1", "controlplane", "https://cluster-1.local:6443", "v1.27.0", true, false, false, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster-1"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster-1"),
@@ -75,7 +75,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.#", "4"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/sdd\"\n"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.26.3"),
+					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.27.0"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "false"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "false"),
@@ -85,7 +85,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							"example-cluster-1",
 							"https://cluster-1.local:6443",
 							"/dev/sdd",
-							"1.26.3",
+							"1.27.0",
 							"controlplane",
 							value,
 							false,
@@ -194,7 +194,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			// test validating kubernetes compatibility with the default talos version
 			{
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.25.0", false, false, true, true),
-				ExpectError: regexp.MustCompile("version of Kubernetes 1.25.0 is too old to be used with Talos 1.5.0"),
+				ExpectError: regexp.MustCompile(fmt.Sprintf("version of Kubernetes 1.25.0 is too old to be used with Talos %s", strings.TrimPrefix(gendata.VersionTag, "v"))),
 			},
 			// test validating kubernetes compatibility with a specific talos version
 			{

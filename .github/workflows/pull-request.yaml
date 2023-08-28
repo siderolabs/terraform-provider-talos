@@ -2,8 +2,10 @@ name: check-dirty
 on:
   pull_request:
 jobs:
-  run-tests:
-    runs-on: ubuntu-latest
+  check-dirty:
+    runs-on: self-hosted
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout
         uses: actions/checkout@v3

@@ -74,6 +74,7 @@ type dynamicConfig struct {
 	WithApplyConfig        bool
 	WithBootstrap          bool
 	WithRetrieveKubeConfig bool
+	WithClusterHealth      bool
 }
 
 func (c *dynamicConfig) render() string {
@@ -229,9 +230,24 @@ data "talos_cluster_kubeconfig" "this" {
   depends_on = [
     talos_machine_bootstrap.this
   ]
-  wait                 = true
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+}
+{{ end }}
+
+{{ if .WithClusterHealth }}
+data "talos_cluster_health" "this" {
+  depends_on = [
+    data.talos_cluster_kubeconfig.this
+  ]
+
+  timeouts = {
+    read = "20m"
+  }
+
+  client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = libvirt_domain.cp.network_interface[0].addresses
+  control_plane_nodes  = libvirt_domain.cp.network_interface[0].addresses
 }
 {{ end }}
 {{ end }}

@@ -6,8 +6,10 @@ on:
       - 'go.sum'
       - '**.go'
 jobs:
-  run-tests:
-    runs-on: ubuntu-latest
+  acc-tests:
+    runs-on: self-hosted
+    env:
+      GOTOOLCHAIN: local
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -21,28 +23,47 @@ jobs:
         with:
           terraform_wrapper: false
       - name: Set up libvirt
+        env:
+          LIBVIRT_DEFAULT_URI: qemu:///system
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get install --no-install-recommends -y \
             bridge-utils \
             dnsmasq-base \
-            virtinst \
-            libvirt-daemon \
             libvirt-daemon-system \
             qemu-kvm \
-          ;
+            qemu-utils \
+            ovmf
 
+          sudo virtlockd -d
+          sudo virtlogd -d
+          sudo libvirtd -d
           echo -e "<pool type='dir'>\n<name>default</name>\n<target>\n<path>/pool-default</path>\n</target>\n</pool>" > pool.xml
           sudo mkdir /pool-default
           sudo chmod a+rwx /pool-default
           sudo virsh pool-define pool.xml
           sudo virsh pool-start default
           echo 'security_driver = "none"' | sudo tee --append /etc/libvirt/qemu.conf
-          sudo systemctl restart libvirtd
+          cat <<EOF > net.xml
+          <network>
+            <name>default</name>
+            <bridge name='virbr0'/>
+            <mtu size="1350"/>
+            <forward/>
+            <ip address='192.168.122.1' netmask='255.255.255.0'>
+              <dhcp>
+                <range start='192.168.122.2' end='192.168.122.254'/>
+              </dhcp>
+            </ip>
+          </network>
+          EOF
+          sudo virsh net-destroy default
+          sudo virsh net-undefine default
+          sudo virsh net-create net.xml
       - name: acceptance-test
         env:
           TERRAFORM_LIBVIRT_TEST_DOMAIN_TYPE: qemu
           LIBVIRT_DEFAULT_URI: qemu:///system
           CI: "true"
         run: |
-          sudo -E make testacc
+          make testacc

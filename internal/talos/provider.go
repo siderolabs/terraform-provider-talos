@@ -42,6 +42,7 @@ func (p *talosProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewTalosMachineDisksDataSource,
 		NewTalosMachineConfigurationDataSource,
 		NewTalosClientConfigurationDataSource,
+		NewTalosClusterHealthDataSource,
 		NewTalosClusterKubeConfigDataSource,
 	}
 }

@@ -57,7 +57,6 @@ func TestAccTalosClusterKubeconfigDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_kubeconfig.this", "kubernetes_client_configuration.ca_certificate"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_certificate"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_key"),
-					resource.TestCheckResourceAttr("data.talos_cluster_kubeconfig.this", "wait", "true"),
 				),
 			},
 			// make sure there are no changes

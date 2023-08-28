@@ -7,8 +7,9 @@ ifneq ($(origin TESTS), undefined)
 endif
 
 ifneq ($(origin CI), undefined)
-	RUNARGS += -parallel=2
-	TEST_TIMEOUT = 1500s
+	RUNARGS += -parallel=3
+	RUNARGS += -timeout=20m
+	RUNARGS += -exec="sudo -E"
 endif
 
 .PHONY: generate
@@ -18,7 +19,7 @@ generate:
 .PHONY: testacc
 testacc:
 	# TF_CLI_CONFIG_FILE is set here to avoid using the user's .terraformrc file. Ref: https://github.com/hashicorp/terraform-plugin-sdk/issues/1171
-	TF_CLI_CONFIG_FILE="thisfiledoesnotexist" TF_ACC=1 go test -v -cover -timeout $(TEST_TIMEOUT) $(RUNARGS) ./...
+	TF_CLI_CONFIG_FILE="thisfiledoesnotexist" TF_ACC=1 go test -v -cover $(RUNARGS) ./...
 
 .PHONY: check-dirty
 check-dirty: generate ## Verifies that source tree is not dirty
