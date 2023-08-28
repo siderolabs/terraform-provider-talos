@@ -175,8 +175,8 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 	defer cancel()
 
 	if err := retry.RetryContext(ctxDeadline, createTimeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			_, err := c.ApplyConfiguration(opFuncCtx, &machineapi.ApplyConfigurationRequest{
+		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(nodeCtx context.Context, c *client.Client) error {
+			_, err := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
 				Mode: machineapi.ApplyConfigurationRequest_Mode(machineapi.ApplyConfigurationRequest_Mode_value[strings.ToUpper(state.ApplyMode.ValueString())]),
 				Data: []byte(state.MachineConfiguration.ValueString()),
 			})
@@ -253,8 +253,8 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 	defer cancel()
 
 	if err := retry.RetryContext(ctxDeadline, updateTimeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(opFuncCtx context.Context, c *client.Client) error {
-			_, err := c.ApplyConfiguration(opFuncCtx, &machineapi.ApplyConfigurationRequest{
+		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(nodeCtx context.Context, c *client.Client) error {
+			_, err := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
 				Mode: machineapi.ApplyConfigurationRequest_Mode(machineapi.ApplyConfigurationRequest_Mode_value[strings.ToUpper(state.ApplyMode.ValueString())]),
 				Data: []byte(state.MachineConfiguration.ValueString()),
 			})

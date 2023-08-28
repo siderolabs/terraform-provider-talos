@@ -203,7 +203,7 @@ func validateVersionContract(version string) (*config.VersionContract, error) {
 }
 
 func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.Config, opFunc func(ctx context.Context, c *client.Client) error) error {
-	opCtx := client.WithNode(ctx, node)
+	nodeCtx := client.WithNode(ctx, node)
 
 	c, err := client.New(ctx, client.WithTLSConfig(&tls.Config{
 		InsecureSkipVerify: true,
@@ -212,7 +212,7 @@ func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.
 		return err
 	}
 
-	_, err = c.Disks(opCtx)
+	_, err = c.Disks(nodeCtx)
 	if err != nil {
 		c.Close() //nolint:errcheck
 
@@ -223,7 +223,7 @@ func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.
 	}
 	defer c.Close() //nolint:errcheck
 
-	return opFunc(opCtx, c)
+	return opFunc(nodeCtx, c)
 }
 
 type talosVersionValidator struct{}
