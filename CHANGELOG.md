@@ -1,3 +1,57 @@
+## [terraform-provider-talos 0.4.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0-alpha.0) (2023-08-30)
+
+Welcome to the v0.4.0-alpha.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Talos Cluster Health data source
+
+`talos_cluster_health` data source has been added and the `wait` parameter from the `talos_cluster_kubeconfig` data source is now deprecated.
+
+
+### Component Updates
+
+Talos sdk: v1.6.0-alpha.0
+
+
+### Contributors
+
+* Noel Georgi
+* Dmitriy Matrenichev
+
+### Changes
+<details><summary>4 commits</summary>
+<p>
+
+* [`1c918e6`](https://github.com/siderolabs/terraform-provider-talos/commit/1c918e65b10764b1ed5286193ac661f3daec51d9) chore: add conform
+* [`ed36726`](https://github.com/siderolabs/terraform-provider-talos/commit/ed3672669b20c7fd911088609952f8e036f38a1f) feat: add `talos_cluster_health` data source.
+* [`5ac7183`](https://github.com/siderolabs/terraform-provider-talos/commit/5ac7183f33a425e17821f1a294a3133daa09e7fa) fix: node/endpoint were swapped for some resources.
+* [`713ac46`](https://github.com/siderolabs/terraform-provider-talos/commit/713ac4686a3e00e135cab7ea533da7319522dddd) fix: creation of talos client
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>1 commit</summary>
+<p>
+
+* [`36a3ae3`](https://github.com/siderolabs/gen/commit/36a3ae312ce03876b2c961a1bcb4ef4c221593d7) feat: update module
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework**  v1.3.4 -> v1.3.5
+* **github.com/hashicorp/terraform-plugin-sdk/v2**     v2.27.0 -> v2.28.0
+* **github.com/siderolabs/gen**                        v0.4.5 -> v0.4.6
+* **github.com/siderolabs/talos/pkg/machinery**        v1.5.0 -> v1.6.0-alpha.0
+* **k8s.io/client-go**                                 v0.28.0 -> v0.28.1
+
+Previous release can be found at [v0.3.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.2)
+
 ## [terraform-provider-talos 0.3.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.0-beta.0) (2023-08-07)
 
 Welcome to the 0.3.0-beta.0 release of terraform-provider-talos!  
