@@ -7,7 +7,7 @@ on:
       - '**.go'
 jobs:
   acc-tests:
-    runs-on: self-hosted
+    runs-on: [self-hosted,spencer]
     env:
       GOTOOLCHAIN: local
     steps:
@@ -48,7 +48,7 @@ jobs:
           <network>
             <name>default</name>
             <bridge name='virbr0'/>
-            <mtu size="1350"/>
+            <mtu size="1400"/>
             <forward/>
             <ip address='192.168.122.1' netmask='255.255.255.0'>
               <dhcp>
