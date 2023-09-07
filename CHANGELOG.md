@@ -1,3 +1,30 @@
+## [terraform-provider-talos 0.3.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.3) (2023-09-07)
+
+Welcome to the v0.3.3 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Andrey Smirnov
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`38db77d`](https://github.com/siderolabs/terraform-provider-talos/commit/38db77da7f80c36e99a1ce5a0056f6b4289c6580) fix: update Talos machinery to v1.5.2
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/talos/pkg/machinery**  v1.5.0 -> v1.5.2
+
+Previous release can be found at [v0.3.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.2)
+
 ## [terraform-provider-talos 0.3.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.2) (2023-08-28)
 
 Welcome to the 0.3.2 release of terraform-provider-talos!
