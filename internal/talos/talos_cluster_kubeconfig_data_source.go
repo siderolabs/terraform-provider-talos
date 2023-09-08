@@ -65,7 +65,7 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasou
 			"endpoint": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "endpoint to use for the talosclient. if not set, the node value will be used",
+				Description: "endpoint to use for the talosclient. If not set, the node value will be used",
 			},
 			"client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{

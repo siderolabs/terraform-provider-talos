@@ -25,7 +25,7 @@ data "talos_machine_disks" "this" {
   }
 }
 
-# for example this could be used to pass in list of disks to rook-ceph
+# for example, this could be used to pass in a list of disks to rook-ceph
 output "nvme_disks" {
   value = data.talos_machine_disks.this.disks.*.name
 }
@@ -40,7 +40,7 @@ output "nvme_disks" {
 
 ### Optional
 
-- `endpoint` (String) endpoint to use for the talosclient. if not set, the node value will be used
+- `endpoint` (String) endpoint to use for the talosclient. If not set, the node value will be used
 - `filters` (Attributes) Filters to apply to the disks (see [below for nested schema](#nestedatt--filters))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 

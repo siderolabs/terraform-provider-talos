@@ -71,7 +71,7 @@ data "talos_cluster_kubeconfig" "this" {
 
 ### Optional
 
-- `endpoint` (String) endpoint to use for the talosclient. if not set, the node value will be used
+- `endpoint` (String) endpoint to use for the talosclient. If not set, the node value will be used
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `wait` (Boolean, Deprecated) Wait for the kubernetes api to be available
 
