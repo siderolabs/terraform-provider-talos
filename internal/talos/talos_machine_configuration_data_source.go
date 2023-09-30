@@ -343,7 +343,7 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 		return
 	}
 
-	if !state.KubernetesVersion.IsUnknown() && !state.KubernetesVersion.IsNull() {
+	if !state.KubernetesVersion.IsUnknown() && !state.KubernetesVersion.IsNull() && !state.TalosVersion.IsUnknown() {
 		k8sVersionCompatibility, err := compatibility.ParseKubernetesVersion(strings.TrimPrefix(state.KubernetesVersion.ValueString(), "v"))
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -354,18 +354,14 @@ func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context,
 			return
 		}
 
-		var talosVersionInfo *machineapi.VersionInfo
+		talosVersionInfo := &machineapi.VersionInfo{}
 
-		if !state.TalosVersion.IsUnknown() && state.TalosVersion.IsNull() {
-			talosVersionInfo = &machineapi.VersionInfo{
-				Tag: gendata.VersionTag,
-			}
+		if state.TalosVersion.IsNull() {
+			talosVersionInfo.Tag = gendata.VersionTag
 		}
 
-		if !state.TalosVersion.IsUnknown() && !state.TalosVersion.IsNull() {
-			talosVersionInfo = &machineapi.VersionInfo{
-				Tag: state.TalosVersion.ValueString(),
-			}
+		if !state.TalosVersion.IsNull() {
+			talosVersionInfo.Tag = state.TalosVersion.ValueString()
 		}
 
 		talosVersionCompatibility, err := compatibility.ParseTalosVersion(talosVersionInfo)
