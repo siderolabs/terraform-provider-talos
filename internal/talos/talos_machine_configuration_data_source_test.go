@@ -207,6 +207,10 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "v1.23.0", true, true, true, true),
 				ExpectError: regexp.MustCompile("unknown keys found during decoding:"),
 			},
+			{ // this is just added so that the plan only test above doesn't fail
+				PlanOnly: true,
+				Config:   testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "", false, false, true, true),
+			},
 		},
 	})
 }
@@ -247,8 +251,13 @@ func testAccTalosMachineConfigurationDataSourceConfig(
 	}
 
 	configTemplate := `
+variable "talos_version" {
+  type = string
+  default = "{{ .TalosVersion }}"
+}
+
 resource "talos_machine_secrets" "this" {
-  {{ if .TalosVersion  }}talos_version = "{{ .TalosVersion }}"{{ end }}
+  {{ if .TalosVersion  }}talos_version = var.talos_version{{ end }}
 }
 
 data "talos_machine_configuration" "this" {
@@ -256,7 +265,7 @@ data "talos_machine_configuration" "this" {
   cluster_endpoint           = "{{ .ClusterEndpoint }}"
   machine_type               = "{{ .MachineType }}"
   machine_secrets            = talos_machine_secrets.this.machine_secrets
-  {{ if .TalosVersion  }}talos_version    = "{{ .TalosVersion }}"{{ end }}
+  {{ if .TalosVersion  }}talos_version    = var.talos_version{{ end }}
   {{ if .ConfigPatches  }}config_patches             = [
     yamlencode({
       machine = {

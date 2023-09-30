@@ -25,6 +25,9 @@ testacc:
 check-dirty: generate ## Verifies that source tree is not dirty
 	@if test -n "`git status --porcelain`"; then echo "Source tree is dirty"; git status; exit 1 ; fi
 
+build-debug:
+	go build -gcflags='all=-N -l'
+
 install:
 	go install .
 

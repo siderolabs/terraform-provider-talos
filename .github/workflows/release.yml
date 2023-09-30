@@ -18,7 +18,9 @@ permissions:
   contents: write
 jobs:
   goreleaser:
-    runs-on: self-hosted
+    runs-on:
+      - self-hosted
+      - generic
     steps:
       - name: Checkout
         uses: actions/checkout@v3
