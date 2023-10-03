@@ -1,7 +1,4 @@
 name: acceptance-tests
-concurrency:
-  group: ${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 on:
   pull_request:
     paths:
@@ -9,12 +6,8 @@ on:
       - 'go.sum'
       - '**.go'
 jobs:
-  acc-tests:
-    runs-on:
-      - self-hosted
-      - generic
-    env:
-      GOTOOLCHAIN: local
+  run-tests:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
