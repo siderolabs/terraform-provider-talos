@@ -1,3 +1,32 @@
+## [terraform-provider-talos 0.3.4](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.4) (2023-10-04)
+
+Welcome to the v0.3.4 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Noel Georgi
+* Rui Lopes
+
+### Changes
+<details><summary>2 commits</summary>
+<p>
+
+* [`ea85648`](https://github.com/siderolabs/terraform-provider-talos/commit/ea85648a328a526f5a106c89941ab4809366edc0) chore: rever gh actions change from fbb371c
+* [`fbb371c`](https://github.com/siderolabs/terraform-provider-talos/commit/fbb371c8f596799b64b1cdc8b78e2de2b24dab45) fix: talos_version nil parsing
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.3.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.3)
+
 ## [terraform-provider-talos 0.3.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.3) (2023-09-07)
 
 Welcome to the v0.3.3 release of terraform-provider-talos!
