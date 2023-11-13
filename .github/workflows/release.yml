@@ -40,7 +40,7 @@ jobs:
       - name: release-notes
         run: make release-notes
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4.4.0
+        uses: goreleaser/goreleaser-action@v4.6.0
         with:
           version: latest
           args: release --clean --release-notes=_out/RELEASE_NOTES.md
