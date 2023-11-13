@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Retrieve Workflow Run Info
         id: retrieve-workflow-run-info
-        uses: potiuk/get-workflow-origin@v1_5
+        uses: potiuk/get-workflow-origin@v1
         with:
           sourceRunId: ${{ github.event.workflow_run.id }}
           token: ${{ secrets.GITHUB_TOKEN }}
