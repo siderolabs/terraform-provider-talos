@@ -345,19 +345,19 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 				return err
 			}
 
-			foundDisks := make([]disk.Disk, len(diskResp.Messages[0].Disks))
+			foundDisks := make([]disk.Disk, len(diskResp.GetMessages()[0].GetDisks()))
 
-			for i, diskResp := range diskResp.Messages[0].Disks {
+			for i, diskResp := range diskResp.GetMessages()[0].GetDisks() {
 				foundDisks[i] = disk.Disk{
-					Name:     diskResp.DeviceName,
-					Model:    diskResp.Model,
-					Serial:   diskResp.Serial,
-					Modalias: diskResp.Modalias,
-					Size:     diskResp.Size,
-					UUID:     diskResp.Uuid,
-					WWID:     diskResp.Wwid,
-					Type:     disk.Type(diskResp.Type),
-					BusPath:  diskResp.BusPath,
+					Name:     diskResp.GetDeviceName(),
+					Model:    diskResp.GetModel(),
+					Serial:   diskResp.GetSerial(),
+					Modalias: diskResp.GetModalias(),
+					Size:     diskResp.GetSize(),
+					UUID:     diskResp.GetUuid(),
+					WWID:     diskResp.GetWwid(),
+					Type:     disk.Type(diskResp.GetType()),
+					BusPath:  diskResp.GetBusPath(),
 				}
 			}
 

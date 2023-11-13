@@ -18,7 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 
-	"github.com/siderolabs/terraform-provider-talos/internal/talos"
+	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
 // testAccProtoV6ProviderFactories are used to instantiate a provider during

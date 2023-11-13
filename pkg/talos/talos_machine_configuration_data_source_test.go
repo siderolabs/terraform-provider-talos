@@ -21,7 +21,7 @@ import (
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 
-	"github.com/siderolabs/terraform-provider-talos/internal/talos"
+	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
 func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
@@ -94,7 +94,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Machine().Sysfs())
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Cluster().APIServer().ExtraArgs())
 								assert.Equal(t, "cp-test", config.Machine().Network().Hostname())
-								assert.Equal(t, true, config.Cluster().ScheduleOnControlPlanes())
+								assert.True(t, config.Cluster().ScheduleOnControlPlanes())
 								assert.Empty(t, config.Cluster().AESCBCEncryptionSecret())
 								assert.NotEmpty(t, config.Cluster().SecretboxEncryptionSecret())
 
@@ -339,9 +339,9 @@ func validateGeneratedTalosMachineConfig(
 	assert.Equal(t, installDisk, installDiskConfig)
 	assert.Equal(t, talos.GenerateInstallerImage(), machineConfig.Machine().Install().Image())
 	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", k8sVersion), machineConfig.Machine().Kubelet().Image())
-	assert.Equal(t, true, machineConfig.Persist())
+	assert.True(t, machineConfig.Persist())
 	assert.Equal(t, "v1alpha1", machineConfig.ConfigVersion)
-	assert.Equal(t, true, machineConfig.Cluster().Discovery().Enabled())
+	assert.True(t, machineConfig.Cluster().Discovery().Enabled())
 
 	if docs {
 		assert.Equal(t, "Indicates the schema used to decode the contents.", machineConfig.Doc().Field(0).Description)

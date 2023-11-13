@@ -12,7 +12,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 
-	"github.com/siderolabs/terraform-provider-talos/internal/talos"
+	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
