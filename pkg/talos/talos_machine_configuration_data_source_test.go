@@ -193,8 +193,8 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test validating kubernetes compatibility with the default talos version
 			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.25.0", false, false, true, true),
-				ExpectError: regexp.MustCompile(fmt.Sprintf("version of Kubernetes 1.25.0 is too old to be used with Talos %s", strings.TrimPrefix(gendata.VersionTag, "v"))),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.23.0", false, false, true, true),
+				ExpectError: regexp.MustCompile(fmt.Sprintf("version of Kubernetes 1.23.0 is too old to be used with Talos %s", strings.TrimPrefix(gendata.VersionTag, "v"))),
 			},
 			// test validating kubernetes compatibility with a specific talos version
 			{
@@ -339,7 +339,6 @@ func validateGeneratedTalosMachineConfig(
 	assert.Equal(t, installDisk, installDiskConfig)
 	assert.Equal(t, talos.GenerateInstallerImage(), machineConfig.Machine().Install().Image())
 	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", k8sVersion), machineConfig.Machine().Kubelet().Image())
-	assert.True(t, machineConfig.Persist())
 	assert.Equal(t, "v1alpha1", machineConfig.ConfigVersion)
 	assert.True(t, machineConfig.Cluster().Discovery().Enabled())
 

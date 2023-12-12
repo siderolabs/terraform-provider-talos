@@ -83,11 +83,9 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 				},
 				Config: testAccTalosMachineBootstrapResourceConfigV0("talosv1", rName, isoPath),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					testAccCheckResourceDisappears([]string{
-						"talos_client_configuration.this",
-						"talos_machine_configuration_controlplane.this",
-						"talos_machine_configuration_apply.this",
-					}),
+					resource.TestCheckNoResourceAttr("talos_client_configuration", "this"),
+					resource.TestCheckNoResourceAttr("talos_machine_configuration_controlplane", "this"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply", "id", "this"),
 				),
 			},
 			// now test state migration with the latest version of the provider

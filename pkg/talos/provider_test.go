@@ -14,8 +14,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
@@ -57,12 +55,6 @@ func downloadTalosISO(isoPath string) error {
 	}
 
 	return nil
-}
-
-func testAccCheckResourceDisappears(resourceNames []string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		return s.Remove(resourceNames...)
-	}
 }
 
 type dynamicConfig struct {

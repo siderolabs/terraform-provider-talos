@@ -23,7 +23,7 @@ jobs:
       - generic
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Unshallow
         run: git fetch --prune --unshallow
       - name: Set up Go
@@ -32,7 +32,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v5
+        uses: crazy-max/ghaction-import-gpg@v6
         id: import_gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -40,7 +40,7 @@ jobs:
       - name: release-notes
         run: make release-notes
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4.4.0
+        uses: goreleaser/goreleaser-action@v5.0.0
         with:
           version: latest
           args: release --clean --release-notes=_out/RELEASE_NOTES.md
