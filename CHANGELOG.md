@@ -1,3 +1,98 @@
+## [terraform-provider-talos 0.4.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0) (2023-12-15)
+
+Welcome to the v0.4.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Talos Cluster Health data source
+
+`talos_cluster_health` data source has been added and the `wait` parameter from the `talos_cluster_kubeconfig` data source is now deprecated.
+
+
+### Component Updates
+
+Talos sdk: v1.6.0
+
+
+### Contributors
+
+* Noel Georgi
+* Dmitriy Matrenichev
+* Serge Logvinov
+* Célia Vytrac
+* Rui Lopes
+
+### Changes
+<details><summary>12 commits</summary>
+<p>
+
+* [`c295457`](https://github.com/siderolabs/terraform-provider-talos/commit/c295457082042a494b37807d9d8e3f7e787e448a) chore: bump talos machinery to v1.6.0
+* [`086bdf3`](https://github.com/siderolabs/terraform-provider-talos/commit/086bdf3633f957e771436b05bc4d2e56c71310e9) chore: bump deps
+* [`3fc436b`](https://github.com/siderolabs/terraform-provider-talos/commit/3fc436b97411783fdd6eee831f7b706122d7e7ba) chore: externalize imports
+* [`b465312`](https://github.com/siderolabs/terraform-provider-talos/commit/b4653125e0629db7258255dc693d9225dd4cbbf7) fix: renovate triggers
+* [`7db510c`](https://github.com/siderolabs/terraform-provider-talos/commit/7db510c32245fe235ecd235efccec86ff71c828d) chore: add the missing slack workflow
+* [`2ff68ba`](https://github.com/siderolabs/terraform-provider-talos/commit/2ff68baed1220ed9aaf55ecb96e8e4c7848f0b0a) fix: talos_version nil parsing
+* [`acdc00d`](https://github.com/siderolabs/terraform-provider-talos/commit/acdc00dfc89d4d05d0fc0dc078d949d4e53767cf) docs: update references and cleanup
+* [`4587ebd`](https://github.com/siderolabs/terraform-provider-talos/commit/4587ebdd8fe29c2a51238f3dae216c48d49f0cdc) release(v0.4.0-alpha.0): prepare release
+* [`1c918e6`](https://github.com/siderolabs/terraform-provider-talos/commit/1c918e65b10764b1ed5286193ac661f3daec51d9) chore: add conform
+* [`ed36726`](https://github.com/siderolabs/terraform-provider-talos/commit/ed3672669b20c7fd911088609952f8e036f38a1f) feat: add `talos_cluster_health` data source.
+* [`5ac7183`](https://github.com/siderolabs/terraform-provider-talos/commit/5ac7183f33a425e17821f1a294a3133daa09e7fa) fix: node/endpoint were swapped for some resources.
+* [`713ac46`](https://github.com/siderolabs/terraform-provider-talos/commit/713ac4686a3e00e135cab7ea533da7319522dddd) fix: creation of talos client
+</p>
+</details>
+
+### Changes since v0.4.0-alpha.0
+<details><summary>7 commits</summary>
+<p>
+
+* [`c295457`](https://github.com/siderolabs/terraform-provider-talos/commit/c295457082042a494b37807d9d8e3f7e787e448a) chore: bump talos machinery to v1.6.0
+* [`086bdf3`](https://github.com/siderolabs/terraform-provider-talos/commit/086bdf3633f957e771436b05bc4d2e56c71310e9) chore: bump deps
+* [`3fc436b`](https://github.com/siderolabs/terraform-provider-talos/commit/3fc436b97411783fdd6eee831f7b706122d7e7ba) chore: externalize imports
+* [`b465312`](https://github.com/siderolabs/terraform-provider-talos/commit/b4653125e0629db7258255dc693d9225dd4cbbf7) fix: renovate triggers
+* [`7db510c`](https://github.com/siderolabs/terraform-provider-talos/commit/7db510c32245fe235ecd235efccec86ff71c828d) chore: add the missing slack workflow
+* [`2ff68ba`](https://github.com/siderolabs/terraform-provider-talos/commit/2ff68baed1220ed9aaf55ecb96e8e4c7848f0b0a) fix: talos_version nil parsing
+* [`acdc00d`](https://github.com/siderolabs/terraform-provider-talos/commit/acdc00dfc89d4d05d0fc0dc078d949d4e53767cf) docs: update references and cleanup
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>2 commits</summary>
+<p>
+
+* [`efca710`](https://github.com/siderolabs/gen/commit/efca710d509e6088d7a1a825bd49317df1427639) chore: add `FilterInPlace` method to maps and update module
+* [`36a3ae3`](https://github.com/siderolabs/gen/commit/36a3ae312ce03876b2c961a1bcb4ef4c221593d7) feat: update module
+</p>
+</details>
+
+### Changes from siderolabs/go-blockdevice
+<details><summary>3 commits</summary>
+<p>
+
+* [`d9313ea`](https://github.com/siderolabs/go-blockdevice/commit/d9313ea908f3790dba29f7432501335825c863ff) fix: define softraid partition
+* [`a75c4cc`](https://github.com/siderolabs/go-blockdevice/commit/a75c4ccad6ec3f9d90fd06eaf449501cf86e1ead) chore: rekres
+* [`8a2102a`](https://github.com/siderolabs/go-blockdevice/commit/8a2102a6ec14a0a62fbc44333d737b948d3fb9f0) feat: luks resize
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework**             v1.3.4 -> v1.4.2
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.11.0 -> v0.12.0
+* **github.com/hashicorp/terraform-plugin-go**                    v0.18.0 -> v0.19.1
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.27.0 -> v2.30.0
+* **github.com/hashicorp/terraform-plugin-testing**               v1.4.0 -> v1.6.0
+* **github.com/siderolabs/gen**                                   v0.4.5 -> v0.4.7
+* **github.com/siderolabs/go-blockdevice**                        v0.4.6 -> v0.4.7
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.5.2 -> v1.6.0
+* **golang.org/x/mod**                                            v0.12.0 -> v0.14.0
+* **google.golang.org/grpc**                                      v1.57.0 -> v1.60.0
+* **k8s.io/client-go**                                            v0.28.0 -> v0.28.4
+
+Previous release can be found at [v0.3.4](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.3.4)
+
 ## [terraform-provider-talos 0.4.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0-alpha.0) (2023-08-30)
 
 Welcome to the v0.4.0-alpha.0 release of terraform-provider-talos!  
