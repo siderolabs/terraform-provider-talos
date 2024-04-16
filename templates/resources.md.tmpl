@@ -20,5 +20,5 @@ description: |-
 
 Import is supported using the following syntax:
 
-{{ printf "{{tffile %q}}" .ImportFile }}
+{{ tffile (printf .ImportFile) }}
 {{- end }}

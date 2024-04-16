@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
-
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 

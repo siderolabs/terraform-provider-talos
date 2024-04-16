@@ -11,7 +11,6 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
