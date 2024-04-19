@@ -15,7 +15,7 @@ require (
 	github.com/siderolabs/gen v0.4.8
 	github.com/siderolabs/go-blockdevice v0.4.7
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos/pkg/machinery v1.7.0-beta.1
+	github.com/siderolabs/talos/pkg/machinery v1.7.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.17.0
 	google.golang.org/grpc v1.63.2
