@@ -1,3 +1,67 @@
+## [terraform-provider-talos 0.5.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.5.0) (2024-04-19)
+
+Welcome to the v0.5.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.7.0
+
+
+### Contributors
+
+* Andrey Smirnov
+* Noel Georgi
+* Dmitriy Matrenichev
+
+### Changes
+<details><summary>2 commits</summary>
+<p>
+
+* [`0088df9`](https://github.com/siderolabs/terraform-provider-talos/commit/0088df9ab6955a7952af464443960b874a031c6f) chore: bump talos sdk to stable version
+* [`758b339`](https://github.com/siderolabs/terraform-provider-talos/commit/758b339a44daa39ffb15baf5007ad4100860f767) chore: bump deps
+</p>
+</details>
+
+### Changes from siderolabs/crypto
+<details><summary>3 commits</summary>
+<p>
+
+* [`c240482`](https://github.com/siderolabs/crypto/commit/c2404820ab1c1346c76b5b0f9b7632ca9d51e547) feat: provide dynamic client CA matching
+* [`2f4f911`](https://github.com/siderolabs/crypto/commit/2f4f911da321ade3cedacc3b6abfef5f119f7508) feat: add PEMEncodedCertificate wrapper
+* [`1c94bb3`](https://github.com/siderolabs/crypto/commit/1c94bb3967a427ba52c779a1b705f5aea466dc57) chore: bump dependencies
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>1 commit</summary>
+<p>
+
+* [`238baf9`](https://github.com/siderolabs/gen/commit/238baf95e228d40f9f5b765b346688c704052715) chore: add typesafe `SyncMap` and bump stuff
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**       v0.16.0 -> v0.19.0
+* **github.com/hashicorp/terraform-plugin-framework**  v1.4.2 -> v1.7.0
+* **github.com/hashicorp/terraform-plugin-go**         v0.19.1 -> v0.22.1
+* **github.com/hashicorp/terraform-plugin-sdk/v2**     v2.30.0 -> v2.33.0
+* **github.com/hashicorp/terraform-plugin-testing**    v1.6.0 -> v1.7.0
+* **github.com/siderolabs/crypto**                     v0.4.1 -> v0.4.4
+* **github.com/siderolabs/gen**                        v0.4.7 -> v0.4.8
+* **github.com/siderolabs/talos/pkg/machinery**        v1.6.0 -> v1.7.0
+* **github.com/stretchr/testify**                      v1.8.4 -> v1.9.0
+* **golang.org/x/mod**                                 v0.14.0 -> v0.17.0
+* **google.golang.org/grpc**                           v1.60.0 -> v1.63.2
+* **k8s.io/client-go**                                 v0.28.4 -> v0.29.3
+
+Previous release can be found at [v0.4.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0)
+
 ## [terraform-provider-talos 0.4.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0-alpha.0) (2023-08-30)
 
 Welcome to the v0.4.0-alpha.0 release of terraform-provider-talos!  

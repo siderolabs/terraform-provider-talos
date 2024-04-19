@@ -5,19 +5,13 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
 
-previous = "v0.3.2"
-pre_release = true
+previous = "v0.4.0"
+pre_release = false
 
 [notes]
-
-    [notes.talos_cluster_health]
-        title = "Talos Cluster Health data source"
-        description = """\
-`talos_cluster_health` data source has been added and the `wait` parameter from the `talos_cluster_kubeconfig` data source is now deprecated.
-"""
 
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.6.0-alpha.0
+Talos sdk: v1.7.0
 """
