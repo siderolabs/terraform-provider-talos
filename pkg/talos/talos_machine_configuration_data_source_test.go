@@ -17,10 +17,11 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
-	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
+
+	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
 func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
