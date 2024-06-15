@@ -6,6 +6,7 @@ package talos
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -17,8 +18,15 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type kubernetesAPIUnavailableError struct{}
+
+func (e kubernetesAPIUnavailableError) Error() string {
+	return "kubernetes api is unavailable"
+}
 
 type talosClusterKubeConfigDataSource struct{}
 
@@ -89,7 +97,7 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasou
 			"wait": schema.BoolAttribute{
 				Optional:           true,
 				Description:        "Wait for the kubernetes api to be available",
-				DeprecationMessage: "This attribute is deprecated and no-op. Will be removed in a future version. Use talos_cluster_health instead.",
+				DeprecationMessage: "This attribute is deprecated and will be removed in a future version. Use talos_cluster_health instead.",
 			},
 			"kubeconfig_raw": schema.StringAttribute{
 				Computed:    true,
@@ -182,10 +190,35 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 			state.KubeConfigRaw = basetypes.NewStringValue(string(kubeConfigBytes))
 
+			if state.Wait.ValueBool() {
+				clientConfig, configErr := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
+				if configErr != nil {
+					return configErr
+				}
+				restConfig, configErr := clientConfig.ClientConfig()
+				if configErr != nil {
+					return configErr
+				}
+				clientset, configErr := kubernetes.NewForConfig(restConfig)
+				if configErr != nil {
+					return configErr
+				}
+
+				if _, err = clientset.ServerVersion(); err != nil {
+					return kubernetesAPIUnavailableError{}
+				}
+			}
+
 			return nil
 		}); clientOpErr != nil {
 			if s := status.Code(clientOpErr); s == codes.InvalidArgument {
 				return retry.NonRetryableError(clientOpErr)
+			}
+
+			if state.Wait.ValueBool() {
+				if errors.Is(clientOpErr, kubernetesAPIUnavailableError{}) {
+					return retry.RetryableError(clientOpErr)
+				}
 			}
 
 			return retry.RetryableError(clientOpErr)
