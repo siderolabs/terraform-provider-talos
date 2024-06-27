@@ -7,14 +7,19 @@ package talos_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"golang.org/x/mod/semver"
+
+	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
 func TestAccTalosMachineSecretsResource(t *testing.T) {
+	testTime := time.Now()
+
 	resource.ParallelTest(t, resource.TestCase{
 		IsUnitTest:               true, // this is a local only resource, so can be unit tested
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -45,9 +50,47 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("talos_machine_secrets.this", "machine_secrets.secrets.aescbc_encryption_secret"),
 				),
 			},
+			// test talosconfig regeneration
+			{
+				Config: testAccTalosMachineSecretsResourceConfig(""),
+				PreConfig: func() {
+					talos.OverridableTimeFunc = func() time.Time {
+						return testTime.AddDate(0, 12, 5)
+					}
+				},
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine_secrets.this", "id", "machine_secrets"),
+					resource.TestCheckResourceAttr("talos_machine_secrets.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.cluster.id"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.cluster.secret"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.secrets.bootstrap_token"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.secrets.secretbox_encryption_secret"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.trustdinfo.token"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.etcd.cert"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.etcd.key"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.k8s.cert"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.k8s.key"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.k8s_aggregator.cert"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.k8s_aggregator.key"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.k8s_serviceaccount.key"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.os.cert"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.certs.os.key"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "client_configuration.ca_certificate"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "client_configuration.client_certificate"),
+					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "client_configuration.client_key"),
+					resource.TestCheckNoResourceAttr("talos_machine_secrets.this", "machine_secrets.secrets.aescbc_encryption_secret"),
+				),
+			},
 			// test that setting the talos_version to the same value does not cause a diff
 			{
 				Config: testAccTalosMachineSecretsResourceConfig(semver.MajorMinor(gendata.VersionTag)),
+				PreConfig: func() {
+					talos.OverridableTimeFunc = func() time.Time {
+						return testTime
+					}
+				},
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectEmptyPlan(),
@@ -76,7 +119,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("talos_machine_secrets.this", "machine_secrets.secrets.aescbc_encryption_secret"),
 				),
 			},
-			// test that setting the talos_version to a lower version causes a diff
+			// test that setting the talos_version to a lower version causes a diff and requires replacement
 			// also test that the aescbc_encryption_secret is set
 			{ //nolint:dupl
 				Config: testAccTalosMachineSecretsResourceConfig("v1.2.0"),
@@ -108,7 +151,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.secrets.aescbc_encryption_secret"),
 				),
 			},
-			// test that setting the talos_version to a higher version does not cause a diff
+			// test that setting the talos_version to a higher version does not cause a diff and requires no replacement
 			// also test that the aescbc_encryption_secret is still set when upgrading
 			{ //nolint:dupl
 				Config: testAccTalosMachineSecretsResourceConfig("v1.4"),

@@ -6,6 +6,8 @@ package talos
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"os"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"golang.org/x/mod/semver"
@@ -27,7 +30,15 @@ var (
 	_ resource.Resource                 = &talosMachineSecretsResource{}
 	_ resource.ResourceWithUpgradeState = &talosMachineSecretsResource{}
 	_ resource.ResourceWithImportState  = &talosMachineSecretsResource{}
+	_ resource.ResourceWithModifyPlan   = &talosMachineSecretsResource{}
 )
+
+// OverridableTimeFunc is a function that returns the current time. It is used to allow tests to override the current time.
+//
+//nolint:gocritic
+var OverridableTimeFunc = func() time.Time {
+	return time.Now()
+}
 
 type talosMachineSecretsResource struct{}
 
@@ -298,10 +309,79 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 func (r *talosMachineSecretsResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 }
 
-func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var obj string
+func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// delete is a no-op
+	if req.Plan.Raw.IsNull() {
+		return
+	}
 
-	diags := req.Plan.GetAttribute(ctx, path.Root("talos_version"), &obj)
+	clientConfigurationPath := path.Root("client_configuration")
+
+	var obj types.Object
+
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, clientConfigurationPath, &obj)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var clientConfigurationData clientConfiguration
+
+	diags := obj.As(ctx, &clientConfigurationData, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	})
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if clientConfigurationData.CA.IsNull() || clientConfigurationData.CA.IsUnknown() {
+		return
+	}
+
+	clientCertificate := clientConfigurationData.Cert.ValueString()
+
+	clientCertificateBytes, err := base64ToBytes(clientCertificate)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to decode client certificate", err.Error())
+
+		return
+	}
+
+	block, _ := pem.Decode(clientCertificateBytes)
+	if block == nil {
+		resp.Diagnostics.AddError("failed to decode client certificate", "failed to parse PEM block")
+
+		return
+	}
+
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to parse client certificate", err.Error())
+
+		return
+	}
+
+	// check if NotAfter expires in a month
+	if x509Cert.NotAfter.Before(OverridableTimeFunc().AddDate(0, 1, 0)) {
+		tflog.Info(ctx, "client certificate expires in a month, regenerating")
+
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("ca_certificate"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("client_certificate"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("client_key"), types.StringUnknown())...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+}
+
+func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var talosVersion string
+
+	diags := req.Plan.GetAttribute(ctx, path.Root("talos_version"), &talosVersion)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -309,11 +389,112 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 	}
 
 	// Set state to fully populated data
-	diags = resp.State.SetAttribute(ctx, path.Root("talos_version"), obj)
+	diags = resp.State.SetAttribute(ctx, path.Root("talos_version"), talosVersion)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	clientConfigurationPath := path.Root("client_configuration")
+
+	var obj types.Object
+
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, clientConfigurationPath, &obj)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var clientConfigurationData clientConfiguration
+
+	diags = obj.As(ctx, &clientConfigurationData, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	})
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if clientConfigurationData.CA.IsNull() || clientConfigurationData.CA.IsUnknown() {
+		return
+	}
+
+	clientCertificate := clientConfigurationData.Cert.ValueString()
+
+	clientCertificateBytes, err := base64ToBytes(clientCertificate)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to decode client certificate", err.Error())
+
+		return
+	}
+
+	block, _ := pem.Decode(clientCertificateBytes)
+	if block == nil {
+		resp.Diagnostics.AddError("failed to decode client certificate", "failed to parse PEM block")
+
+		return
+	}
+
+	x509Cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to parse client certificate", err.Error())
+
+		return
+	}
+
+	// check if NotAfter expires in a month
+	if x509Cert.NotAfter.Before(OverridableTimeFunc().AddDate(0, 1, 0)) {
+		tflog.Info(ctx, "client certificate expires in a month, regenerating")
+
+		var obj types.Object
+
+		diags := req.State.Get(ctx, &obj)
+		resp.Diagnostics.Append(diags...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		var config talosMachineSecretsResourceModelV1
+
+		diags = obj.As(ctx, &config, basetypes.ObjectAsOptions{
+			UnhandledNullAsEmpty:    true,
+			UnhandledUnknownAsEmpty: true,
+		})
+		resp.Diagnostics.Append(diags...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		secretsBundle, err := machineSecretsToSecretsBundle(config)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to convert machine secrets to secrets bundle", err.Error())
+
+			return
+		}
+
+		if secretsBundle.Clock == nil {
+			secretsBundle.Clock = secrets.NewFixedClock(time.Now())
+		}
+
+		state, err := secretsBundleTomachineSecrets(secretsBundle)
+		if err != nil {
+			resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+
+			return
+		}
+
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("ca_certificate"), &state.ClientConfiguration.CA)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("client_certificate"), &state.ClientConfiguration.Cert)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("client_key"), &state.ClientConfiguration.Key)...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 }
 

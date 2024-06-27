@@ -193,6 +193,95 @@ func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineS
 	return model, nil
 }
 
+func machineSecretsToSecretsBundle(model talosMachineSecretsResourceModelV1) (*secrets.Bundle, error) {
+	secretsBundle := &secrets.Bundle{
+		Cluster: &secrets.Cluster{
+			ID:     model.MachineSecrets.Cluster.ID.ValueString(),
+			Secret: model.MachineSecrets.Cluster.Secret.ValueString(),
+		},
+		Secrets: &secrets.Secrets{
+			BootstrapToken:            model.MachineSecrets.Secrets.BootstrapToken.ValueString(),
+			SecretboxEncryptionSecret: model.MachineSecrets.Secrets.SecretboxEncryptionSecret.ValueString(),
+		},
+		TrustdInfo: &secrets.TrustdInfo{
+			Token: model.MachineSecrets.TrustdInfo.Token.ValueString(),
+		},
+	}
+
+	if model.MachineSecrets.Secrets.AESCBCEncryptionSecret.ValueString() != "" {
+		secretsBundle.Secrets.AESCBCEncryptionSecret = model.MachineSecrets.Secrets.AESCBCEncryptionSecret.ValueString()
+	}
+
+	etcdCert, err := base64ToBytes(model.MachineSecrets.Certs.Etcd.Cert.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	etcdKey, err := base64ToBytes(model.MachineSecrets.Certs.Etcd.Key.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	k8sCert, err := base64ToBytes(model.MachineSecrets.Certs.K8s.Cert.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	k8sKey, err := base64ToBytes(model.MachineSecrets.Certs.K8s.Key.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	k8sAggregatorCert, err := base64ToBytes(model.MachineSecrets.Certs.K8sAggregator.Cert.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	k8sAggregatorKey, err := base64ToBytes(model.MachineSecrets.Certs.K8sAggregator.Key.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	k8sServiceAccountKey, err := base64ToBytes(model.MachineSecrets.Certs.K8sServiceAccount.Key.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	osCert, err := base64ToBytes(model.MachineSecrets.Certs.OS.Cert.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	osKey, err := base64ToBytes(model.MachineSecrets.Certs.OS.Key.ValueString())
+	if err != nil {
+		return nil, err
+	}
+
+	secretsBundle.Certs = &secrets.Certs{
+		Etcd: &x509.PEMEncodedCertificateAndKey{
+			Crt: etcdCert,
+			Key: etcdKey,
+		},
+		K8s: &x509.PEMEncodedCertificateAndKey{
+			Crt: k8sCert,
+			Key: k8sKey,
+		},
+		K8sAggregator: &x509.PEMEncodedCertificateAndKey{
+			Crt: k8sAggregatorCert,
+			Key: k8sAggregatorKey,
+		},
+		K8sServiceAccount: &x509.PEMEncodedKey{
+			Key: k8sServiceAccountKey,
+		},
+		OS: &x509.PEMEncodedCertificateAndKey{
+			Crt: osCert,
+			Key: osKey,
+		},
+	}
+
+	return secretsBundle, nil
+}
+
 func validateVersionContract(version string) (*config.VersionContract, error) {
 	versionContract, err := config.ParseContractFromVersion(version)
 	if err != nil {
