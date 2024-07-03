@@ -46,7 +46,8 @@ func (d *talosClusterHealthDataSource) Metadata(_ context.Context, req datasourc
 
 func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Checks the health of a Talos cluster",
+		Description:         "Checks the health of a Talos cluster",
+		MarkdownDescription: "Waits for the Talos cluster to be healthy. Can be used as a dependency before running other operations on the cluster.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,

@@ -3,12 +3,12 @@
 page_title: "talos_cluster_health Data Source - talos"
 subcategory: ""
 description: |-
-  Checks the health of a Talos cluster
+  Waits for the Talos cluster to be healthy. Can be used as a dependency before running other operations on the cluster.
 ---
 
 # talos_cluster_health (Data Source)
 
-Checks the health of a Talos cluster
+Waits for the Talos cluster to be healthy. Can be used as a dependency before running other operations on the cluster.
 
 
 
