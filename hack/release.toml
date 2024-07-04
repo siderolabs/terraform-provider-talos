@@ -16,6 +16,12 @@ pre_release = true
 `talos_machine_secrets` resource now regenerates client config when the time to expiry is less than a month.
 """
 
+    [notes.talos_cluster_health]
+        title = "Talos Cluster Health"
+        description = """\
+`talos_cluster_health` data source now has a way to skip running the Kubernetes components health check by setting `skip_kubernetes_checks` to `true`.
+"""
+
     [notes.updates]
         title = "Component Updates"
         description = """\
