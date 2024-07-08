@@ -154,7 +154,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 			// test that setting the talos_version to a higher version does not cause a diff and requires no replacement
 			// also test that the aescbc_encryption_secret is still set when upgrading
 			{ //nolint:dupl
-				Config: testAccTalosMachineSecretsResourceConfig("v1.4"),
+				Config: testAccTalosMachineSecretsResourceConfig("1.4"),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
 					PreApply: []plancheck.PlanCheck{
 						plancheck.ExpectNonEmptyPlan(),
@@ -163,7 +163,7 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 				},
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine_secrets.this", "id", "machine_secrets"),
-					resource.TestCheckResourceAttr("talos_machine_secrets.this", "talos_version", "v1.4"),
+					resource.TestCheckResourceAttr("talos_machine_secrets.this", "talos_version", "1.4"),
 					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.cluster.id"),
 					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.cluster.secret"),
 					resource.TestCheckResourceAttrSet("talos_machine_secrets.this", "machine_secrets.secrets.bootstrap_token"),

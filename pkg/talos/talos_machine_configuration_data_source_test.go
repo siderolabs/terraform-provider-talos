@@ -184,7 +184,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			// test validating talos machine config features version
 			{
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("nil", "example-cluster-5", "controlplane", "https://cluster.local", "", false, false, true, true),
-				ExpectError: regexp.MustCompile("error parsing version \"nil\""),
+				ExpectError: regexp.MustCompile("error parsing version \"vnil\""),
 			},
 			// test validating machine type
 			{

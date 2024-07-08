@@ -183,11 +183,12 @@ data "talos_machine_configuration" "this" {
 data "talos_machine_disks" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = libvirt_domain.cp.network_interface[0].addresses[0]
-{{ if .DiskSizeFilter }}
   filters = {
+    type = "hdd"
+{{ if .DiskSizeFilter }}
     size = "{{ .DiskSizeFilter }}"
-  }
 {{ end }}
+  }
 }
 
 {{ if .WithApplyConfig }}

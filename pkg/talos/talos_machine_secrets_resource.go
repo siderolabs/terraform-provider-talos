@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -529,7 +530,10 @@ func (apm *talosMachineFeaturesVersionPlanModifier) PlanModifyString(_ context.C
 		return
 	}
 
-	if semver.Compare(req.PlanValue.ValueString(), req.StateValue.ValueString()) < 0 {
+	planValue := "v" + strings.TrimPrefix(req.PlanValue.ValueString(), "v")
+	stateValue := "v" + strings.TrimPrefix(req.StateValue.ValueString(), "v")
+
+	if semver.Compare(planValue, stateValue) < 0 {
 		res.RequiresReplace = true
 	}
 }
