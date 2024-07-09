@@ -53,5 +53,6 @@ func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewTalosMachineSecretsResource,
 		NewTalosMachineConfigurationApplyResource,
 		NewTalosMachineBootstrapResource,
+		NewTalosClusterKubeConfigResource,
 	}
 }

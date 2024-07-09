@@ -22,6 +22,14 @@ pre_release = true
 `talos_cluster_health` data source now has a way to skip running the Kubernetes components health check by setting `skip_kubernetes_checks` to `true`.
 """
 
+    [notes.talos_cluster_kubeconfig]
+        title = "Talos Cluster Kubeconfig"
+        description = """\
+`talos_cluster_kubeconfig` data source is now deprecated and will be removed in the next minor release.
+Use `talos_cluster_kubeconfig` resource instead.
+The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config when the time to expiry is less than a month.
+"""
+
     [notes.updates]
         title = "Component Updates"
         description = """\

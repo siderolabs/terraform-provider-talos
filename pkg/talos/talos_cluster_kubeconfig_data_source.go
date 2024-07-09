@@ -33,13 +33,6 @@ type talosClusterKubeConfigDataSourceModelV0 struct { //nolint:govet
 	Timeouts                      timeouts.Value                `tfsdk:"timeouts"`
 }
 
-type kubernetesClientConfiguration struct {
-	Host              types.String `tfsdk:"host"`
-	CACertificate     types.String `tfsdk:"ca_certificate"`
-	ClientCertificate types.String `tfsdk:"client_certificate"`
-	ClientKey         types.String `tfsdk:"client_key"`
-}
-
 var _ datasource.DataSource = &talosClusterKubeConfigDataSource{}
 
 // NewTalosClusterKubeConfigDataSource implements the datasource.DataSource interface.
@@ -53,7 +46,8 @@ func (d *talosClusterKubeConfigDataSource) Metadata(_ context.Context, req datas
 
 func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Retrieves the kubeconfig for a Talos cluster",
+		DeprecationMessage: "Use `talos_cluster_kubeconfig` resource instead. This data source will be removed in the next minor version of the provider.",
+		Description:        "Retrieves the kubeconfig for a Talos cluster",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -126,6 +120,9 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasou
 	}
 }
 
+// Read implements the datasource.DataSource interface.
+//
+//nolint:dupl
 func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var obj types.Object
 

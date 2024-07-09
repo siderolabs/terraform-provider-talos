@@ -186,6 +186,10 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 		},
 	})
 
+	talos.OverridableTimeFunc = func() time.Time {
+		return testTime
+	}
+
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true, // this is a local only resource, so can be unit tested
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

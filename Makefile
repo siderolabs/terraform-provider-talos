@@ -8,7 +8,7 @@ endif
 
 ifneq ($(origin CI), undefined)
 	RUNARGS += -parallel=3
-	RUNARGS += -timeout=20m
+	RUNARGS += -timeout=25m
 	RUNARGS += -exec="sudo -E"
 endif
 

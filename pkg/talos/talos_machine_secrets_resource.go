@@ -367,7 +367,7 @@ func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resour
 
 	// check if NotAfter expires in a month
 	if x509Cert.NotAfter.Before(OverridableTimeFunc().AddDate(0, 1, 0)) {
-		tflog.Info(ctx, "client certificate expires in a month, regenerating")
+		tflog.Info(ctx, "client certificate expires in a month, needs regeneration")
 
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("ca_certificate"), types.StringUnknown())...)
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("client_certificate"), types.StringUnknown())...)

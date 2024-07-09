@@ -219,7 +219,7 @@ resource "talos_machine_bootstrap" "this" {
 {{ end }}
 
 {{ if .WithRetrieveKubeConfig }}
-data "talos_cluster_kubeconfig" "this" {
+resource "talos_cluster_kubeconfig" "this" {
   depends_on = [
     talos_machine_bootstrap.this
   ]
@@ -231,7 +231,7 @@ data "talos_cluster_kubeconfig" "this" {
 {{ if .WithClusterHealth }}
 data "talos_cluster_health" "this" {
   depends_on = [
-    data.talos_cluster_kubeconfig.this
+    talos_cluster_kubeconfig.this
   ]
 
   timeouts = {
