@@ -4,6 +4,7 @@ commit = "HEAD"
 project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
+ignore_deps = ["github.com/siderolabs/talos"]
 
 previous = "v0.5.0"
 pre_release = true
@@ -39,5 +40,5 @@ The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.8.0-alpha.0
+Talos sdk: v1.8.0-alpha.1
 """

@@ -2,8 +2,6 @@ module github.com/siderolabs/terraform-provider-talos
 
 go 1.22.5
 
-replace github.com/siderolabs/talos v1.7.5 => github.com/frezbo/talos v0.14.0-alpha.0.0.20240711100721-a3dc7c9d3d41
-
 require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/hashicorp/terraform-plugin-docs v0.19.4

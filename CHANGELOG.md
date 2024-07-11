@@ -1,3 +1,85 @@
+## [terraform-provider-talos 0.6.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.0-alpha.0) (2024-07-11)
+
+Welcome to the v0.6.0-alpha.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Talos Cluster Health
+
+`talos_cluster_health` data source now has a way to skip running the Kubernetes components health check by setting `skip_kubernetes_checks` to `true`.
+
+
+### Talos Cluster Kubeconfig
+
+`talos_cluster_kubeconfig` data source is now deprecated and will be removed in the next minor release.
+Use `talos_cluster_kubeconfig` resource instead.
+The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config when the time to expiry is less than a month.
+
+
+### Talos Machine Configuration Apply
+
+`talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
+
+
+### Talos Machine Secrets
+
+`talos_machine_secrets` resource now regenerates client config when the time to expiry is less than a month.
+
+
+### Component Updates
+
+Talos sdk: v1.8.0-alpha.1
+
+
+### Contributors
+
+* Noel Georgi
+* Dmitriy Matrenichev
+
+### Changes
+<details><summary>8 commits</summary>
+<p>
+
+* [`1908d9e`](https://github.com/siderolabs/terraform-provider-talos/commit/1908d9e085d4f0d55aa8d55888a01ed7b52e8295) release(v0.6.0-alpha.0): prepare release
+* [`d962913`](https://github.com/siderolabs/terraform-provider-talos/commit/d9629133c03ef09d5a6136b0e6cc1624a7ef4c28) chore: reset options for `machine_configuration_apply` resource
+* [`f26a591`](https://github.com/siderolabs/terraform-provider-talos/commit/f26a5911bdd243fd384a353de1c0140de256211c) chore: data source -> resource `talos_cluster_kubeconfig`
+* [`78fd0d3`](https://github.com/siderolabs/terraform-provider-talos/commit/78fd0d369ff401fbd795609cbbc2275f7d108bb0) chore: ignore version prefix for `talos_version`
+* [`11ae330`](https://github.com/siderolabs/terraform-provider-talos/commit/11ae33002bee7a3e319bc7f9ea7555ca3ebaa120) feat: support skipping k8s health checks
+* [`0fe1a6f`](https://github.com/siderolabs/terraform-provider-talos/commit/0fe1a6fe8d4440f72d7c553cf961b0de7267404b) docs: update description of `talos_cluster_health`
+* [`f6f1811`](https://github.com/siderolabs/terraform-provider-talos/commit/f6f1811e90c9eef91f562f1f8b15f78e984315a0) feat: regenerate talosconfig
+* [`501c78e`](https://github.com/siderolabs/terraform-provider-talos/commit/501c78eb7403012c90229bfc24399d0e1603289b) chore: bump deps
+</p>
+</details>
+
+### Changes from siderolabs/gen
+<details><summary>2 commits</summary>
+<p>
+
+* [`7654108`](https://github.com/siderolabs/gen/commit/7654108fe6ae15d4765584342709bc0bced6b3d6) chore: add hashtriemap implementation
+* [`8485864`](https://github.com/siderolabs/gen/commit/84858640dc9c3032219380885283b995d4f2b0d1) chore: optimize maps.Values and maps.Keys
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**       v0.19.0 -> v0.19.4
+* **github.com/hashicorp/terraform-plugin-framework**  v1.7.0 -> v1.9.0
+* **github.com/hashicorp/terraform-plugin-go**         v0.22.1 -> v0.23.0
+* **github.com/hashicorp/terraform-plugin-log**        v0.9.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-sdk/v2**     v2.33.0 -> v2.34.0
+* **github.com/hashicorp/terraform-plugin-testing**    v1.7.0 -> v1.8.0
+* **github.com/siderolabs/gen**                        v0.4.8 -> v0.5.0
+* **github.com/siderolabs/talos/pkg/machinery**        v1.7.0 -> v1.8.0-alpha.1
+* **golang.org/x/mod**                                 v0.17.0 -> v0.19.0
+* **google.golang.org/grpc**                           v1.63.2 -> v1.65.0
+* **k8s.io/client-go**                                 v0.29.3 -> v0.31.0-alpha.3
+
+Previous release can be found at [v0.5.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.5.0)
+
 ## [terraform-provider-talos 0.4.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.4.0-alpha.0) (2023-08-30)
 
 Welcome to the v0.4.0-alpha.0 release of terraform-provider-talos!  
