@@ -6,6 +6,8 @@ package talos
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"strings"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -22,9 +25,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -36,6 +41,12 @@ var (
 	_ resource.ResourceWithModifyPlan   = &talosMachineConfigurationApplyResource{}
 	_ resource.ResourceWithUpgradeState = &talosMachineConfigurationApplyResource{}
 )
+
+var onDestroyMarkDownDescription = `Actions to be taken on destroy, if *reset* is not set this is a no-op.
+
+> Note: Any changes to *on_destroy* block has to be applied first by running *terraform apply* first,
+then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework.
+`
 
 type talosMachineConfigurationApplyResourceModelV0 struct {
 	Mode                 types.String `tfsdk:"mode"`
@@ -53,9 +64,16 @@ type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
 	Endpoint                  types.String        `tfsdk:"endpoint"`
 	ClientConfiguration       clientConfiguration `tfsdk:"client_configuration"`
 	MachineConfigurationInput types.String        `tfsdk:"machine_configuration_input"`
+	OnDestroy                 *onDestroyOptions   `tfsdk:"on_destroy"`
 	MachineConfiguration      types.String        `tfsdk:"machine_configuration"`
 	ConfigPatches             []types.String      `tfsdk:"config_patches"`
 	Timeouts                  timeouts.Value      `tfsdk:"timeouts"`
+}
+
+type onDestroyOptions struct {
+	Reset    bool `tfsdk:"reset"`
+	Graceful bool `tfsdk:"graceful"`
+	Reboot   bool `tfsdk:"reboot"`
 }
 
 // NewTalosMachineConfigurationApplyResource implements the resource.Resource interface.
@@ -121,6 +139,31 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 				Required:    true,
 				Sensitive:   true,
 			},
+			"on_destroy": schema.SingleNestedAttribute{
+				Description:         "Actions to be taken on destroy, if `reset` is not set this is a no-op.",
+				MarkdownDescription: onDestroyMarkDownDescription,
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"reset": schema.BoolAttribute{
+						Description: "Reset the machine to the initial state (STATE and EPHEMERAL will be wiped). Default false",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+					"graceful": schema.BoolAttribute{
+						Description: "Graceful indicates whether node should leave etcd before the upgrade, it also enforces etcd checks before leaving. Default true",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(true),
+					},
+					"reboot": schema.BoolAttribute{
+						Description: "Reboot indicates whether node should reboot or halt after resetting. Default false",
+						Optional:    true,
+						Computed:    true,
+						Default:     booldefault.StaticBool(false),
+					},
+				},
+			},
 			"machine_configuration": schema.StringAttribute{
 				Description: "The generated machine configuration after applying patches",
 				Computed:    true,
@@ -134,6 +177,7 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
+				Delete: true,
 			}),
 		},
 	}
@@ -292,7 +336,100 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 	}
 }
 
-func (p *talosMachineConfigurationApplyResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
+func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state talosMachineConfigurationApplyResourceModelV1
+
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+
+	if diags.HasError() {
+		return
+	}
+
+	if state.OnDestroy != nil && state.OnDestroy.Reset {
+		talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
+			"dynamic",
+			state.ClientConfiguration.CA.ValueString(),
+			state.ClientConfiguration.Cert.ValueString(),
+			state.ClientConfiguration.Key.ValueString(),
+		)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error converting config to talos client config",
+				err.Error(),
+			)
+
+			return
+		}
+
+		deleteTimeout, diags := state.Timeouts.Delete(ctx, 10*time.Minute)
+		resp.Diagnostics.Append(diags...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		resetRequest := &machineapi.ResetRequest{
+			Graceful: state.OnDestroy.Graceful,
+			Reboot:   state.OnDestroy.Reboot,
+			SystemPartitionsToWipe: []*machineapi.ResetPartitionSpec{
+				{
+					Label: "STATE",
+				},
+				{
+					Label: "EPHEMERAL",
+				},
+			},
+		}
+
+		actionFn := func(ctx context.Context, c *client.Client) (string, error) {
+			return resetGetActorID(ctx, c, resetRequest)
+		}
+
+		var postCheckFn func(context.Context, *client.Client, string) error
+
+		if state.OnDestroy.Reboot {
+			postCheckFn = func(ctx context.Context, c *client.Client, preActionBootID string) error {
+				insecureClient, err := client.New(
+					ctx,
+					client.WithTLSConfig(&tls.Config{
+						InsecureSkipVerify: true,
+					}),
+					client.WithEndpoints(state.Endpoint.ValueString()),
+				)
+				if err != nil {
+					return err
+				}
+
+				_, err = insecureClient.Disks(client.WithNode(ctx, state.Node.ValueString()))
+
+				// if we can get into maintenance mode, reset has succeeded
+				if err == nil {
+					return nil
+				}
+
+				// try to get the boot ID in the normal mode to see if the node has rebooted
+				return action.BootIDChangedPostCheckFn(ctx, c, preActionBootID)
+			}
+		}
+
+		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(_ context.Context, c *client.Client) error {
+			executor := newClientExecutor(c, []string{state.Node.ValueString()})
+
+			return action.NewTracker(
+				executor,
+				action.StopAllServicesEventFn,
+				actionFn,
+				action.WithPostCheck(postCheckFn),
+				action.WithDebug(false),
+				action.WithTimeout(deleteTimeout),
+			).Run()
+		}); err != nil {
+			resp.Diagnostics.AddError("Error resetting machine", err.Error())
+
+			return
+		}
+	}
 }
 
 func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) { //nolint:gocyclo,cyclop
@@ -490,4 +627,39 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 			},
 		},
 	}
+}
+
+func resetGetActorID(ctx context.Context, c *client.Client, req *machineapi.ResetRequest) (string, error) {
+	resp, err := c.ResetGenericWithResponse(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.GetMessages()) == 0 {
+		return "", errors.New("no messages returned from action run")
+	}
+
+	return resp.GetMessages()[0].GetActorId(), nil
+}
+
+type clientExecutor struct {
+	c     *client.Client
+	nodes []string
+}
+
+func newClientExecutor(c *client.Client, nodes []string) *clientExecutor {
+	return &clientExecutor{
+		c:     c,
+		nodes: nodes,
+	}
+}
+
+func (c *clientExecutor) WithClient(action func(context.Context, *client.Client) error, _ ...grpc.DialOption) error {
+	ctx := client.WithNodes(context.Background(), c.nodes...)
+
+	return action(ctx, c.c)
+}
+
+func (c *clientExecutor) NodeList() []string {
+	return c.nodes
 }

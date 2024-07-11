@@ -30,6 +30,12 @@ Use `talos_cluster_kubeconfig` resource instead.
 The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config when the time to expiry is less than a month.
 """
 
+    [notes.talos_machine_configuration_apply]
+        title = "Talos Machine Configuration Apply"
+        description = """\
+`talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
+"""
+
     [notes.updates]
         title = "Component Updates"
         description = """\

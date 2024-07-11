@@ -56,6 +56,10 @@ resource "talos_machine_configuration_apply" "this" {
 - `apply_mode` (String) The mode of the apply operation
 - `config_patches` (List of String) The list of config patches to apply
 - `endpoint` (String) The endpoint of the machine to bootstrap
+- `on_destroy` (Attributes) Actions to be taken on destroy, if *reset* is not set this is a no-op.
+
+> Note: Any changes to *on_destroy* block has to be applied first by running *terraform apply* first,
+then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework. (see [below for nested schema](#nestedatt--on_destroy))
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -73,11 +77,22 @@ Required:
 - `client_key` (String, Sensitive) The client key
 
 
+<a id="nestedatt--on_destroy"></a>
+### Nested Schema for `on_destroy`
+
+Optional:
+
+- `graceful` (Boolean) Graceful indicates whether node should leave etcd before the upgrade, it also enforces etcd checks before leaving. Default true
+- `reboot` (Boolean) Reboot indicates whether node should reboot or halt after resetting. Default false
+- `reset` (Boolean) Reset the machine to the initial state (STATE and EPHEMERAL will be wiped). Default false
+
+
 <a id="nestedatt--timeouts"></a>
 ### Nested Schema for `timeouts`
 
 Optional:
 
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+- `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
