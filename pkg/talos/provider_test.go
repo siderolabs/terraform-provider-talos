@@ -235,7 +235,7 @@ data "talos_cluster_health" "this" {
   ]
 
   timeouts = {
-    read = "20m"
+    read = "25m"
   }
 
   client_configuration = talos_machine_secrets.this.client_configuration

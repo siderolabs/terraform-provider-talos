@@ -12,10 +12,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/siderolabs/image-factory/pkg/client"
+)
+
+const (
+	// ImageFactoryURL is the default URL of Image Factory.
+	ImageFactoryURL = "https://factory.talos.dev"
 )
 
 // talosProvider is the provider implementation.
 type talosProvider struct{}
+
+type talosProviderModelV0 struct {
+	ImageFactoryURL types.String `tfsdk:"image_factory_url"`
+}
 
 // New is a helper function to simplify provider server and testing implementation.
 func New() provider.Provider {
@@ -29,11 +40,41 @@ func (p *talosProvider) Metadata(_ context.Context, _ provider.MetadataRequest, 
 
 // Schema defines the provider-level schema for configuration data.
 func (p *talosProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
-	resp.Schema = schema.Schema{}
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"image_factory_url": schema.StringAttribute{
+				Optional:    true,
+				Description: "The URL of Image Factory to generate schematics.",
+			},
+		},
+	}
 }
 
 // Configure prepares a Talos client for data sources and resources.
-func (p *talosProvider) Configure(_ context.Context, _ provider.ConfigureRequest, _ *provider.ConfigureResponse) {
+func (p *talosProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var config talosProviderModelV0
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	imageFactoryURL := config.ImageFactoryURL.ValueString()
+
+	if imageFactoryURL == "" && !config.ImageFactoryURL.IsUnknown() {
+		imageFactoryURL = ImageFactoryURL
+	}
+
+	imageFactoryClient, err := client.New(imageFactoryURL)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to create Image Factory client", err.Error())
+
+		return
+	}
+
+	resp.DataSourceData = imageFactoryClient
+	resp.ResourceData = imageFactoryClient
 }
 
 // DataSources defines the data sources implemented in the provider.
@@ -44,6 +85,9 @@ func (p *talosProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewTalosClientConfigurationDataSource,
 		NewTalosClusterHealthDataSource,
 		NewTalosClusterKubeConfigDataSource,
+		NewTalosImageFactoryVersionsDataSource,
+		NewTalosImageFactoryExtensionsVersionsDataSource,
+		NewTalosImageFactoryOverlaysVersionsDataSource,
 	}
 }
 
@@ -54,5 +98,6 @@ func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewTalosMachineConfigurationApplyResource,
 		NewTalosMachineBootstrapResource,
 		NewTalosClusterKubeConfigResource,
+		NewTalosImageFactorySchematicResource,
 	}
 }

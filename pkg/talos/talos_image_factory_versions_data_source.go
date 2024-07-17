@@ -1,0 +1,96 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+package talos
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/siderolabs/image-factory/pkg/client"
+)
+
+type talosImageFactoryVersionsDataSource struct {
+	imageFactoryClient *client.Client
+}
+
+type talosImageFactoryVersionsDataSourceModelV0 struct {
+	ID            types.String `tfsdk:"id"`
+	TalosVersions []string     `tfsdk:"talos_versions"`
+}
+
+var _ datasource.DataSourceWithConfigure = &talosImageFactoryVersionsDataSource{}
+
+// NewTalosImageFactoryVersionsDataSource implements the datasource.DataSource interface.
+func NewTalosImageFactoryVersionsDataSource() datasource.DataSource {
+	return &talosImageFactoryVersionsDataSource{}
+}
+
+func (d *talosImageFactoryVersionsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_image_factory_versions"
+}
+
+func (d *talosImageFactoryVersionsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "The image factory versions data source provides a list of available talos versions from the image factory.",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
+			"talos_versions": schema.ListAttribute{
+				ElementType: types.StringType,
+				Computed:    true,
+				Description: "The list of available talos versions.",
+			},
+		},
+	}
+}
+
+func (d *talosImageFactoryVersionsDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	imageFactoryClient, ok := req.ProviderData.(*client.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"failed to get image factory client",
+			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+
+		return
+	}
+
+	d.imageFactoryClient = imageFactoryClient
+}
+
+func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
+	if d.imageFactoryClient == nil {
+		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
+
+		return
+	}
+
+	versions, err := d.imageFactoryClient.Versions(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to get talos versions", err.Error())
+
+		return
+	}
+
+	state := talosImageFactoryVersionsDataSourceModelV0{
+		ID:            basetypes.NewStringValue("talos_versions"),
+		TalosVersions: versions,
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}

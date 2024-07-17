@@ -3,8 +3,6 @@ commit = "HEAD"
 
 project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
-match_deps = "^github.com/(siderolabs/[a-zA-Z0-9-]+)$"
-ignore_deps = ["github.com/siderolabs/talos"]
 
 previous = "v0.5.0"
 pre_release = true
@@ -35,6 +33,12 @@ The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config
         title = "Talos Machine Configuration Apply"
         description = """\
 `talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
+"""
+
+    [notes.image-factory]
+        title = "Image Factory"
+        description = """\
+Support for querying info from Image Factory and registering schematics is now supported via new Terraform resources.
 """
 
     [notes.updates]
