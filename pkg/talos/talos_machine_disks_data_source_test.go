@@ -5,8 +5,6 @@
 package talos_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
@@ -14,23 +12,9 @@ import (
 )
 
 func TestAccTalosMachineDisksDataSource(t *testing.T) {
-	testDir, err := os.MkdirTemp("", "talos-machine-disks-source")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.RemoveAll(testDir) //nolint:errcheck
-
-	if err := os.Chmod(testDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-
-	isoPath := filepath.Join(testDir, "talos.iso")
-
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
-		WorkingDir: testDir,
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"libvirt": {
 				Source: "dmacvicar/libvirt",
@@ -40,12 +24,7 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// test default config
 			{
-				PreConfig: func() {
-					if err := downloadTalosISO(isoPath); err != nil {
-						t.Fatal(err)
-					}
-				},
-				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, isoPath, "> 6GB"),
+				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, "> 6GB"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
@@ -60,12 +39,7 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 			},
 			// test a filter
 			{
-				PreConfig: func() {
-					if err := downloadTalosISO(isoPath); err != nil {
-						t.Fatal(err)
-					}
-				},
-				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, isoPath, "== 2GB"),
+				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, "== 2GB"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
@@ -82,11 +56,10 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 	})
 }
 
-func testAccTalosMachineDisksDataSourceConfigV0(providerName, rName, isoPath, sizeFilter string) string {
+func testAccTalosMachineDisksDataSourceConfigV0(providerName, rName, sizeFilter string) string {
 	config := dynamicConfig{
 		Provider:        providerName,
 		ResourceName:    rName,
-		IsoPath:         isoPath,
 		DiskSizeFilter:  sizeFilter,
 		WithApplyConfig: false,
 		WithBootstrap:   false,

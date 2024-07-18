@@ -17,10 +17,11 @@ import (
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
+//nolint:maintidx
 func TestAccTalosMachineSecretsResource(t *testing.T) {
 	testTime := time.Now()
 
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true, // this is a local only resource, so can be unit tested
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -60,6 +61,21 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 				},
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+
+	talos.OverridableTimeFunc = func() time.Time {
+		return testTime
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		IsUnitTest:               true, // this is a local only resource, so can be unit tested
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// test defaults
+			{
+				Config: testAccTalosMachineSecretsResourceConfig(""),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine_secrets.this", "id", "machine_secrets"),
 					resource.TestCheckResourceAttr("talos_machine_secrets.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
@@ -185,10 +201,6 @@ func TestAccTalosMachineSecretsResource(t *testing.T) {
 			},
 		},
 	})
-
-	talos.OverridableTimeFunc = func() time.Time {
-		return testTime
-	}
 
 	resource.Test(t, resource.TestCase{
 		IsUnitTest:               true, // this is a local only resource, so can be unit tested

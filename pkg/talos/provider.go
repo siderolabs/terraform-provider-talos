@@ -44,7 +44,7 @@ func (p *talosProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 		Attributes: map[string]schema.Attribute{
 			"image_factory_url": schema.StringAttribute{
 				Optional:    true,
-				Description: "The URL of Image Factory to generate schematics.",
+				Description: "The URL of Image Factory to generate schematics. If not set defaults to https://factory.talos.dev.",
 			},
 		},
 	}
@@ -88,6 +88,7 @@ func (p *talosProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewTalosImageFactoryVersionsDataSource,
 		NewTalosImageFactoryExtensionsVersionsDataSource,
 		NewTalosImageFactoryOverlaysVersionsDataSource,
+		NewTalosImageFactoryURLSDataSource,
 	}
 }
 

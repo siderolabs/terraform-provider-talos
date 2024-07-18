@@ -6,8 +6,6 @@ package talos_test
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"text/template"
@@ -27,40 +25,10 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"talos": providerserver.NewProtocol6WithError(talos.New()),
 }
 
-func downloadTalosISO(isoPath string) error {
-	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
-
-	if _, err := os.Stat(isoPath); err == nil {
-		return nil
-	}
-
-	out, err := os.Create(isoPath)
-	if err != nil {
-		return err
-	}
-	defer out.Close() //nolint:errcheck
-
-	resp, err := http.Get(isoURL) //nolint:noctx
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close() //nolint:errcheck
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	if _, err = io.Copy(out, resp.Body); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type dynamicConfig struct {
 	Provider               string
 	ResourceName           string
-	IsoPath                string
+	IsoURL                 string
 	CPUMode                string
 	DiskSizeFilter         string
 	WithApplyConfig        bool
@@ -76,6 +44,8 @@ func (c *dynamicConfig) render() string {
 	}
 
 	c.CPUMode = cpuMode
+
+	c.IsoURL = fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
 
 	configTemplate := `
 resource "talos_machine_secrets" "this" {}
@@ -99,6 +69,7 @@ resource "libvirt_domain" "cp" {
     ignore_changes = [
       cpu,
       nvram,
+      disk["url"],
     ]
   }
   cpu {
@@ -109,7 +80,7 @@ resource "libvirt_domain" "cp" {
     target_port = "0"
   }
   disk {
-    file = "{{ .IsoPath }}"
+    url = "{{ .IsoURL }}"
   }
   disk {
     volume_id = libvirt_volume.cp.id

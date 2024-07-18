@@ -39,6 +39,7 @@ jobs:
             libvirt-daemon-system \
             qemu-kvm \
             qemu-utils \
+            qemu-block-extra \
             ovmf
 
           sudo virtlockd -d
