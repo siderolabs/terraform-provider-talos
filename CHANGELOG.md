@@ -1,3 +1,95 @@
+## [terraform-provider-talos 0.6.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.0-alpha.1) (2024-07-18)
+
+Welcome to the v0.6.0-alpha.1 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Image Factory
+
+Support for querying info from Image Factory and registering schematics is now supported via new Terraform resources.
+
+
+### Talos Cluster Health
+
+`talos_cluster_health` data source now has a way to skip running the Kubernetes components health check by setting `skip_kubernetes_checks` to `true`.
+
+
+### Talos Cluster Kubeconfig
+
+`talos_cluster_kubeconfig` data source is now deprecated and will be removed in the next minor release.
+Use `talos_cluster_kubeconfig` resource instead.
+The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config when the time to expiry is less than a month.
+
+
+### Talos Machine Configuration Apply
+
+`talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
+
+
+### Talos Machine Secrets
+
+`talos_machine_secrets` resource now regenerates client config when the time to expiry is less than a month.
+
+
+### Component Updates
+
+Talos sdk: v1.8.0-alpha.1
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>11 commits</summary>
+<p>
+
+* [`92fcb70`](https://github.com/siderolabs/terraform-provider-talos/commit/92fcb70cd9c1d6cfb5bd3ea159e56fa493fe62db) feat: add `talos_image_factory_url` data source
+* [`ffc8102`](https://github.com/siderolabs/terraform-provider-talos/commit/ffc8102dd7f7b0929dc54fa1f50afd9b2cfda6be) feat: add factory support
+* [`d6c2a0b`](https://github.com/siderolabs/terraform-provider-talos/commit/d6c2a0bc939de41252d97f09b8e9dfcff3377450) chore: fix goreleaser config
+* [`dcdcee6`](https://github.com/siderolabs/terraform-provider-talos/commit/dcdcee62f8d9429cc0416dfdb92dfc27391da0ee) release(v0.6.0-alpha.0): prepare release
+* [`d962913`](https://github.com/siderolabs/terraform-provider-talos/commit/d9629133c03ef09d5a6136b0e6cc1624a7ef4c28) chore: reset options for `machine_configuration_apply` resource
+* [`f26a591`](https://github.com/siderolabs/terraform-provider-talos/commit/f26a5911bdd243fd384a353de1c0140de256211c) chore: data source -> resource `talos_cluster_kubeconfig`
+* [`78fd0d3`](https://github.com/siderolabs/terraform-provider-talos/commit/78fd0d369ff401fbd795609cbbc2275f7d108bb0) chore: ignore version prefix for `talos_version`
+* [`11ae330`](https://github.com/siderolabs/terraform-provider-talos/commit/11ae33002bee7a3e319bc7f9ea7555ca3ebaa120) feat: support skipping k8s health checks
+* [`0fe1a6f`](https://github.com/siderolabs/terraform-provider-talos/commit/0fe1a6fe8d4440f72d7c553cf961b0de7267404b) docs: update description of `talos_cluster_health`
+* [`f6f1811`](https://github.com/siderolabs/terraform-provider-talos/commit/f6f1811e90c9eef91f562f1f8b15f78e984315a0) feat: regenerate talosconfig
+* [`501c78e`](https://github.com/siderolabs/terraform-provider-talos/commit/501c78eb7403012c90229bfc24399d0e1603289b) chore: bump deps
+</p>
+</details>
+
+### Changes since v0.6.0-alpha.0
+<details><summary>2 commits</summary>
+<p>
+
+* [`92fcb70`](https://github.com/siderolabs/terraform-provider-talos/commit/92fcb70cd9c1d6cfb5bd3ea159e56fa493fe62db) feat: add `talos_image_factory_url` data source
+* [`ffc8102`](https://github.com/siderolabs/terraform-provider-talos/commit/ffc8102dd7f7b0929dc54fa1f50afd9b2cfda6be) feat: add factory support
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**                  v0.19.0 -> v0.19.4
+* **github.com/hashicorp/terraform-plugin-framework**             v1.7.0 -> v1.10.0
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.12.0 -> v0.13.0
+* **github.com/hashicorp/terraform-plugin-go**                    v0.22.1 -> v0.23.0
+* **github.com/hashicorp/terraform-plugin-log**                   v0.9.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.33.0 -> v2.34.0
+* **github.com/hashicorp/terraform-plugin-testing**               v1.7.0 -> v1.9.0
+* **github.com/siderolabs/gen**                                   v0.4.8 -> v0.5.0
+* **github.com/siderolabs/image-factory**                         8b4e0d9e9819 **_new_**
+* **github.com/siderolabs/talos**                                 980f9ebc0725 **_new_**
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.7.0 -> v1.8.0-alpha.1
+* **golang.org/x/mod**                                            v0.17.0 -> v0.19.0
+* **google.golang.org/grpc**                                      v1.63.2 -> v1.65.0
+* **k8s.io/client-go**                                            v0.29.3 -> v0.31.0-beta.0
+
+Previous release can be found at [v0.5.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.5.0)
+
 ## [terraform-provider-talos 0.6.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.0-alpha.0) (2024-07-11)
 
 Welcome to the v0.6.0-alpha.0 release of terraform-provider-talos!  
