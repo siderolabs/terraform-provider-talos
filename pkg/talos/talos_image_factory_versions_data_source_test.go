@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 )
 
 func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
@@ -21,6 +23,12 @@ func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.talos_image_factory_versions.this", "talos_versions.0", "v1.2.0"),
 				),
 			},
+			{
+				Config: testAccTalosImageFactoryVersionsDataSourceWithFilterConfig(),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.7.5")),
+				},
+			},
 		},
 	})
 }
@@ -30,5 +38,21 @@ func testAccTalosImageFactoryVersionsDataSourceConfig() string {
 provider "talos" {}
 
 data "talos_image_factory_versions" "this" {}
+`
+}
+
+func testAccTalosImageFactoryVersionsDataSourceWithFilterConfig() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_versions" "this" {
+	filters = {
+		stable_versions_only = true
+	}
+}
+
+output "talos_version" {
+	value = data.talos_image_factory_versions.this.talos_versions[length(data.talos_image_factory_versions.this.talos_versions) - 1]
+}
 `
 }

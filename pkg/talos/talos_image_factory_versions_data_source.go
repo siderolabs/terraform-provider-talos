@@ -7,7 +7,9 @@ package talos
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/blang/semver/v4"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,8 +22,13 @@ type talosImageFactoryVersionsDataSource struct {
 }
 
 type talosImageFactoryVersionsDataSourceModelV0 struct {
-	ID            types.String `tfsdk:"id"`
-	TalosVersions []string     `tfsdk:"talos_versions"`
+	ID            types.String                     `tfsdk:"id"`
+	Filters       *talosImageFactoryVersionsFilter `tfsdk:"filters"`
+	TalosVersions []string                         `tfsdk:"talos_versions"`
+}
+
+type talosImageFactoryVersionsFilter struct {
+	StableVersionOnly types.Bool `tfsdk:"stable_versions_only"`
 }
 
 var _ datasource.DataSourceWithConfigure = &talosImageFactoryVersionsDataSource{}
@@ -47,6 +54,16 @@ func (d *talosImageFactoryVersionsDataSource) Schema(_ context.Context, _ dataso
 				Computed:    true,
 				Description: "The list of available talos versions.",
 			},
+			"filters": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "The filter to apply to the overlays list.",
+				Attributes: map[string]schema.Attribute{
+					"stable_versions_only": schema.BoolAttribute{
+						Optional:    true,
+						Description: "If set to true, only stable versions will be returned. If set to false, all versions will be returned.",
+					},
+				},
+			},
 		},
 	}
 }
@@ -69,7 +86,7 @@ func (d *talosImageFactoryVersionsDataSource) Configure(_ context.Context, req d
 	d.imageFactoryClient = imageFactoryClient
 }
 
-func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
 		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
 
@@ -81,6 +98,39 @@ func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, _ dataso
 		resp.Diagnostics.AddError("failed to get talos versions", err.Error())
 
 		return
+	}
+
+	var config talosImageFactoryVersionsDataSourceModelV0
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if config.Filters != nil && config.Filters.StableVersionOnly.ValueBool() {
+		var filteredVersions []string
+
+		for _, version := range versions {
+			semVer, err := semver.Parse(strings.TrimPrefix(version, "v"))
+			if err != nil {
+				resp.Diagnostics.AddError("failed to parse talos version", err.Error())
+
+				return
+			}
+
+			if len(semVer.Pre) > 0 {
+				continue
+			}
+
+			filteredVersions = append(filteredVersions, version)
+		}
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		versions = filteredVersions
 	}
 
 	state := talosImageFactoryVersionsDataSourceModelV0{
