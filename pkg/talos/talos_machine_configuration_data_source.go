@@ -171,11 +171,11 @@ func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ dataso
 				},
 			},
 			"docs": schema.BoolAttribute{
-				Description: "Whether to generate documentation for the generated configuration",
+				Description: "Whether to generate documentation for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
 			"examples": schema.BoolAttribute{
-				Description: "Whether to generate examples for the generated configuration",
+				Description: "Whether to generate examples for the generated configuration. DFaults to false",
 				Optional:    true,
 			},
 			"machine_configuration": schema.StringAttribute{
@@ -195,15 +195,6 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 
 	if resp.Diagnostics.HasError() {
 		return
-	}
-
-	// set default values
-	if !state.Docs.IsUnknown() && state.Docs.IsNull() {
-		state.Docs = basetypes.NewBoolValue(true)
-	}
-
-	if !state.Examples.IsUnknown() && state.Examples.IsNull() {
-		state.Examples = basetypes.NewBoolValue(true)
 	}
 
 	if !state.KubernetesVersion.IsUnknown() && state.KubernetesVersion.IsNull() {

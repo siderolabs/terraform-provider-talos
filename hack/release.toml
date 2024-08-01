@@ -35,6 +35,14 @@ The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config
 `talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
 """
 
+    [notes.talos_machine_configuration]
+        title = "Talos Machine Configuration Data Source"
+        description = """\
+`talos_machine_configuration` data source now defaults to generating config with documentation and examples disabled.
+
+To restore the previous behavior, set `docs` and `examples` attributes to `true`.
+"""
+
     [notes.image-factory]
         title = "Image Factory"
         description = """\

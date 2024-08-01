@@ -36,8 +36,8 @@ data "talos_machine_configuration" "this" {
 ### Optional
 
 - `config_patches` (List of String) The list of config patches to apply to the generated configuration
-- `docs` (Boolean) Whether to generate documentation for the generated configuration
-- `examples` (Boolean) Whether to generate examples for the generated configuration
+- `docs` (Boolean) Whether to generate documentation for the generated configuration. Defaults to false
+- `examples` (Boolean) Whether to generate examples for the generated configuration. DFaults to false
 - `kubernetes_version` (String) The version of kubernetes to use
 - `talos_version` (String) The version of talos features to use in generated machine configuration
 

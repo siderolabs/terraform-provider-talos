@@ -157,8 +157,8 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							constants.DefaultKubernetesVersion,
 							"controlplane",
 							value,
-							true,
 							false,
+							true,
 							func(t *testing.T, config v1alpha1.Config) error {
 								assert.NotEmpty(t, config.Cluster().AESCBCEncryptionSecret())
 								assert.Empty(t, config.Cluster().SecretboxEncryptionSecret())
@@ -351,14 +351,18 @@ func validateGeneratedTalosMachineConfig(
 	if examples {
 		// verifying there's examples
 		assert.Contains(t, mc, (`
-        # diskSelector:
-        #     size: 4GB # Disk size.
+    #   # Uncomment this to enable SANs.
+    #   - 10.0.0.10
+    #   - 172.16.0.10
+    #   - 192.168.0.10
 `))
 	} else {
 		// verifying there's no examples
 		assert.NotContains(t, mc, (`
-	        # diskSelector:
-	        #     size: 4GB # Disk size.
+    #   # Uncomment this to enable SANs.
+    #   - 10.0.0.10
+    #   - 172.16.0.10
+    #   - 192.168.0.10
 `))
 	}
 
