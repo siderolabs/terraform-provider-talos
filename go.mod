@@ -24,7 +24,7 @@ require (
 	golang.org/x/mod v0.19.0
 	google.golang.org/grpc v1.65.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/client-go v0.31.0-beta.0
+	k8s.io/client-go v11.0.0+incompatible
 )
 
 require (
