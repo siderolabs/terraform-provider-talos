@@ -70,6 +70,7 @@ output "installer_image" {
         - rock4se
         - rockpi_4
         - rockpi_4c
+        - helios64
 
 ### Read-Only
 
