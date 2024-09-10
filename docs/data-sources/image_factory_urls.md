@@ -50,6 +50,7 @@ output "installer_image" {
         - openstack
         - vmware
         - akamai
+        - cloudstack
         - hcloud
         - nocloud
         - oracle
@@ -61,6 +62,7 @@ output "installer_image" {
         - rpi_generic
         - bananapi_m64
         - nanopi_r4s
+        - nanopi_r5s
         - jetson_nano
         - libretech_all_h3_cc_h5
         - orangepi_r1_plus_lts
