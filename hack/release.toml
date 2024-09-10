@@ -3,6 +3,7 @@ commit = "HEAD"
 
 project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
+ignore_deps = ["google.golang.org/grpc"]
 
 previous = "v0.5.0"
 pre_release = true
