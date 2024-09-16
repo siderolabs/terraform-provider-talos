@@ -175,7 +175,7 @@ func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ dataso
 				Optional:    true,
 			},
 			"examples": schema.BoolAttribute{
-				Description: "Whether to generate examples for the generated configuration. DFaults to false",
+				Description: "Whether to generate examples for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
 			"machine_configuration": schema.StringAttribute{
