@@ -375,9 +375,11 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 			SystemPartitionsToWipe: []*machineapi.ResetPartitionSpec{
 				{
 					Label: "STATE",
+					Wipe:  true,
 				},
 				{
 					Label: "EPHEMERAL",
+					Wipe:  true,
 				},
 			},
 		}

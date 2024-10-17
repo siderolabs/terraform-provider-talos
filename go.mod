@@ -1,28 +1,28 @@
 module github.com/siderolabs/terraform-provider-talos
 
-go 1.23.1
+go 1.23.2
 
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/hashicorp/terraform-plugin-docs v0.19.4
-	github.com/hashicorp/terraform-plugin-framework v1.11.0
+	github.com/hashicorp/terraform-plugin-framework v1.12.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.4.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.13.0
-	github.com/hashicorp/terraform-plugin-go v0.23.0
+	github.com/hashicorp/terraform-plugin-go v0.24.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.34.0
 	github.com/hashicorp/terraform-plugin-testing v1.10.0
-	github.com/siderolabs/crypto v0.4.4
+	github.com/siderolabs/crypto v0.5.0
 	github.com/siderolabs/gen v0.5.0
-	github.com/siderolabs/go-blockdevice v0.4.7
+	github.com/siderolabs/go-blockdevice v0.4.8
 	github.com/siderolabs/image-factory v0.5.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.8.0
-	github.com/siderolabs/talos/pkg/machinery v1.8.0
+	github.com/siderolabs/talos v1.8.1
+	github.com/siderolabs/talos/pkg/machinery v1.8.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/mod v0.21.0
-	google.golang.org/grpc v1.66.1
+	google.golang.org/grpc v1.66.3
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.31.1
 )
@@ -106,7 +106,7 @@ require (
 	github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-plugin v1.6.0 // indirect
+	github.com/hashicorp/go-plugin v1.6.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
@@ -128,7 +128,7 @@ require (
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink/v2 v2.0.2 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/klauspost/compress v1.17.10 // indirect
 	github.com/letsencrypt/boulder v0.0.0-20240620165639-de9c06129bec // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -168,7 +168,7 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/siderolabs/go-blockdevice/v2 v2.0.2 // indirect
+	github.com/siderolabs/go-blockdevice/v2 v2.0.3 // indirect
 	github.com/siderolabs/go-circular v0.2.0 // indirect
 	github.com/siderolabs/go-kubernetes v0.2.12 // indirect
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
@@ -202,9 +202,9 @@ require (
 	github.com/zclconf/go-cty v1.15.0 // indirect
 	go.abhg.dev/goldmark/frontmatter v0.2.0 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
-	go.opentelemetry.io/otel v1.28.0 // indirect
-	go.opentelemetry.io/otel/metric v1.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.28.0 // indirect
+	go.opentelemetry.io/otel v1.30.0 // indirect
+	go.opentelemetry.io/otel/metric v1.30.0 // indirect
+	go.opentelemetry.io/otel/trace v1.30.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/net v0.29.0 // indirect

@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
 
 func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
@@ -26,7 +27,7 @@ func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryVersionsDataSourceWithFilterConfig(),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.8.0")),
+					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact(gendata.VersionTag)),
 				},
 			},
 		},
