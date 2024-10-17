@@ -146,7 +146,7 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 	state.TalosConfig = basetypes.NewStringValue(string(talosConfigStringBytes))
 	state.ID = state.ClusterName
 
-	diags = resp.State.Set(ctx, state)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {

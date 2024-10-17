@@ -621,7 +621,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 				}
 
 				// Set state to fully populated data
-				diags = resp.State.Set(ctx, state)
+				diags = resp.State.Set(ctx, &state)
 				resp.Diagnostics.Append(diags...)
 				if resp.Diagnostics.HasError() {
 					return

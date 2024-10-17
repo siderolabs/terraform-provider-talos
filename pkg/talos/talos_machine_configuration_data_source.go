@@ -278,7 +278,7 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	state.MachineConfiguration = basetypes.NewStringValue(machineConfiguration)
 	state.ID = state.ClusterName
 
-	diags = resp.State.Set(ctx, state)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {

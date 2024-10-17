@@ -214,7 +214,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 	state.ID = basetypes.NewStringValue(clusterName)
 
-	diags = resp.State.Set(ctx, state)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {

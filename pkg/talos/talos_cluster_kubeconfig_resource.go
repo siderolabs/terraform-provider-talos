@@ -14,6 +14,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -63,6 +66,9 @@ func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"node": schema.StringAttribute{
 				Required:    true,
@@ -96,6 +102,9 @@ func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.
 				Computed:    true,
 				Description: "The raw kubeconfig",
 				Sensitive:   true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"kubernetes_client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -119,6 +128,9 @@ func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.
 				},
 				Computed:    true,
 				Description: "The kubernetes client configuration",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
@@ -222,7 +234,7 @@ func (r *talosClusterKubeConfigResource) Create(ctx context.Context, req resourc
 
 	state.ID = basetypes.NewStringValue(clusterName)
 
-	diags = resp.State.Set(ctx, state)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {

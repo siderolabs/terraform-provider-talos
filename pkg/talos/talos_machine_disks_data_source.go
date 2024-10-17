@@ -422,7 +422,7 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 
 	state.ID = basetypes.NewStringValue("machine_disks")
 
-	diags = resp.State.Set(ctx, state)
+	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {

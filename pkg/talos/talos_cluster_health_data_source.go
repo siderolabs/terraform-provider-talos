@@ -264,7 +264,7 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 
 	state.ID = basetypes.NewStringValue("cluster_health")
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return

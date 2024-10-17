@@ -585,7 +585,7 @@ func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]
 				}
 
 				// Set state to fully populated data
-				diags = resp.State.Set(ctx, state)
+				diags = resp.State.Set(ctx, &state)
 				resp.Diagnostics.Append(diags...)
 				if resp.Diagnostics.HasError() {
 					return
@@ -632,7 +632,7 @@ func (r *talosMachineSecretsResource) ImportState(ctx context.Context, req resou
 	}
 
 	// Set state to fully populated data
-	diags := resp.State.Set(ctx, state)
+	diags := resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
