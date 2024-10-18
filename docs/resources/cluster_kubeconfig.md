@@ -69,6 +69,7 @@ resource "talos_cluster_kubeconfig" "this" {
 
 ### Optional
 
+- `certificate_renewal_duration` (String) The duration in hours before the certificate is renewed, defaults to 720h. Must be a valid duration string
 - `endpoint` (String) endpoint to use for the talosclient. If not set, the node value will be used
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 

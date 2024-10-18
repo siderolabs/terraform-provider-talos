@@ -121,8 +121,6 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasou
 }
 
 // Read implements the datasource.DataSource interface.
-//
-//nolint:dupl
 func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var obj types.Object
 
