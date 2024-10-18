@@ -1,3 +1,48 @@
+## [terraform-provider-talos 0.6.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.1) (2024-10-18)
+
+Welcome to the v0.6.1 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Talos Cluster Kubeconfig
+
+The `talos_cluster_kubeconfig` resource now supports confiuring the certificate renewal check time.
+
+
+### Component Updates
+
+Talos sdk: v1.8.1
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`daddfb7`](https://github.com/siderolabs/terraform-provider-talos/commit/daddfb76cec78135ad62e8e46f4d965eb6eed52a) feat: configurable cert refresh time for kubeconfig
+* [`96c9a85`](https://github.com/siderolabs/terraform-provider-talos/commit/96c9a857f9df8a28b7f32f1d0cf948a74a8acfcb) fix: resourceplanmodifiers for kubeconfig resource
+* [`800573b`](https://github.com/siderolabs/terraform-provider-talos/commit/800573b841c901f562b8b2b151e58d86516944d0) fix: disks wipe on destroy
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework**  v1.11.0 -> v1.12.0
+* **github.com/hashicorp/terraform-plugin-go**         v0.23.0 -> v0.24.0
+* **github.com/siderolabs/crypto**                     v0.4.4 -> v0.5.0
+* **github.com/siderolabs/go-blockdevice**             v0.4.7 -> v0.4.8
+* **github.com/siderolabs/talos**                      v1.8.0 -> v1.8.1
+* **github.com/siderolabs/talos/pkg/machinery**        v1.8.0 -> v1.8.1
+
+Previous release can be found at [v0.6.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.0)
+
+
 ## [terraform-provider-talos 0.6.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.0) (2024-09-23)
 
 Welcome to the v0.6.0 release of terraform-provider-talos!

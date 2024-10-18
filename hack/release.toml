@@ -5,53 +5,19 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 ignore_deps = ["google.golang.org/grpc"]
 
-previous = "v0.5.0"
+previous = "v0.6.0"
 pre_release = false
 
 [notes]
 
-    [notes.talos_machine_secrets]
-        title = "Talos Machine Secrets"
-        description = """\
-`talos_machine_secrets` resource now regenerates client config when the time to expiry is less than a month.
-"""
-
-    [notes.talos_cluster_health]
-        title = "Talos Cluster Health"
-        description = """\
-`talos_cluster_health` data source now has a way to skip running the Kubernetes components health check by setting `skip_kubernetes_checks` to `true`.
-"""
-
     [notes.talos_cluster_kubeconfig]
         title = "Talos Cluster Kubeconfig"
         description = """\
-`talos_cluster_kubeconfig` data source is now deprecated and will be removed in the next minor release.
-Use `talos_cluster_kubeconfig` resource instead.
-The `talos_cluster_kubeconfig` resource will regenerate kubernetes client config when the time to expiry is less than a month.
-"""
-
-    [notes.talos_machine_configuration_apply]
-        title = "Talos Machine Configuration Apply"
-        description = """\
-`talos_machine_configuration_apply` resource now optionally supports resetting the machine back to maintenance mode.
-"""
-
-    [notes.talos_machine_configuration]
-        title = "Talos Machine Configuration Data Source"
-        description = """\
-`talos_machine_configuration` data source now defaults to generating config with documentation and examples disabled.
-
-To restore the previous behavior, set `docs` and `examples` attributes to `true`.
-"""
-
-    [notes.image-factory]
-        title = "Image Factory"
-        description = """\
-Support for querying info from Image Factory and registering schematics is now supported via new Terraform resources.
+The `talos_cluster_kubeconfig` resource now supports confiuring the certificate renewal check time.
 """
 
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.8.0-alpha.1
+Talos sdk: v1.8.1
 """
