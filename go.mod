@@ -18,6 +18,7 @@ require (
 	github.com/siderolabs/crypto v0.5.0
 	github.com/siderolabs/gen v0.5.0
 	github.com/siderolabs/go-blockdevice v0.4.8
+	github.com/siderolabs/go-blockdevice/v2 v2.0.3
 	github.com/siderolabs/image-factory v0.5.0
 	github.com/siderolabs/net v0.4.0
 	github.com/siderolabs/talos v1.9.0-alpha.0
@@ -170,7 +171,6 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/siderolabs/go-blockdevice/v2 v2.0.3 // indirect
 	github.com/siderolabs/go-circular v0.2.1 // indirect
 	github.com/siderolabs/go-kubernetes v0.2.13 // indirect
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
