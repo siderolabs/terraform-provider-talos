@@ -5,19 +5,13 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 ignore_deps = ["google.golang.org/grpc"]
 
-previous = "v0.6.0"
+previous = "v0.6.1"
 pre_release = false
 
 [notes]
 
-    [notes.talos_cluster_kubeconfig]
-        title = "Talos Cluster Kubeconfig"
-        description = """\
-The `talos_cluster_kubeconfig` resource now supports confiuring the certificate renewal check time.
-"""
-
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.8.1
+Talos sdk: v1.9.0-alpha.0
 """

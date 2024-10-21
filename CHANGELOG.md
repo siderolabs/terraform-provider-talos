@@ -1,3 +1,37 @@
+## [terraform-provider-talos 0.7.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.7.0-alpha.0) (2024-10-21)
+
+Welcome to the v0.7.0-alpha.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.9.0-alpha.0
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`beb5e2b`](https://github.com/siderolabs/terraform-provider-talos/commit/beb5e2b38466116da1d212dea33f5d7926655442) chore: bump deps
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.13.0 -> v0.14.0
+* **github.com/siderolabs/talos**                                 v1.8.1 -> v1.9.0-alpha.0
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.8.1 -> v1.9.0-alpha.0
+
+Previous release can be found at [v0.6.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.1)
+
 ## [terraform-provider-talos 0.6.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.6.1) (2024-10-18)
 
 Welcome to the v0.6.1 release of terraform-provider-talos!
