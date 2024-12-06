@@ -286,7 +286,7 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	}
 }
 
-func (d talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context, req datasource.ValidateConfigRequest, resp *datasource.ValidateConfigResponse) {
+func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context, req datasource.ValidateConfigRequest, resp *datasource.ValidateConfigResponse) {
 	var obj types.Object
 
 	diags := req.Config.Get(ctx, &obj)

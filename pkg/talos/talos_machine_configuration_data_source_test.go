@@ -316,10 +316,7 @@ func validateGeneratedTalosMachineConfig(
 		return err
 	}
 
-	installDiskConfig, err := machineConfig.Machine().Install().Disk()
-	if err != nil {
-		return err
-	}
+	installDiskConfig := machineConfig.Machine().Install().Disk()
 
 	ep, err := url.Parse(endpoint)
 	if err != nil {

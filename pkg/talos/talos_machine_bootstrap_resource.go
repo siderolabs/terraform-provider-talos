@@ -196,7 +196,7 @@ func (r *talosMachineBootstrapResource) Update(ctx context.Context, req resource
 func (r *talosMachineBootstrapResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
 }
 
-func (r talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+func (r *talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	// delete is a no-op
 	if req.Plan.Raw.IsNull() {
 		return
