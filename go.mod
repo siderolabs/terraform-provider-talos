@@ -2,7 +2,7 @@ module github.com/siderolabs/terraform-provider-talos
 
 go 1.23.3
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
+replace google.golang.org/grpc => google.golang.org/grpc v1.68.1
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -18,15 +18,15 @@ require (
 	github.com/siderolabs/crypto v0.5.1
 	github.com/siderolabs/gen v0.7.0
 	github.com/siderolabs/go-blockdevice v0.4.8
-	github.com/siderolabs/image-factory v0.6.2
+	github.com/siderolabs/image-factory v0.6.3
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.9.0-alpha.3.0.20241202095056-770be16425d2
-	github.com/siderolabs/talos/pkg/machinery v1.9.0-beta.0
+	github.com/siderolabs/talos v1.9.0-beta.1
+	github.com/siderolabs/talos/pkg/machinery v1.9.0-beta.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.22.0
 	google.golang.org/grpc v1.68.1
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/client-go v0.32.0-rc.0
+	k8s.io/client-go v0.32.0
 )
 
 require (
@@ -230,8 +230,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.32.0-rc.0 // indirect
-	k8s.io/apimachinery v0.32.0-rc.0 // indirect
+	k8s.io/api v0.32.0 // indirect
+	k8s.io/apimachinery v0.32.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
