@@ -2,7 +2,7 @@ module github.com/siderolabs/terraform-provider-talos
 
 go 1.23.4
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
+replace google.golang.org/grpc => google.golang.org/grpc v1.69.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
