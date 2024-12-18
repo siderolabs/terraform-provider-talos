@@ -73,6 +73,7 @@ output "installer_image" {
         - rockpi_4
         - rockpi_4c
         - helios64
+        - turingrk1
 
 ### Read-Only
 
