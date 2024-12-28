@@ -18,10 +18,10 @@ require (
 	github.com/siderolabs/crypto v0.5.1
 	github.com/siderolabs/gen v0.8.0
 	github.com/siderolabs/go-blockdevice v0.4.8
-	github.com/siderolabs/image-factory v0.6.4
+	github.com/siderolabs/image-factory v0.6.6-0.20241227134227-3b302c6a4ca1
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.9.0
-	github.com/siderolabs/talos/pkg/machinery v1.9.0
+	github.com/siderolabs/talos v1.10.0-alpha.0
+	github.com/siderolabs/talos/pkg/machinery v1.10.0-alpha.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.22.0
 	google.golang.org/grpc v1.69.0
@@ -174,7 +174,7 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/siderolabs/go-blockdevice/v2 v2.0.7 // indirect
+	github.com/siderolabs/go-blockdevice/v2 v2.0.8 // indirect
 	github.com/siderolabs/go-circular v0.2.1 // indirect
 	github.com/siderolabs/go-kubernetes v0.2.17 // indirect
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
@@ -212,9 +212,9 @@ require (
 	go.opentelemetry.io/otel v1.31.0 // indirect
 	go.opentelemetry.io/otel/metric v1.31.0 // indirect
 	go.opentelemetry.io/otel/trace v1.31.0 // indirect
-	golang.org/x/crypto v0.30.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect

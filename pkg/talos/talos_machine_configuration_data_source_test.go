@@ -66,7 +66,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test data source with custom values
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-1", "controlplane", "https://cluster-1.local:6443", "v1.27.0", true, false, false, false),
+				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-1", "controlplane", "https://cluster-1.local:6443", "v1.28.0", true, false, false, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster-1"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster-1"),
@@ -75,7 +75,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.#", "4"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/sdd\"\n"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.27.0"),
+					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.28.0"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "false"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "false"),
@@ -85,7 +85,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							"example-cluster-1",
 							"https://cluster-1.local:6443",
 							"/dev/sdd",
-							"1.27.0",
+							"1.28.0",
 							"controlplane",
 							value,
 							false,
