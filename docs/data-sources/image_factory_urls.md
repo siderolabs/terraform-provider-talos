@@ -47,15 +47,18 @@ output "installer_image" {
         - equinixMetal
         - azure
         - digital-ocean
+        - nocloud
         - openstack
         - vmware
         - akamai
         - cloudstack
         - hcloud
-        - nocloud
         - oracle
         - upcloud
         - vultr
+        - exoscale
+        - opennebula
+        - scaleway
 - `sbc` (String) The SBC's (Single Board Copmuters) for which the url are generated.
 
     #### Single Board Computers
@@ -70,6 +73,7 @@ output "installer_image" {
         - rock64
         - rock4cplus
         - rock4se
+        - rock5b
         - rockpi_4
         - rockpi_4c
         - helios64

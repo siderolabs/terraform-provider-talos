@@ -21,7 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/gen/xslices"
 	"github.com/siderolabs/image-factory/pkg/client"
-	"github.com/siderolabs/image-factory/pkg/metadata"
+	"github.com/siderolabs/talos/pkg/machinery/platforms"
 )
 
 type talosImageFactoryURLSDataSource struct {
@@ -32,8 +32,8 @@ var _ datasource.DataSource = &talosImageFactoryURLSDataSource{}
 
 var (
 	metalPlatforms                      = []string{"metal"}
-	cloudPlatforms                      = xslices.Map(metadata.Platforms(), func(platform metadata.Platform) string { return platform.Name })
-	sbcs                                = xslices.Map(metadata.SBCs(), func(platform metadata.SBC) string { return platform.Name })
+	cloudPlatforms                      = xslices.Map(platforms.CloudPlatforms(), func(platform platforms.Platform) string { return platform.Name })
+	sbcs                                = xslices.Map(platforms.SBCs(), func(platform platforms.SBC) string { return platform.Name })
 	allPlatforms                        = slices.Concat(metalPlatforms, cloudPlatforms)
 	platformMarkdownDescriptionTemplate = `
 The platform for which the URLs are generated.
@@ -280,37 +280,48 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 
 	switch platform {
 	case "metal":
+		platformData := platforms.MetalPlatform()
+
 		urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/installer-secureboot/%s:%s", uri.Host, schematicID, talosVersion))
-		urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-%s.iso", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-%s-secureboot.iso", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-%s.raw.zst", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.DiskImageSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-%s-secureboot.raw.zst", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/metal-%s", uri.Scheme, uri.Host, schematicID, talosVersion, architecture))
-		urlsData.Kernel = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/kernel-%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.KernelCommandLine = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/cmdline-metal-%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.Initramfs = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/initramfs-%s.xz", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
-		urlsData.UKI = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-%s-secureboot-uki.efi", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, architecture))
+		urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.ISOPath(architecture)))
+		urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootISOPath(architecture)))
+		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.DiskImageDefaultPath(architecture)))
+		urlsData.DiskImageSecureboot = basetypes.NewStringValue(
+			fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootDiskImageDefaultPath(architecture)),
+		)
+		urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/%s", uri.Scheme, uri.Host, schematicID, talosVersion, platformData.PXEScriptPath(architecture)))
+		urlsData.Kernel = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.KernelPath(architecture)))
+		urlsData.KernelCommandLine = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.CmdlinePath(architecture)))
+		urlsData.Initramfs = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.InitramfsPath(architecture)))
+		urlsData.UKI = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootUKIPath(architecture)))
 	case "": // empty platform means it's an SBC
 		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-arm64.raw.xz", d.imageFactoryClient.BaseURL(), schematicID, talosVersion))
 	default:
-		platformData := xslices.Filter(metadata.Platforms(), func(p metadata.Platform) bool { return p.Name == platform })
+		platformData := xslices.Filter(platforms.CloudPlatforms(), func(p platforms.Platform) bool { return p.Name == platform })
+
+		if len(platformData) != 1 {
+			resp.Diagnostics.AddError("failed to find platform", platform)
+
+			return
+		}
+
 		if platformData[0].SecureBootSupported {
 			urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/installer-secureboot/%s:%s", uri.Host, schematicID, talosVersion))
 		}
 
 		for _, bootMethod := range platformData[0].BootMethods {
 			switch bootMethod {
-			case "disk-image":
-				urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s-%s.%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platform, architecture, platformData[0].DiskImageSuffix)) //nolint:lll
+			case platforms.BootMethodDiskImage:
+				urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].DiskImageDefaultPath(architecture))) //nolint:lll
 				if platformData[0].SecureBootSupported {
-					urlsData.DiskImageSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s-%s-secureboot.%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platform, architecture, platformData[0].DiskImageSuffix)) //nolint:lll
+					urlsData.DiskImageSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].SecureBootDiskImageDefaultPath(architecture))) //nolint:lll
 				}
-			case "pxe":
-				urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/%s-%s", uri.Scheme, uri.Host, schematicID, talosVersion, platform, architecture))
-			case "iso":
-				urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s-%s.iso", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platform, architecture))
+			case platforms.BootMethodPXE:
+				urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/%s", uri.Scheme, uri.Host, schematicID, talosVersion, platformData[0].PXEScriptPath(architecture))) //nolint:lll
+			case platforms.BootMethodISO:
+				urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].ISOPath(architecture)))
 				if platformData[0].SecureBootSupported {
-					urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s-%s-secureboot.iso", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platform, architecture)) //nolint:lll
+					urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].SecureBootISOPath(architecture))) //nolint:lll
 				}
 			}
 		}
