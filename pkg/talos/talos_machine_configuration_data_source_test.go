@@ -191,25 +191,11 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-6", "control", "https://cluster.local", "", false, false, true, true),
 				ExpectError: regexp.MustCompile("Attribute machine_type value must be one of:"),
 			},
-			// test validating kubernetes compatibility with the default talos version
-			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-7", "controlplane", "https://cluster.local", "v1.23.0", false, false, true, true),
-				ExpectError: regexp.MustCompile(fmt.Sprintf("version of Kubernetes 1.23.0 is too old to be used with Talos %s", strings.TrimPrefix(gendata.VersionTag, "v"))),
-			},
-			// test validating kubernetes compatibility with a specific talos version
-			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "v1.23.0", false, false, true, true),
-				ExpectError: regexp.MustCompile("version of Kubernetes 1.23.0 is too old to be used with Talos 1.3.0"),
-			},
 			// test validating config patches at plan time
 			{
 				PlanOnly:    true,
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "v1.23.0", true, true, true, true),
 				ExpectError: regexp.MustCompile("unknown keys found during decoding:"),
-			},
-			{ // this is just added so that the plan only test above doesn't fail
-				PlanOnly: true,
-				Config:   testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "", false, false, true, true),
 			},
 		},
 	})

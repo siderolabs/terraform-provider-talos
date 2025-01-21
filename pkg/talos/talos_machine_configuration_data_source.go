@@ -6,7 +6,6 @@ package talos
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -16,8 +15,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/crypto/x509"
-	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
-	"github.com/siderolabs/talos/pkg/machinery/compatibility"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
@@ -332,47 +329,6 @@ func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context
 		)
 
 		return
-	}
-
-	if !state.KubernetesVersion.IsUnknown() && !state.KubernetesVersion.IsNull() && !state.TalosVersion.IsUnknown() {
-		k8sVersionCompatibility, err := compatibility.ParseKubernetesVersion(strings.TrimPrefix(state.KubernetesVersion.ValueString(), "v"))
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"kubernetes_version is invalid",
-				err.Error(),
-			)
-
-			return
-		}
-
-		talosVersionInfo := &machineapi.VersionInfo{}
-
-		if state.TalosVersion.IsNull() {
-			talosVersionInfo.Tag = gendata.VersionTag
-		}
-
-		if !state.TalosVersion.IsNull() {
-			talosVersionInfo.Tag = state.TalosVersion.ValueString()
-		}
-
-		talosVersionCompatibility, err := compatibility.ParseTalosVersion(talosVersionInfo)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"talos_version is invalid",
-				err.Error(),
-			)
-
-			return
-		}
-
-		if err := k8sVersionCompatibility.SupportedWith(talosVersionCompatibility); err != nil {
-			resp.Diagnostics.AddError(
-				"talos_version is not compatible with kubernetes_version",
-				err.Error(),
-			)
-
-			return
-		}
 	}
 }
 
