@@ -154,10 +154,6 @@ func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineS
 					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Crt)),
 					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8s.Key)),
 				},
-				K8sAggregator: machineSecretsCertKeyPair{
-					Cert: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Crt)),
-					Key:  types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Key)),
-				},
 				K8sServiceAccount: machineSecretsCertsK8sServiceAccount{
 					Key: types.StringValue(bytesToBase64(secretsBundle.Certs.K8sServiceAccount.Key)),
 				},
@@ -167,6 +163,11 @@ func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineS
 				},
 			},
 		},
+	}
+
+	if secretsBundle.Certs.K8sAggregator.Crt != nil {
+		model.MachineSecrets.Certs.K8sAggregator.Cert = types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Crt))
+		model.MachineSecrets.Certs.K8sAggregator.Key = types.StringValue(bytesToBase64(secretsBundle.Certs.K8sAggregator.Key))
 	}
 
 	// support for talos < 1.3
