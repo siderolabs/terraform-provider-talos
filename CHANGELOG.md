@@ -1,3 +1,38 @@
+## [terraform-provider-talos 0.7.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.7.1) (2025-01-22)
+
+Welcome to the v0.7.1 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.9.2
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`7ba1d20`](https://github.com/siderolabs/terraform-provider-talos/commit/7ba1d20519a29a7b91220663d9168aaadcda9e07) chore: bump talos machinery
+* [`06de97e`](https://github.com/siderolabs/terraform-provider-talos/commit/06de97e620d1e4192fdb936a08c399956dd12b45) fix: drop talos<->k8s compatibility check
+* [`caf4227`](https://github.com/siderolabs/terraform-provider-talos/commit/caf4227ef68c02adef5e0876e26d3a297aa7e8b3) fix: skip if aggregator certs are nil
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/talos**                v1.9.0 -> v1.9.2
+* **github.com/siderolabs/talos/pkg/machinery**  v1.9.0 -> v1.9.2
+
+Previous release can be found at [v0.7.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.7.0)
+
 ## [terraform-provider-talos 0.7.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.7.0) (2024-12-18)
 
 Welcome to the v0.7.0 release of terraform-provider-talos!
