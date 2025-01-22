@@ -20,8 +20,8 @@ require (
 	github.com/siderolabs/go-blockdevice v0.4.8
 	github.com/siderolabs/image-factory v0.6.4
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.9.0
-	github.com/siderolabs/talos/pkg/machinery v1.9.0
+	github.com/siderolabs/talos v1.9.2
+	github.com/siderolabs/talos/pkg/machinery v1.9.2
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.22.0
 	google.golang.org/grpc v1.69.0
@@ -174,13 +174,13 @@ require (
 	github.com/secure-systems-lab/go-securesystemslib v0.8.0 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/siderolabs/go-blockdevice/v2 v2.0.7 // indirect
+	github.com/siderolabs/go-blockdevice/v2 v2.0.11 // indirect
 	github.com/siderolabs/go-circular v0.2.1 // indirect
 	github.com/siderolabs/go-kubernetes v0.2.17 // indirect
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
 	github.com/siderolabs/go-procfs v0.1.2 // indirect
 	github.com/siderolabs/go-retry v0.3.3 // indirect
-	github.com/siderolabs/go-talos-support v0.1.1 // indirect
+	github.com/siderolabs/go-talos-support v0.1.2 // indirect
 	github.com/sigstore/cosign/v2 v2.4.1 // indirect
 	github.com/sigstore/protobuf-specs v0.3.2 // indirect
 	github.com/sigstore/rekor v1.3.6 // indirect
