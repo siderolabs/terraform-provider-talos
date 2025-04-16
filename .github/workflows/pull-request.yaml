@@ -25,4 +25,4 @@ jobs:
         run: |
           make check-dirty
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7

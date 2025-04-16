@@ -79,6 +79,10 @@ resource "libvirt_domain" "cp" {
     type        = "pty"
     target_port = "0"
   }
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
   disk {
     url = "{{ .IsoURL }}"
   }

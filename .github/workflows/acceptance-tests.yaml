@@ -33,7 +33,7 @@ jobs:
           LIBVIRT_DEFAULT_URI: qemu:///system
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
+          sudo apt-get install -y \
             bridge-utils \
             dnsmasq-base \
             libvirt-daemon-system \
@@ -41,6 +41,9 @@ jobs:
             qemu-utils \
             qemu-block-extra \
             ovmf
+
+          sudo ln -s OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd
+          sudo ln -s OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd
 
           sudo virtlockd -d
           sudo virtlogd -d
