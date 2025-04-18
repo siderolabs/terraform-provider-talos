@@ -17,7 +17,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.12.0
 	github.com/siderolabs/crypto v0.5.1
 	github.com/siderolabs/gen v0.8.0
-	github.com/siderolabs/go-blockdevice v0.4.8
+	github.com/siderolabs/go-blockdevice/v2 v2.0.16
 	github.com/siderolabs/image-factory v0.6.8
 	github.com/siderolabs/net v0.4.0
 	github.com/siderolabs/talos v1.10.0-beta.0
@@ -26,7 +26,7 @@ require (
 	golang.org/x/mod v0.24.0
 	google.golang.org/grpc v1.71.1
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/client-go v0.33.0-rc.0
+	k8s.io/client-go v11.0.0+incompatible
 )
 
 require (
