@@ -1,3 +1,62 @@
+## [terraform-provider-talos 0.8.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.0) (2025-05-01)
+
+Welcome to the v0.8.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Component Updates
+
+Talos sdk: v1.10.0
+
+
+### Contributors
+
+* Noel Georgi
+* Andrey Smirnov
+* Matt Willsher
+
+### Changes
+<details><summary>7 commits</summary>
+<p>
+
+* [`e9fec0c`](https://github.com/siderolabs/terraform-provider-talos/commit/e9fec0c8820ff1b2e69c6ceaa31fc2291752a4aa) chore: bump deps
+* [`13c07e2`](https://github.com/siderolabs/terraform-provider-talos/commit/13c07e260a1da922633b999c7dad0d423a751171) release(v0.8.0-alpha.0): prepare release
+* [`2cfcf88`](https://github.com/siderolabs/terraform-provider-talos/commit/2cfcf8802e61550ad7570aa8cbd44439700fd677) chore: bump deps
+* [`46ab81c`](https://github.com/siderolabs/terraform-provider-talos/commit/46ab81ca8b799e5390cf398a4a65210d2425a41e) fix: drop talos<->k8s compatibility check
+* [`69596f1`](https://github.com/siderolabs/terraform-provider-talos/commit/69596f1e4b74a1d0f95e663315724d9e8150b5b0) fix: skip if aggregator certs are nil
+* [`d3214dc`](https://github.com/siderolabs/terraform-provider-talos/commit/d3214dc15659de2906c1aaf2912e77a90dfaca7b) refactor: pull platform metadata from Talos machinery
+* [`5c0ff77`](https://github.com/siderolabs/terraform-provider-talos/commit/5c0ff772a72339827bbd63d3fe59c52fb73148de) feat: add secure boot support to non-metal image factory urls
+</p>
+</details>
+
+### Changes since v0.8.0-alpha.0
+<details><summary>1 commit</summary>
+<p>
+
+* [`e9fec0c`](https://github.com/siderolabs/terraform-provider-talos/commit/e9fec0c8820ff1b2e69c6ceaa31fc2291752a4aa) chore: bump deps
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**                  v0.20.1 -> v0.21.0
+* **github.com/hashicorp/terraform-plugin-framework**             v1.13.0 -> v1.14.1
+* **github.com/hashicorp/terraform-plugin-framework-timeouts**    v0.4.1 -> v0.5.0
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.16.0 -> v0.17.0
+* **github.com/hashicorp/terraform-plugin-go**                    v0.25.0 -> v0.26.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.35.0 -> v2.36.1
+* **github.com/hashicorp/terraform-plugin-testing**               v1.11.0 -> v1.12.0
+* **github.com/siderolabs/image-factory**                         v0.6.4 -> v0.6.9
+* **github.com/siderolabs/talos**                                 v1.9.2 -> v1.10.0
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.9.2 -> v1.10.0
+* **golang.org/x/mod**                                            v0.22.0 -> v0.24.0
+* **k8s.io/client-go**                                            v0.32.0 -> v0.33.0
+
+Previous release can be found at [v0.7.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.7.1)
+
 ## [terraform-provider-talos 0.8.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.0-alpha.0) (2025-04-18)
 
 Welcome to the v0.8.0-alpha.0 release of terraform-provider-talos!  
