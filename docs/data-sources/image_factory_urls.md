@@ -63,6 +63,7 @@ output "installer_image" {
 
     #### Single Board Computers
         - rpi_generic
+        - revpi_generic
         - bananapi_m64
         - nanopi_r4s
         - nanopi_r5s
@@ -73,12 +74,15 @@ output "installer_image" {
         - rock64
         - rock4cplus
         - rock4se
+        - rock5a
         - rock5b
         - rockpi_4
         - rockpi_4c
         - helios64
         - turingrk1
         - orangepi-5
+        - orangepi-5-plus
+        - rockpro64
 
 ### Read-Only
 
