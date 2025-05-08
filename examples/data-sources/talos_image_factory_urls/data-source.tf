@@ -5,5 +5,5 @@ data "talos_image_factory_urls" "this" {
 }
 
 output "installer_image" {
-  value = data.talos_image_factory_urls.this.installer_image
+  value = data.talos_image_factory_urls.this.urls.installer
 }
