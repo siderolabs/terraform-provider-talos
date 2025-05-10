@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -265,6 +266,17 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 	architecture := config.Architecture.ValueString()
 	platform := config.Platform.ValueString()
 	talosVersion := config.TalosVersion.ValueString()
+
+	v, err := semver.StrictNewVersion(talosVersion)
+
+	if err != nil {
+		resp.Diagnostics.AddError("talos_version is not valid", "The provided talos_version is not a valid semantic version.")
+
+		return
+	}
+
+	talosVersion = "v" + v.String()
+
 	schematicID := config.SchematicID.ValueString()
 
 	uri, err := url.Parse(d.imageFactoryClient.BaseURL())
