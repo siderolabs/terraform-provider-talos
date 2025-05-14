@@ -36,8 +36,8 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryURLsMetalPlatformConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/metal-installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-amd64.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-amd64-secureboot.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-amd64.raw.zst"),
@@ -53,8 +53,8 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryURLsMetalPlatformArm64Config(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/metal-installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-arm64.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-arm64-secureboot.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-arm64.raw.zst"),
@@ -70,7 +70,7 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryURLsAWSPlatformConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/aws-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot"),
@@ -83,28 +83,12 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.uki"),
 				),
 			},
-			// equinixMetal platform
-			{
-				Config: testAccTalosImageFactoryURLsEquinixMetalPlatformConfig(),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image_secureboot"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.pxe", "https://pxe.factory.talos.dev/pxe/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/equinixMetal-amd64"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.kernel"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.kernel_command_line"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.initramfs"),
-					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.uki"),
-				),
-			},
+
 			// nocloud platform
 			{
 				Config: testAccTalosImageFactoryURLsNoCloudPlatformConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/nocloud-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64-secureboot.iso"),
@@ -121,7 +105,7 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryURLsSBCConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/metal-installer/ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9:v1.7.5"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot"),
@@ -195,18 +179,6 @@ data "talos_image_factory_urls" "this" {
 	talos_version = "v1.7.5"
 	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
 	platform = "aws"
-}
-`
-}
-
-func testAccTalosImageFactoryURLsEquinixMetalPlatformConfig() string {
-	return `
-provider "talos" {}
-
-data "talos_image_factory_urls" "this" {
-	talos_version = "v1.7.5"
-	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
-	platform = "equinixMetal"
 }
 `
 }

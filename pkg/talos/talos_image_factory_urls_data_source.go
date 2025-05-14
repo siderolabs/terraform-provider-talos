@@ -275,14 +275,14 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 	}
 
 	urlsData := urls{
-		Installer: basetypes.NewStringValue(fmt.Sprintf("%s/installer/%s:%s", uri.Host, schematicID, talosVersion)),
+		Installer: basetypes.NewStringValue(fmt.Sprintf("%s/%s-installer/%s:%s", uri.Host, platform, schematicID, talosVersion)),
 	}
 
 	switch platform {
 	case "metal":
 		platformData := platforms.MetalPlatform()
 
-		urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/installer-secureboot/%s:%s", uri.Host, schematicID, talosVersion))
+		urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/%s-installer-secureboot/%s:%s", uri.Host, platform, schematicID, talosVersion))
 		urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.ISOPath(architecture)))
 		urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootISOPath(architecture)))
 		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.DiskImageDefaultPath(architecture)))
@@ -295,6 +295,7 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 		urlsData.Initramfs = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.InitramfsPath(architecture)))
 		urlsData.UKI = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootUKIPath(architecture)))
 	case "": // empty platform means it's an SBC
+		urlsData.Installer = basetypes.NewStringValue(fmt.Sprintf("%s/metal-installer/%s:%s", uri.Host, schematicID, talosVersion))
 		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/metal-arm64.raw.xz", d.imageFactoryClient.BaseURL(), schematicID, talosVersion))
 	default:
 		platformData := xslices.Filter(platforms.CloudPlatforms(), func(p platforms.Platform) bool { return p.Name == platform })
