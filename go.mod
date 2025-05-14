@@ -10,18 +10,18 @@ require (
 	github.com/hashicorp/terraform-plugin-docs v0.21.0
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.5.0
-	github.com/hashicorp/terraform-plugin-framework-validators v0.17.0
+	github.com/hashicorp/terraform-plugin-framework-validators v0.18.0
 	github.com/hashicorp/terraform-plugin-go v0.26.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.36.1
 	github.com/hashicorp/terraform-plugin-testing v1.12.0
 	github.com/siderolabs/crypto v0.5.1
-	github.com/siderolabs/gen v0.8.0
+	github.com/siderolabs/gen v0.8.1
 	github.com/siderolabs/go-blockdevice v0.4.8
-	github.com/siderolabs/image-factory v0.6.9
+	github.com/siderolabs/image-factory v0.7.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.10.0
-	github.com/siderolabs/talos/pkg/machinery v1.10.0
+	github.com/siderolabs/talos v1.10.1
+	github.com/siderolabs/talos/pkg/machinery v1.10.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.24.0
 	google.golang.org/grpc v1.72.0
@@ -180,9 +180,9 @@ require (
 	k8s.io/apimachinery v0.33.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
-	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
+	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
