@@ -5,13 +5,7 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 ignore_deps = ["google.golang.org/grpc"]
 
-previous = "v0.7.1"
+previous = "v0.8.0"
 pre_release = false
 
 [notes]
-
-    [notes.updates]
-        title = "Component Updates"
-        description = """\
-Talos sdk: v1.10.0
-"""

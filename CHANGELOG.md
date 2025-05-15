@@ -1,3 +1,33 @@
+## [terraform-provider-talos 0.8.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.1) (2025-05-15)
+
+Welcome to the v0.8.1 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Noel Georgi
+* obvionaoe
+
+### Changes
+<details><summary>3 commits</summary>
+<p>
+
+* [`f0226d9`](https://github.com/siderolabs/terraform-provider-talos/commit/f0226d9c43359eb90ebce665038b931feb9f9a71) chore: conform: support more than one commit
+* [`5435b72`](https://github.com/siderolabs/terraform-provider-talos/commit/5435b7228c216018ae057323b1506b887b407a0c) fix: allow talos_version to be used without a `v` prefix
+* [`65471d6`](https://github.com/siderolabs/terraform-provider-talos/commit/65471d692eacf35a281e0cc94ad87787b5338d45) fix: factory installer urls
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.8.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.0)
+
 ## [terraform-provider-talos 0.8.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.0) (2025-05-01)
 
 Welcome to the v0.8.0 release of terraform-provider-talos!
