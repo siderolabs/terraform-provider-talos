@@ -2,7 +2,7 @@ module github.com/siderolabs/terraform-provider-talos
 
 go 1.24.0
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
+replace google.golang.org/grpc => google.golang.org/grpc v1.72.1
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -24,7 +24,7 @@ require (
 	github.com/siderolabs/talos/pkg/machinery v1.10.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/mod v0.24.0
-	google.golang.org/grpc v1.72.0
+	google.golang.org/grpc v1.72.1
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.33.0
 )
@@ -46,7 +46,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.2 // indirect
+	cel.dev/expr v0.20.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/Kunde21/markdownfmt/v3 v3.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
