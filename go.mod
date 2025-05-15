@@ -18,6 +18,7 @@ require (
 	github.com/siderolabs/crypto v0.5.1
 	github.com/siderolabs/gen v0.8.1
 	github.com/siderolabs/go-blockdevice v0.4.8
+	github.com/siderolabs/go-blockdevice/v2 v2.0.16
 	github.com/siderolabs/image-factory v0.7.0
 	github.com/siderolabs/net v0.4.0
 	github.com/siderolabs/talos v1.10.1
