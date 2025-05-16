@@ -19,10 +19,7 @@ resource "talos_machine_secrets" "this" {}
 data "talos_machine_disks" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = "10.5.0.2"
-  filters = {
-    size = "> 100GB"
-    type = "nvme"
-  }
+  selector             = "disk.size > 6u * GB"
 }
 
 # for example, this could be used to pass in a list of disks to rook-ceph
@@ -41,7 +38,9 @@ output "nvme_disks" {
 ### Optional
 
 - `endpoint` (String) endpoint to use for the talosclient. If not set, the node value will be used
-- `filters` (Attributes) Filters to apply to the disks (see [below for nested schema](#nestedatt--filters))
+- `selector` (String) The CEL expression to filter the disks.
+If not set, all disks will be returned.
+See [CEL documentation](https://www.talos.dev/latest/talos-guides/configuration/disk-management/#disk-selector).
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -59,22 +58,6 @@ Required:
 - `client_key` (String, Sensitive) The client key
 
 
-<a id="nestedatt--filters"></a>
-### Nested Schema for `filters`
-
-Optional:
-
-- `bus_path` (String) Filter disks by bus path
-- `modalias` (String) Filter disks by modalias
-- `model` (String) Filter disks by model
-- `name` (String) Filter disks by name
-- `serial` (String) Filter disks by serial number
-- `size` (String) Filter disks by size
-- `type` (String) Filter disks by type
-- `uuid` (String) Filter disks by uuid
-- `wwid` (String) Filter disks by wwid
-
-
 <a id="nestedatt--timeouts"></a>
 ### Nested Schema for `timeouts`
 
@@ -88,12 +71,21 @@ Optional:
 
 Read-Only:
 
-- `bus_path` (String) The bus path of the disk
-- `modalias` (String) The modalias of the disk
-- `model` (String) The model of the disk
-- `name` (String) The name of the disk
-- `serial` (String) The serial number of the disk
-- `size` (String) The size of the disk
-- `type` (String) The type of the disk
-- `uuid` (String) The uuid of the disk
-- `wwid` (String) The wwid of the disk
+- `bus_path` (String)
+- `cdrom` (Boolean)
+- `dev_path` (String)
+- `io_size` (Number)
+- `modalias` (String)
+- `model` (String)
+- `pretty_size` (String)
+- `readonly` (Boolean)
+- `rotational` (Boolean)
+- `secondary_disks` (List of String)
+- `sector_size` (Number)
+- `serial` (String)
+- `size` (Number)
+- `sub_system` (String)
+- `symlinks` (List of String)
+- `transport` (String)
+- `uuid` (String)
+- `wwid` (String)

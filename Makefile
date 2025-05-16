@@ -14,6 +14,7 @@ endif
 
 .PHONY: generate
 generate:
+	go generate ./pkg/talos
 	go generate
 
 .PHONY: testacc
