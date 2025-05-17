@@ -13,5 +13,16 @@ pre_release = true
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.10.0-beta.0
+Talos sdk: v1.11.0-alpha.0
+"""
+
+    [notes.disks_data_source]
+        title = "talos_machine_disks Data Source"
+        description = """\
+The `talos_machine_disks` data source has been updated to use the better CEL expression language.
+The resource attributes and selector have been updated to use the new syntax.
+The user would need to update the data source in their configuration to use the new syntax.
+The expression syntax is documented in the [CEL documentation](https://www.talos.dev/latest/talos-guides/configuration/disk-management/#disk-selector).
+
+This also brings in consistency with how disks are reported in Talos.
 """

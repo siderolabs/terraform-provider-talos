@@ -30,7 +30,6 @@ type dynamicConfig struct {
 	ResourceName           string
 	IsoURL                 string
 	CPUMode                string
-	DiskSizeFilter         string
 	WithApplyConfig        bool
 	WithBootstrap          bool
 	WithRetrieveKubeConfig bool
@@ -54,13 +53,6 @@ resource "libvirt_volume" "cp" {
   name = "{{ .ResourceName }}"
   size = 6442450944
 }
-
-{{ if .DiskSizeFilter }}
-resource "libvirt_volume" "extra_disk" {
-  name = "{{ .ResourceName }}-extra-disk"
-  size = 2000000000
-}
-{{ end }}
 
 resource "libvirt_domain" "cp" {
   name     = "{{ .ResourceName }}"
@@ -89,11 +81,6 @@ resource "libvirt_domain" "cp" {
   disk {
     volume_id = libvirt_volume.cp.id
   }
-{{ if .DiskSizeFilter }}
-  disk {
-    volume_id = libvirt_volume.extra_disk.id
-  }
-{{ end }}
   boot_device {
     dev = ["cdrom"]
   }
@@ -158,12 +145,7 @@ data "talos_machine_configuration" "this" {
 data "talos_machine_disks" "this" {
   client_configuration = talos_machine_secrets.this.client_configuration
   node                 = libvirt_domain.cp.network_interface[0].addresses[0]
-  filters = {
-    type = "hdd"
-{{ if .DiskSizeFilter }}
-    size = "{{ .DiskSizeFilter }}"
-{{ end }}
-  }
+  selector             = "disk.size > 6u * GB"
 }
 
 {{ if .WithApplyConfig }}
@@ -175,7 +157,7 @@ resource "talos_machine_configuration_apply" "this" {
     yamlencode({
       machine = {
         install = {
-          disk = data.talos_machine_disks.this.disks[0].name
+          disk = data.talos_machine_disks.this.disks[0].dev_path
         }
       }
     }),

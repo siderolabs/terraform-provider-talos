@@ -24,7 +24,7 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// test default config
 			{
-				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, "> 6GB"),
+				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
@@ -32,35 +32,19 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.ca_certificate"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_certificate"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "filters.size", "> 6GB"),
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "selector", "disk.size > 6u * GB"),
 					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.#", "1"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.0.name", "/dev/vda"),
-				),
-			},
-			// test a filter
-			{
-				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName, "== 2GB"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "filters.size", "== 2GB"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.#", "1"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.0.name", "/dev/vdb"),
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.0.dev_path", "/dev/vda"),
 				),
 			},
 		},
 	})
 }
 
-func testAccTalosMachineDisksDataSourceConfigV0(providerName, rName, sizeFilter string) string {
+func testAccTalosMachineDisksDataSourceConfigV0(providerName, rName string) string {
 	config := dynamicConfig{
 		Provider:        providerName,
 		ResourceName:    rName,
-		DiskSizeFilter:  sizeFilter,
 		WithApplyConfig: false,
 		WithBootstrap:   false,
 	}
