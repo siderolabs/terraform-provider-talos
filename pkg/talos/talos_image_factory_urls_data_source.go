@@ -315,7 +315,7 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 		}
 
 		if platformData[0].SecureBootSupported {
-			urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/installer-secureboot/%s:%s", uri.Host, schematicID, talosVersion))
+			urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/%s-installer-secureboot/%s:%s", uri.Host, platform, schematicID, talosVersion))
 		}
 
 		for _, bootMethod := range platformData[0].BootMethods {

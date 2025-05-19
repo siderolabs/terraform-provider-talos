@@ -94,7 +94,7 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 				Config: testAccTalosImageFactoryURLsNoCloudPlatformConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer", "factory.talos.dev/nocloud-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.installer_secureboot", "factory.talos.dev/nocloud-installer-secureboot/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.7.5"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.iso_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64-secureboot.iso"),
 					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64.raw.xz"),
