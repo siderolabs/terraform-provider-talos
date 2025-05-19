@@ -6,7 +6,6 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cosi-project/runtime v0.10.2
 	github.com/hashicorp/terraform-plugin-docs v0.21.0
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.5.0
@@ -60,6 +59,7 @@ require (
 	github.com/containerd/go-cni v1.1.12 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/containernetworking/cni v1.3.0 // indirect
+	github.com/cosi-project/runtime v0.10.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker v28.0.4+incompatible // indirect

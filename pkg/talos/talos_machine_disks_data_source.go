@@ -9,7 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cosi-project/runtime/pkg/safe"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -20,7 +19,6 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/cel/celenv"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/config/types/block/blockhelpers"
-	"github.com/siderolabs/talos/pkg/machinery/resources/block"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -159,29 +157,22 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 	ctxDeadline, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 
+	selector := state.Selector.ValueString()
+
+	if selector == "" {
+		// if there is no selector, we can return all disks
+		selector = "true"
+	}
+
+	exp, err := cel.ParseBooleanExpression(selector, celenv.DiskLocator())
+	if err != nil {
+		resp.Diagnostics.AddError("failed to parse celenv selector", err.Error())
+
+		return
+	}
+
 	if err := retry.RetryContext(ctxDeadline, readTimeout, func() *retry.RetryError {
 		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-			// if there is no selector, we can return all disks
-			if state.Selector.IsNull() {
-				disks, err := safe.StateListAll[*block.Disk](nodeCtx, c.COSI)
-				if err != nil {
-					return err
-				}
-
-				disks.ForEach(func(disk *block.Disk) {
-					state.Disks = append(state.Disks, diskspecToTFTypes(*disk.TypedSpec()))
-				})
-
-				return nil
-			}
-
-			exp, err := cel.ParseBooleanExpression(state.Selector.ValueString(), celenv.DiskLocator())
-			if err != nil {
-				resp.Diagnostics.AddError("failed to parse celenv selector", err.Error())
-
-				return nodiskFoundError{}
-			}
-
 			disks, err := blockhelpers.MatchDisks(nodeCtx, c.COSI, &exp)
 			if err != nil {
 				return err
