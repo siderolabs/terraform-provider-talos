@@ -1,3 +1,58 @@
+## [terraform-provider-talos 0.9.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.9.0-alpha.0) (2025-05-19)
+
+Welcome to the v0.9.0-alpha.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### talos_machine_disks Data Source
+
+The `talos_machine_disks` data source has been updated to use the better CEL expression language.
+The resource attributes and selector have been updated to use the new syntax.
+The user would need to update the data source in their configuration to use the new syntax.
+The expression syntax is documented in the [CEL documentation](https://www.talos.dev/latest/talos-guides/configuration/disk-management/#disk-selector).
+
+This also brings in consistency with how disks are reported in Talos.
+
+
+### Component Updates
+
+Talos sdk: v1.11.0-alpha.0
+
+
+### Contributors
+
+* Noel Georgi
+* Halvdan Hoem Grelland
+* obvionaoe
+
+### Changes
+<details><summary>7 commits</summary>
+<p>
+
+* [`4016c0c`](https://github.com/siderolabs/terraform-provider-talos/commit/4016c0cc890585c6343829b99d23a22c4fb4bb42) fix: secureboot installer urls for non-metal platform
+* [`34f3f1e`](https://github.com/siderolabs/terraform-provider-talos/commit/34f3f1e74a5e7b65cc82a5c46b5929fbde530790) chore: simplify disk selector code
+* [`93070aa`](https://github.com/siderolabs/terraform-provider-talos/commit/93070aaa166aa2ba81a3322bac2de4b9ef927319) feat: use CEL expression filters for `talos_machine_disks`
+* [`f70e10e`](https://github.com/siderolabs/terraform-provider-talos/commit/f70e10e97d81a1b211c7d09dd3b04156ece70d1a) fix: allow talos_version to be used without a `v` prefix
+* [`fa8002d`](https://github.com/siderolabs/terraform-provider-talos/commit/fa8002d47d35c558ae810e50f6ed0beaa759454a) chore: bump deps
+* [`e76002d`](https://github.com/siderolabs/terraform-provider-talos/commit/e76002d6bf47b39d474cc5bc01c0b919afb20046) fix: factory installer urls
+* [`44eec1c`](https://github.com/siderolabs/terraform-provider-talos/commit/44eec1cc87eeae3d5eaaf45ea742807eea32367a) fix: image factory examples and docs
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.17.0 -> v0.18.0
+* **github.com/siderolabs/gen**                                   v0.8.0 -> v0.8.1
+* **github.com/siderolabs/image-factory**                         v0.6.9 -> v0.7.0
+* **github.com/siderolabs/talos**                                 v1.10.0 -> v1.11.0-alpha.0
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.10.0 -> v1.11.0-alpha.0
+
+Previous release can be found at [v0.8.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.1)
+
 ## [terraform-provider-talos 0.8.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.8.0-alpha.0) (2025-04-18)
 
 Welcome to the v0.8.0-alpha.0 release of terraform-provider-talos!  
