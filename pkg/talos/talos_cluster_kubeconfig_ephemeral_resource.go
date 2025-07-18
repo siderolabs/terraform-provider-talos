@@ -88,9 +88,9 @@ func (r *talosClusterKubeConfigEphemeralResource) Schema(ctx context.Context, _ 
 				Description: "The client configuration data",
 			},
 			"kubeconfig_raw": schema.StringAttribute{
-				Computed:    true,
 				Description: "The raw ephemeral kubeconfig",
 				Sensitive:   true,
+				Optional:    true,
 				// WriteOnly Arguments accept ephemeral values
 				WriteOnly: true,
 			},
@@ -212,11 +212,11 @@ func (r *talosClusterKubeConfigEphemeralResource) Create(ctx context.Context, re
 	}
 }
 
-// Delete func does nothing, since there is no remote object to destroy from due to ephemeral nature
+// Delete func does nothing, since there is no remote object to destroy from due to ephemeral nature.
 func (r *talosClusterKubeConfigEphemeralResource) Delete(_ context.Context, _ resource.DeleteRequest, _ *resource.DeleteResponse) {
 }
 
-// Read func does nothing, since there is no state to refresh from due to ephemeral nature
+// Read func does nothing, since there is no state to refresh from due to ephemeral nature.
 func (r *talosClusterKubeConfigEphemeralResource) Read(_ context.Context, _ resource.ReadRequest, _ *resource.ReadResponse) {
 }
 

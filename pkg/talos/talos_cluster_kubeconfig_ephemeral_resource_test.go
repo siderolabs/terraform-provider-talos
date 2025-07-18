@@ -18,7 +18,7 @@ func TestAccTalosClusterKubeconfigEphemeralResource(t *testing.T) {
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"libvirt": {
 				Source: "dmacvicar/libvirt",
-				uri = ""
+				// uri = ""
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
