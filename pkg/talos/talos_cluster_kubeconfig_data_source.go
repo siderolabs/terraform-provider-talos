@@ -132,6 +132,7 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 	}
 
 	var state talosClusterKubeConfigDataSourceModelV0
+
 	diags = obj.As(ctx, &state, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,

@@ -173,6 +173,7 @@ func (r *talosClusterKubeConfigResource) Create(ctx context.Context, req resourc
 	}
 
 	var state talosClusterKubeConfigResourceModelV1
+
 	diags = obj.As(ctx, &state, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,

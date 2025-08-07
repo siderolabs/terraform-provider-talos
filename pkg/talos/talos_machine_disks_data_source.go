@@ -121,6 +121,7 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 	}
 
 	var state talosMachineDisksDataSourceModelV1
+
 	diags = obj.As(ctx, &state, basetypes.ObjectAsOptions{
 		UnhandledNullAsEmpty:    true,
 		UnhandledUnknownAsEmpty: true,
