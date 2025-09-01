@@ -1,6 +1,6 @@
 module github.com/siderolabs/terraform-provider-talos
 
-go 1.24.5
+go 1.25.0
 
 replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
 
@@ -13,18 +13,18 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.28.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0
-	github.com/hashicorp/terraform-plugin-testing v1.13.2
+	github.com/hashicorp/terraform-plugin-testing v1.13.3
 	github.com/siderolabs/crypto v0.6.3
 	github.com/siderolabs/gen v0.8.5
-	github.com/siderolabs/image-factory v0.7.6
+	github.com/siderolabs/image-factory v0.8.3
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.11.0-beta.1
-	github.com/siderolabs/talos/pkg/machinery v1.11.0-beta.1
-	github.com/stretchr/testify v1.10.0
-	golang.org/x/mod v0.26.0
-	google.golang.org/grpc v1.74.2
+	github.com/siderolabs/talos v1.11.0
+	github.com/siderolabs/talos/pkg/machinery v1.11.0
+	github.com/stretchr/testify v1.11.1
+	golang.org/x/mod v0.27.0
+	google.golang.org/grpc v1.75.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/client-go v0.34.0-beta.0
+	k8s.io/client-go v0.34.0
 )
 
 require (
@@ -36,7 +36,7 @@ require (
 	github.com/gertd/go-pluralize v0.2.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/siderolabs/go-api-signature v0.3.6 // indirect
+	github.com/siderolabs/go-api-signature v0.3.7 // indirect
 	github.com/siderolabs/protoenc v0.2.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
@@ -68,7 +68,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/evanphx/json-patch v5.9.11+incompatible // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -140,7 +140,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/siderolabs/go-circular v0.2.3 // indirect
-	github.com/siderolabs/go-kubernetes v0.2.25 // indirect
+	github.com/siderolabs/go-kubernetes v0.2.26 // indirect
 	github.com/siderolabs/go-pointer v1.0.1 // indirect
 	github.com/siderolabs/go-procfs v0.1.2 // indirect
 	github.com/siderolabs/go-retry v0.3.3 // indirect
@@ -177,13 +177,13 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.34.0-beta.0 // indirect
-	k8s.io/apimachinery v0.34.0-beta.0 // indirect
+	k8s.io/api v0.34.0 // indirect
+	k8s.io/apimachinery v0.34.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.2.0 // indirect
-	sigs.k8s.io/yaml v1.5.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+	sigs.k8s.io/yaml v1.6.0 // indirect
 )
