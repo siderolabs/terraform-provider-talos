@@ -47,6 +47,28 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 	})
 }
 
+func TestAccTalosMachineConfigurationApplyResourcePreventReboots(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source: "dmacvicar/libvirt",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTalosMachineConfigurationApplyResourceConfigWithPreventReboots("talos", rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.prevent_reboots", "id", "machine_configuration_apply"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.prevent_reboots", "prevent_uncontrolled_reboots", "true"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccTalosMachineConfigurationApplyResourceUpgrade(t *testing.T) {
 	// ref: https://github.com/hashicorp/terraform-plugin-testing/pull/118
 	t.Skip("skipping until TF test framework has a way to remove state resource")
@@ -141,4 +163,33 @@ func testAccTalosMachineConfigurationApplyResourceConfigV1(providerName, rName s
 	}
 
 	return config.render()
+}
+
+func testAccTalosMachineConfigurationApplyResourceConfigWithPreventReboots(providerName, rName string) string {
+	config := dynamicConfig{
+		Provider:        providerName,
+		ResourceName:    rName,
+		WithApplyConfig: true,
+		WithBootstrap:   false,
+	}
+
+	baseConfig := config.render()
+
+	return baseConfig + `
+resource "talos_machine_configuration_apply" "prevent_reboots" {
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
+  node                        = libvirt_domain.cp.network_interface[0].addresses[0]
+  prevent_uncontrolled_reboots = true
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = data.talos_machine_disks.this.disks[0].dev_path
+        }
+      }
+    }),
+  ]
+}
+`
 }
