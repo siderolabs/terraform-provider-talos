@@ -5,7 +5,7 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 ignore_deps = ["google.golang.org/grpc"]
 
-previous = "v0.8.1"
+previous = "v0.9.0"
 pre_release = true
 
 [notes]
@@ -13,16 +13,11 @@ pre_release = true
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.11.0-alpha.0
+Talos sdk: v1.12.0-beta.0
 """
 
-    [notes.disks_data_source]
-        title = "talos_machine_disks Data Source"
+    [notes.config_patches]
+        title = "config patches"
         description = """\
-The `talos_machine_disks` data source has been updated to use the better CEL expression language.
-The resource attributes and selector have been updated to use the new syntax.
-The user would need to update the data source in their configuration to use the new syntax.
-The expression syntax is documented in the [CEL documentation](https://www.talos.dev/latest/talos-guides/configuration/disk-management/#disk-selector).
-
-This also brings in consistency with how disks are reported in Talos.
+JSON6502 patches are no longer supported, use strategic patches instead.
 """

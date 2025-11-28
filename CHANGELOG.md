@@ -1,3 +1,55 @@
+## [terraform-provider-talos 0.10.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.0-beta.0) (2025-11-28)
+
+Welcome to the v0.10.0-beta.0 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### config patches
+
+JSON6502 patches are no longer supported, use strategic patches instead.
+
+
+### Component Updates
+
+Talos sdk: v1.12.0-beta.0
+
+
+### Contributors
+
+* Noel Georgi
+
+### Changes
+<details><summary>1 commit</summary>
+<p>
+
+* [`11063bc`](https://github.com/siderolabs/terraform-provider-talos/commit/11063bc25f97c7abb8ae9ceb099bbc523c8655b8) chore: bump deps
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-docs**                  v0.22.0 -> v0.24.0
+* **github.com/hashicorp/terraform-plugin-framework**             v1.15.1 -> v1.16.1
+* **github.com/hashicorp/terraform-plugin-framework-timeouts**    v0.5.0 -> v0.7.0
+* **github.com/hashicorp/terraform-plugin-framework-validators**  v0.18.0 -> v0.19.0
+* **github.com/hashicorp/terraform-plugin-go**                    v0.28.0 -> v0.29.0
+* **github.com/hashicorp/terraform-plugin-log**                   v0.9.0 -> v0.10.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**                v2.37.0 -> v2.38.1
+* **github.com/siderolabs/crypto**                                v0.6.3 -> v0.6.4
+* **github.com/siderolabs/gen**                                   v0.8.5 -> v0.8.6
+* **github.com/siderolabs/image-factory**                         v0.8.3 -> v0.9.0
+* **github.com/siderolabs/talos**                                 v1.11.0 -> v1.12.0-beta.0
+* **github.com/siderolabs/talos/pkg/machinery**                   v1.11.0 -> v1.12.0-beta.0
+* **go.yaml.in/yaml/v4**                                          v4.0.0-rc.3 **_new_**
+* **golang.org/x/mod**                                            v0.27.0 -> v0.30.0
+* **k8s.io/client-go**                                            v0.34.0 -> v0.35.0-alpha.3
+
+Previous release can be found at [v0.9.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.9.0)
+
 ## [terraform-provider-talos 0.9.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.9.0-alpha.0) (2025-05-19)
 
 Welcome to the v0.9.0-alpha.0 release of terraform-provider-talos!  
