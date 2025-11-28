@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -58,16 +59,17 @@ type talosMachineConfigurationApplyResourceModelV0 struct {
 }
 
 type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
-	ID                        types.String        `tfsdk:"id"`
-	ApplyMode                 types.String        `tfsdk:"apply_mode"`
-	Node                      types.String        `tfsdk:"node"`
-	Endpoint                  types.String        `tfsdk:"endpoint"`
-	ClientConfiguration       clientConfiguration `tfsdk:"client_configuration"`
-	MachineConfigurationInput types.String        `tfsdk:"machine_configuration_input"`
-	OnDestroy                 *onDestroyOptions   `tfsdk:"on_destroy"`
-	MachineConfiguration      types.String        `tfsdk:"machine_configuration"`
-	ConfigPatches             []types.String      `tfsdk:"config_patches"`
-	Timeouts                  timeouts.Value      `tfsdk:"timeouts"`
+	ID                         types.String        `tfsdk:"id"`
+	ApplyMode                  types.String        `tfsdk:"apply_mode"`
+	PreventUncontrolledReboots types.Bool          `tfsdk:"prevent_uncontrolled_reboots"`
+	Node                       types.String        `tfsdk:"node"`
+	Endpoint                   types.String        `tfsdk:"endpoint"`
+	ClientConfiguration        clientConfiguration `tfsdk:"client_configuration"`
+	MachineConfigurationInput  types.String        `tfsdk:"machine_configuration_input"`
+	OnDestroy                  *onDestroyOptions   `tfsdk:"on_destroy"`
+	MachineConfiguration       types.String        `tfsdk:"machine_configuration"`
+	ConfigPatches              []types.String      `tfsdk:"config_patches"`
+	Timeouts                   timeouts.Value      `tfsdk:"timeouts"`
 }
 
 type onDestroyOptions struct {
@@ -105,6 +107,13 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 					stringvalidator.OneOf("auto", "reboot", "no_reboot", "staged"),
 				},
 				Default: stringdefault.StaticString("auto"),
+			},
+			"prevent_uncontrolled_reboots": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Only applicable when apply_mode is auto (default). When enabled, prevents uncontrolled reboots " +
+					"by automatically switching to staged mode when a reboot is required. A manual reboot will then be necessary",
+				Default: booldefault.StaticBool(false),
 			},
 			"node": schema.StringAttribute{
 				Required:    true,
@@ -434,6 +443,89 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 	}
 }
 
+func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
+	ctx context.Context,
+	req resource.ModifyPlanRequest,
+	resp *resource.ModifyPlanResponse,
+	planState *talosMachineConfigurationApplyResourceModelV1,
+	cfgBytes []byte,
+) {
+	if planState.PreventUncontrolledReboots.IsNull() ||
+		!planState.PreventUncontrolledReboots.ValueBool() ||
+		req.State.Raw.IsNull() {
+		return
+	}
+
+	applyMode := strings.ToLower(planState.ApplyMode.ValueString())
+	if applyMode == "" || planState.ApplyMode.IsNull() || planState.ApplyMode.IsUnknown() {
+		applyMode = "auto"
+	}
+
+	if applyMode != "auto" || planState.Node.IsUnknown() {
+		return
+	}
+
+	endpoint := planState.Endpoint.ValueString()
+	if endpoint == "" || planState.Endpoint.IsNull() || planState.Endpoint.IsUnknown() {
+		endpoint = planState.Node.ValueString()
+	}
+
+	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
+		"dynamic",
+		planState.ClientConfiguration.CA.ValueString(),
+		planState.ClientConfiguration.Cert.ValueString(),
+		planState.ClientConfiguration.Key.ValueString(),
+	)
+	if err != nil {
+		resp.Diagnostics.AddWarning(
+			"Cannot check reboot requirement",
+			fmt.Sprintf("Node %s: Failed to create Talos client config: %v. Will use requested mode 'auto' (may reboot).",
+				planState.Node.ValueString(), err),
+		)
+
+		return
+	}
+
+	var needsReboot bool
+
+	err = talosClientOp(ctx, endpoint, planState.Node.ValueString(), talosClientConfig,
+		func(nodeCtx context.Context, c *client.Client) error {
+			applyResp, applyErr := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
+				Mode:   machineapi.ApplyConfigurationRequest_AUTO,
+				Data:   cfgBytes,
+				DryRun: true,
+			})
+			if applyErr != nil {
+				return applyErr
+			}
+
+			if len(applyResp.Messages) > 0 {
+				needsReboot = (applyResp.Messages[0].Mode == machineapi.ApplyConfigurationRequest_REBOOT)
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		resp.Diagnostics.AddWarning(
+			"Cannot check reboot requirement",
+			fmt.Sprintf("Node %s: Dry-run API call failed: %v. Will use requested mode 'auto' (may reboot).",
+				planState.Node.ValueString(), err),
+		)
+
+		return
+	}
+
+	if needsReboot {
+		resp.Plan.SetAttribute(ctx, path.Root("apply_mode"), "staged")
+		resp.Diagnostics.AddWarning(
+			"Reboot prevented - switched to staged mode",
+			fmt.Sprintf("Node %s: Configuration requires reboot. Mode automatically changed to 'staged'. Manually reboot with: talosctl reboot --nodes %s",
+				planState.Node.ValueString(), planState.Node.ValueString()),
+		)
+	}
+}
+
 func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) { //nolint:gocyclo,cyclop
 	// delete is a no-op
 	if req.Plan.Raw.IsNull() {
@@ -546,6 +638,8 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 		if diags.HasError() {
 			return
 		}
+
+		p.handleRebootPrevention(ctx, req, resp, &planState, cfgBytes)
 	}
 }
 

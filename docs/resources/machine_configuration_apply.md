@@ -60,6 +60,7 @@ resource "talos_machine_configuration_apply" "this" {
 
 > Note: Any changes to *on_destroy* block has to be applied first by running *terraform apply* first,
 then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework. (see [below for nested schema](#nestedatt--on_destroy))
+- `prevent_uncontrolled_reboots` (Boolean) Only applicable when apply_mode is auto (default). When enabled, prevents uncontrolled reboots by automatically switching to staged mode when a reboot is required. A manual reboot will then be necessary
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
