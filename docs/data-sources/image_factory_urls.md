@@ -83,6 +83,11 @@ output "installer_image" {
         - orangepi-5
         - orangepi-5-plus
         - rockpro64
+        - odroid-m1
+        - radxa-zero-3e
+        - rock3b
+        - orangepi-5-max
+        - rock5t
 
 ### Read-Only
 

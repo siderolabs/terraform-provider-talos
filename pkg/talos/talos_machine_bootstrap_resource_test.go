@@ -57,7 +57,8 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 						Source:            "siderolabs/talos",
 					},
 					"libvirt": {
-						Source: "dmacvicar/libvirt",
+						Source:            "dmacvicar/libvirt",
+						VersionConstraint: "= 0.8.3",
 					},
 				},
 				Config: testAccTalosMachineBootstrapResourceConfigV0("talosv1", rName),
@@ -72,7 +73,8 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				ExternalProviders: map[string]resource.ExternalProvider{
 					"libvirt": {
-						Source: "dmacvicar/libvirt",
+						Source:            "dmacvicar/libvirt",
+						VersionConstraint: "= 0.8.3",
 					},
 				},
 				Config: testAccTalosMachineBootstrapResourceConfigV1("talos", rName),
@@ -90,7 +92,8 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				ExternalProviders: map[string]resource.ExternalProvider{
 					"libvirt": {
-						Source: "dmacvicar/libvirt",
+						Source:            "dmacvicar/libvirt",
+						VersionConstraint: "= 0.8.3",
 					},
 				},
 				Config:   testAccTalosMachineBootstrapResourceConfigV1("talos", rName),

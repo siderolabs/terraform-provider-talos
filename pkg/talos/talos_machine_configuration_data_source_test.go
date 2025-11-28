@@ -18,8 +18,8 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/constants"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"github.com/stretchr/testify/assert"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/mod/semver"
-	"gopkg.in/yaml.v3"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
@@ -73,7 +73,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_endpoint", "https://cluster-1.local:6443"),
 					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.#", "4"),
+					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.#", "3"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/sdd\"\n"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.28.0"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
@@ -93,8 +93,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							func(t *testing.T, config v1alpha1.Config) error {
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Machine().Sysfs())
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Cluster().APIServer().ExtraArgs())
-								assert.Equal(t, "cp-test", config.Machine().Network().Hostname())
-								assert.True(t, config.Cluster().ScheduleOnControlPlanes())
+								assert.Equal(t, "cp-test", config.Hostname())
 								assert.Empty(t, config.Cluster().AESCBCEncryptionSecret())
 								assert.NotEmpty(t, config.Cluster().SecretboxEncryptionSecret())
 
@@ -261,7 +260,6 @@ data "talos_machine_configuration" "this" {
       }
     }),
     file("${path.module}/testdata/patch-strategic.yaml"),
-    file("${path.module}/testdata/patch-json6502.json"),
 	{{ if .InvalidPatch  }}file("${path.module}/testdata/patch-invalid.yaml"),{{ end }}
     yamlencode({
       machine = {

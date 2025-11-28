@@ -23,8 +23,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/mod/semver"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -587,6 +587,7 @@ func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]
 				// Set state to fully populated data
 				diags = resp.State.Set(ctx, &state)
 				resp.Diagnostics.Append(diags...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}

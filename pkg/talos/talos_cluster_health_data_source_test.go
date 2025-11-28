@@ -17,7 +17,8 @@ func TestAccTalosClusterHealthDataSource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"libvirt": {
-				Source: "dmacvicar/libvirt",
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

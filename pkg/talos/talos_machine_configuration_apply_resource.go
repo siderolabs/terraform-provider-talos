@@ -580,13 +580,16 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 
 				diags := req.State.Get(ctx, &priorStateData)
 				resp.Diagnostics.Append(diags...)
+
 				if diags.HasError() {
 					return
 				}
 
 				var patches []string
+
 				diags = append(diags, priorStateData.ConfigPatches.ElementsAs(ctx, &patches, true)...)
 				resp.Diagnostics.Append(diags...)
+
 				if diags.HasError() {
 					return
 				}
@@ -604,6 +607,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 					"update": basetypes.NewStringNull(),
 				})
 				resp.Diagnostics.Append(diag...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}
@@ -623,6 +627,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 				// Set state to fully populated data
 				diags = resp.State.Set(ctx, &state)
 				resp.Diagnostics.Append(diags...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}

@@ -518,6 +518,7 @@ func (r *talosClusterKubeConfigResource) UpgradeState(ctx context.Context) map[i
 
 				diags := req.State.Get(ctx, &obj)
 				resp.Diagnostics.Append(diags...)
+
 				if diags.HasError() {
 					return
 				}
@@ -529,6 +530,7 @@ func (r *talosClusterKubeConfigResource) UpgradeState(ctx context.Context) map[i
 					UnhandledUnknownAsEmpty: true,
 				})
 				resp.Diagnostics.Append(diags...)
+
 				if diags.HasError() {
 					return
 				}
@@ -551,7 +553,9 @@ func (r *talosClusterKubeConfigResource) UpgradeState(ctx context.Context) map[i
 
 				// Set state to fully populated data
 				diags = resp.State.Set(ctx, &state)
+
 				resp.Diagnostics.Append(diags...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}

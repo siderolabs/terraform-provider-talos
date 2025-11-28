@@ -5,8 +5,7 @@ jobs:
   check-dirty:
     if: (!startsWith(github.head_ref, 'renovate/') && !startsWith(github.head_ref, 'dependabot/'))
     runs-on:
-      - self-hosted
-      - generic
+      group: generic
     env:
       GOTOOLCHAIN: local
     steps:

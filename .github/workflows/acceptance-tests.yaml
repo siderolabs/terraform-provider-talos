@@ -12,8 +12,7 @@ jobs:
   acc-tests:
     if: (!startsWith(github.head_ref, 'renovate/') && !startsWith(github.head_ref, 'dependabot/'))
     runs-on:
-      - self-hosted
-      - generic
+      group: large
     env:
       GOTOOLCHAIN: local
     steps:

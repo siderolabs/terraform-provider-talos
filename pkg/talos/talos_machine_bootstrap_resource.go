@@ -283,6 +283,7 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 
 				diags := req.State.Get(ctx, &priorStateData)
 				resp.Diagnostics.Append(diags...)
+
 				if diags.HasError() {
 					return
 				}
@@ -293,6 +294,7 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 					"create": basetypes.NewStringNull(),
 				})
 				resp.Diagnostics.Append(diag...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}
@@ -309,6 +311,7 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 				// Set state to fully populated data
 				diags = resp.State.Set(ctx, &state)
 				resp.Diagnostics.Append(diags...)
+
 				if resp.Diagnostics.HasError() {
 					return
 				}
