@@ -35,6 +35,7 @@ type talosClusterHealthDataSourceModelV0 struct {
 	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
 	Timeouts             timeouts.Value      `tfsdk:"timeouts"`
 	SkipKubernetesChecks types.Bool          `tfsdk:"skip_kubernetes_checks"`
+	SkipWorkerNodeChecks types.Bool          `tfsdk:"skip_worker_node_checks"`
 }
 
 type clusterNodes struct {
@@ -223,6 +224,10 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 		DefaultClient: c,
 	}
 	defer clientProvider.Close() //nolint:errcheck
+
+	if state.SkipWorkerNodeChecks.ValueBool() {
+		workerNodes = []string{}
+	}
 
 	nodeInfos, err := newClusterNodes(controlPlaneNodes, workerNodes)
 	if err != nil {
