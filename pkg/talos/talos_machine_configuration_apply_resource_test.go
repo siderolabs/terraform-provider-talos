@@ -48,6 +48,38 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 	})
 }
 
+// TestAccTalosMachineConfigurationApplyResourceAutoStaged tests the "staged_if_needing_reboot" apply mode.
+//
+// Note on local vs CI environment:
+// During local development, the node IP was sometimes unknown during the plan phase,
+// preventing the dry-run from being performed. However, in CI, the libvirt setup
+// allows the node IP to be known immediately, enabling the dry-run to execute.
+// Since the configuration requires a reboot, the dry-run correctly resolves to
+// "staged" mode to prevent uncontrolled reboots.
+func TestAccTalosMachineConfigurationApplyResourceAutoStaged(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTalosMachineConfigurationApplyResourceConfigWithAutoStaged("talos", rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "id", "machine_configuration_apply"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode", "staged"),
+				),
+			},
+		},
+	})
+}
+
 func TestAccTalosMachineConfigurationApplyResourceUpgrade(t *testing.T) {
 	// ref: https://github.com/hashicorp/terraform-plugin-testing/pull/118
 	t.Skip("skipping until TF test framework has a way to remove state resource")
@@ -145,4 +177,38 @@ func testAccTalosMachineConfigurationApplyResourceConfigV1(providerName, rName s
 	}
 
 	return config.render()
+}
+
+func testAccTalosMachineConfigurationApplyResourceConfigWithAutoStaged(providerName, rName string) string {
+	config := dynamicConfig{
+		Provider:        providerName,
+		ResourceName:    rName,
+		WithApplyConfig: true,
+		WithBootstrap:   false,
+	}
+
+	baseConfig := config.render()
+
+	return baseConfig + `
+resource "talos_machine_configuration_apply" "staged_if_needing_reboot" {
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
+  node                        = libvirt_domain.cp.network_interface[0].addresses[0]
+  apply_mode                  = "staged_if_needing_reboot"
+  config_patches = [
+    yamlencode({
+      machine = {
+        files = [
+          {
+            path        = "/var/etc/example-config.yaml"
+            permissions = 420  # 0644 in octal
+            op          = "create"
+            content     = "example: staged_if_needing_reboot test"
+          }
+        ]
+      }
+    }),
+  ]
+}
+`
 }

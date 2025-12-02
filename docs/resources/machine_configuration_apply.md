@@ -53,7 +53,7 @@ resource "talos_machine_configuration_apply" "this" {
 
 ### Optional
 
-- `apply_mode` (String) The mode of the apply operation
+- `apply_mode` (String) The mode of the apply operation. Use 'staged_if_needing_reboot' for automatic reboot prevention: performs a dry-run and uses 'staged' mode if reboot is needed, 'auto' otherwise
 - `config_patches` (List of String) The list of config patches to apply
 - `endpoint` (String) The endpoint of the machine to bootstrap
 - `on_destroy` (Attributes) Actions to be taken on destroy, if *reset* is not set this is a no-op.
@@ -66,6 +66,7 @@ then a subsequent *terraform destroy* for the changes to take effect due to limi
 
 - `id` (String) This is a unique identifier for the machine
 - `machine_configuration` (String, Sensitive) The generated machine configuration after applying patches
+- `resolved_apply_mode` (String) The actual apply mode used. When apply_mode is 'staged_if_needing_reboot', shows the resolved mode ('auto' or 'staged') based on dry-run analysis. Equals apply_mode for other modes.
 
 <a id="nestedatt--client_configuration"></a>
 ### Nested Schema for `client_configuration`
