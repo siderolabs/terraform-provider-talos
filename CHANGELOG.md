@@ -10,7 +10,7 @@ https://github.com/siderolabs/terraform-provider-talos/issues.
 
 ### config patches
 
-JSON6502 patches are no longer supported, use strategic patches instead.
+RFC 6902 JSON patches are no longer supported, use strategic patches instead.
 
 
 ### Component Updates
