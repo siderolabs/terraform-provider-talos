@@ -316,19 +316,31 @@ func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context
 
 	var configPatches []string
 
-	resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
+	loadConfigPatches := true
 
-	if resp.Diagnostics.HasError() {
-		return
+	for _, el := range state.ConfigPatches.Elements() {
+		if el.IsUnknown() || el.IsNull() {
+			loadConfigPatches = false
+
+			break
+		}
 	}
 
-	if _, err := configpatcher.LoadPatches(configPatches); err != nil {
-		resp.Diagnostics.AddError(
-			"config_patches are invalid",
-			err.Error(),
-		)
+	if loadConfigPatches {
+		resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
 
-		return
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if _, err := configpatcher.LoadPatches(configPatches); err != nil {
+			resp.Diagnostics.AddError(
+				"config_patches are invalid",
+				err.Error(),
+			)
+
+			return
+		}
 	}
 }
 
