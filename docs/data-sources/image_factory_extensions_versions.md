@@ -36,12 +36,21 @@ data "talos_image_factory_extensions_versions" "this" {
 
 ### Optional
 
+- `exact_filters` (Attributes) The filter to apply to the extensions list. (see [below for nested schema](#nestedatt--exact_filters))
 - `filters` (Attributes) The filter to apply to the extensions list. (see [below for nested schema](#nestedatt--filters))
 
 ### Read-Only
 
 - `extensions_info` (List of Object) The list of available extensions for the specified talos version. (see [below for nested schema](#nestedatt--extensions_info))
 - `id` (String) The ID of this resource.
+
+<a id="nestedatt--exact_filters"></a>
+### Nested Schema for `exact_filters`
+
+Optional:
+
+- `names` (List of String) The exact name match of the extension to filter by.
+
 
 <a id="nestedatt--filters"></a>
 ### Nested Schema for `filters`

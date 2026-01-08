@@ -28,6 +28,13 @@ func TestAccTalosImageFactoryExtensionsVersionsDataSource(t *testing.T) {
 					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.0.name", "siderolabs/nvidia-container-toolkit"),
 				),
 			},
+			{
+				Config: testAccTalosImageFactoryExtensionsVersionsDataSourceConfigWithExactFilters(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.#", "1"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.0.name", "siderolabs/tailscale"),
+				),
+			},
 		},
 	})
 }
@@ -52,6 +59,22 @@ data "talos_image_factory_extensions_versions" "this" {
 		names = [
 			"nvidia",
 			"tailscale"
+		]
+	}
+}
+`
+}
+
+func testAccTalosImageFactoryExtensionsVersionsDataSourceConfigWithExactFilters() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_extensions_versions" "this" {
+	talos_version = "v1.7.0"
+	exact_filters = {
+		names = [
+			"nvidia",
+			"siderolabs/tailscale"
 		]
 	}
 }

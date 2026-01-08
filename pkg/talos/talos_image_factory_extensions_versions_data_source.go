@@ -7,6 +7,7 @@ package talos
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -26,6 +27,7 @@ type talosImageFactoryExtensionsVersionsDataSourceModelV0 struct {
 	ID             types.String                               `tfsdk:"id"`
 	TalosVersion   types.String                               `tfsdk:"talos_version"`
 	Filters        *talosImageFactoryExtensionsVersionsFilter `tfsdk:"filters"`
+	ExactFilters   *talosImageFactoryExtensionsVersionsFilter `tfsdk:"exact_filters"`
 	ExtensionsInfo []extensionInfo                            `tfsdk:"extensions_info"`
 }
 
@@ -74,6 +76,17 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Schema(_ context.Context
 					},
 				},
 			},
+			"exact_filters": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "The filter to apply to the extensions list.",
+				Attributes: map[string]schema.Attribute{
+					"names": schema.ListAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+						Description: "The exact name match of the extension to filter by.",
+					},
+				},
+			},
 			"extensions_info": schema.ListAttribute{
 				ElementType: types.ObjectType{
 					AttrTypes: map[string]attr.Type{
@@ -109,6 +122,7 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Configure(_ context.Cont
 	d.imageFactoryClient = imageFactoryClient
 }
 
+//nolint:gocyclo,cyclop,gocognit
 func (d *talosImageFactoryExtensionsVersionsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
 		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
@@ -135,19 +149,36 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Read(ctx context.Context
 		return
 	}
 
-	if config.Filters != nil && !config.Filters.Names.IsNull() && !config.Filters.Names.IsUnknown() {
-		var names []string
+	var exactNames, names []string
+	if config.ExactFilters != nil && !config.ExactFilters.Names.IsNull() && !config.ExactFilters.Names.IsUnknown() {
+		resp.Diagnostics.Append(config.ExactFilters.Names.ElementsAs(ctx, &exactNames, true)...)
 
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if config.Filters != nil && !config.Filters.Names.IsNull() && !config.Filters.Names.IsUnknown() {
 		resp.Diagnostics.Append(config.Filters.Names.ElementsAs(ctx, &names, true)...)
 
 		if resp.Diagnostics.HasError() {
 			return
 		}
+	}
 
+	if len(exactNames) > 0 || len(names) > 0 {
 		extensionsInfo = xslices.Filter(extensionsInfo, func(e client.ExtensionInfo) bool {
-			for _, n := range names {
-				if strings.Contains(e.Name, n) {
+			if len(exactNames) > 0 {
+				if slices.Contains(exactNames, e.Name) {
 					return true
+				}
+			}
+
+			if len(names) > 0 {
+				for _, n := range names {
+					if strings.Contains(e.Name, n) {
+						return true
+					}
 				}
 			}
 
