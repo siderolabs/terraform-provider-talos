@@ -1,3 +1,37 @@
+## [terraform-provider-talos 0.10.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.1) (2026-01-19)
+
+Welcome to the v0.10.1 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### Contributors
+
+* Dennis Witt
+* Nikita COEUR
+* Noel Georgi
+* purajit
+
+### Changes
+<details><summary>4 commits</summary>
+<p>
+
+* [`bbf6d87`](https://github.com/siderolabs/terraform-provider-talos/commit/bbf6d87deb43ef2c46ae679bf28a61dd59d5e33a) fix(conform): allow multiple commits
+* [`c696a93`](https://github.com/siderolabs/terraform-provider-talos/commit/c696a93a67777a04bc762558af443d9c3e024cb5) feat: add staged_if_needing_reboot apply mode for automatic reboot prevention
+* [`9313f8e`](https://github.com/siderolabs/terraform-provider-talos/commit/9313f8e373428c5ca414047397f7f604ff428ace) feat: add exact_filters attribute to talos_image_factory_extensions_versions
+* [`3c508e1`](https://github.com/siderolabs/terraform-provider-talos/commit/3c508e13869622bdd345ad431de3175b79add753) fix: gracefully handle Unknown config_patches values
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.10.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.0)
+
 ## [terraform-provider-talos 0.10.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.0) (2025-12-23)
 
 Welcome to the v0.10.0 release of terraform-provider-talos!  
