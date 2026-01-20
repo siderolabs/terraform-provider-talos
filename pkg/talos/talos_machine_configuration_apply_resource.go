@@ -495,9 +495,11 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 		}
 
 		if currentState.MachineConfiguration.Equal(types.StringValue(string(cfgBytes))) {
-			setResolvedApplyMode(ctx, resp, currentState.ResolvedApplyMode.ValueString())
+			if !currentState.ResolvedApplyMode.IsNull() && currentState.ResolvedApplyMode.ValueString() != "" {
+				setResolvedApplyMode(ctx, resp, currentState.ResolvedApplyMode.ValueString())
 
-			return
+				return
+			}
 		}
 	}
 
