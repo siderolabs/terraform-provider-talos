@@ -2,7 +2,7 @@ module github.com/siderolabs/terraform-provider-talos
 
 go 1.25.5
 
-replace google.golang.org/grpc => google.golang.org/grpc v1.66.3
+replace google.golang.org/grpc => google.golang.org/grpc v1.78.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -18,12 +18,12 @@ require (
 	github.com/siderolabs/gen v0.8.6
 	github.com/siderolabs/image-factory v0.9.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.12.0
-	github.com/siderolabs/talos/pkg/machinery v1.12.0
+	github.com/siderolabs/talos v1.12.2
+	github.com/siderolabs/talos/pkg/machinery v1.12.2
 	github.com/stretchr/testify v1.11.1
-	go.yaml.in/yaml/v4 v4.0.0-rc.3
-	golang.org/x/mod v0.31.0
-	google.golang.org/grpc v1.77.0
+	go.yaml.in/yaml/v4 v4.0.0-rc.4
+	golang.org/x/mod v0.32.0
+	google.golang.org/grpc v1.78.0
 	k8s.io/client-go v0.35.0
 )
 
@@ -39,7 +39,7 @@ require (
 	github.com/siderolabs/go-api-signature v0.3.12 // indirect
 	github.com/siderolabs/protoenc v0.2.4 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap v1.27.1 // indirect
 )
 
 require (
@@ -144,7 +144,7 @@ require (
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink/v2 v2.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.1 // indirect
+	github.com/klauspost/compress v1.18.3 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -200,16 +200,16 @@ require (
 	go.abhg.dev/goldmark/frontmatter v0.2.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/term v0.37.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/oauth2 v0.34.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/term v0.38.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/tools v0.40.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251111163417-95abcf5c77ba // indirect
