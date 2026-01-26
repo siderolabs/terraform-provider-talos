@@ -109,12 +109,12 @@ func logApplyModeState(t *testing.T, stepName string) resource.TestCheckFunc {
 	}
 }
 
-// TestAccTalosMachineConfigurationApplyResourceUpgradeWithBug tests the bug in v0.10.1.
+// TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBug tests the bug in v0.10.1.
 //
 // Bug scenario: v0.10.0 → v0.10.1
 //   - v0.10.0: staged_if_needing_reboot and resolved_apply_mode don't exist.
 //   - v0.10.1: add staged_if_needing_reboot, resolved_apply_mode appears but is EMPTY (this is the bug).
-func TestAccTalosMachineConfigurationApplyResourceUpgradeWithBug(t *testing.T) {
+func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBug(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -161,12 +161,12 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithBug(t *testing.T) {
 	})
 }
 
-// TestAccTalosMachineConfigurationApplyResourceUpgradeWithFix tests the fix for empty resolved_apply_mode.
+// TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFix tests the fix for empty resolved_apply_mode.
 //
 // Fix scenario: v0.10.0 → current version
 //   - v0.10.0: staged_if_needing_reboot and resolved_apply_mode don't exist.
 //   - Current version: resolved_apply_mode is correctly computed as "auto".
-func TestAccTalosMachineConfigurationApplyResourceUpgradeWithFix(t *testing.T) {
+func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFix(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -347,7 +347,7 @@ func testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName,
 	config := dynamicConfig{
 		Provider:        "talos",
 		ResourceName:    rName,
-		WithApplyConfig: true,
+		WithApplyConfig: false,
 		WithBootstrap:   false,
 	}
 
