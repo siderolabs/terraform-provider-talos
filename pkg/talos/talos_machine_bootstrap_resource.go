@@ -41,11 +41,12 @@ type talosMachineBootstrapResourceModelV0 struct {
 }
 
 type talosMachineBootstrapResourceModelV1 struct {
-	ID                  types.String        `tfsdk:"id"`
-	Endpoint            types.String        `tfsdk:"endpoint"`
-	Node                types.String        `tfsdk:"node"`
-	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
-	Timeouts            timeouts.Value      `tfsdk:"timeouts"`
+	ID                    types.String          `tfsdk:"id"`
+	Endpoint              types.String          `tfsdk:"endpoint"`
+	Node                  types.String          `tfsdk:"node"`
+	ClientConfiguration   basetypes.ObjectValue `tfsdk:"client_configuration"`
+	ClientConfigurationWO basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
+	Timeouts              timeouts.Value        `tfsdk:"timeouts"`
 }
 
 // NewTalosMachineBootstrapResource implements the resource.Resource interface.
@@ -55,6 +56,68 @@ func NewTalosMachineBootstrapResource() resource.Resource {
 
 func (r *talosMachineBootstrapResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_machine_bootstrap"
+}
+
+func (r *talosMachineBootstrapResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config talosMachineBootstrapResourceModelV1
+
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+
+	if diags.HasError() {
+		return
+	}
+
+	clientConfigSet := !config.ClientConfiguration.IsNull()
+	clientConfigWOSet := !config.ClientConfigurationWO.IsNull()
+
+	if !clientConfigSet && !clientConfigWOSet {
+		resp.Diagnostics.AddError(
+			"Missing client configuration",
+			"Exactly one of client_configuration or client_configuration_wo must be set",
+		)
+	}
+
+	if clientConfigSet && clientConfigWOSet {
+		resp.Diagnostics.AddError(
+			"Conflicting client configuration",
+			"Only one of client_configuration or client_configuration_wo can be set, not both",
+		)
+	}
+}
+
+// getClientConfiguration returns the effective client configuration,
+// preferring the write-only attribute if set.
+func getBootstrapClientConfiguration(state *talosMachineBootstrapResourceModelV1) (config basetypes.ObjectValue, diagMsg string) {
+	woIsNull := state.ClientConfigurationWO.IsNull()
+	woIsUnknown := state.ClientConfigurationWO.IsUnknown()
+	regularIsNull := state.ClientConfiguration.IsNull()
+
+	// Prefer write-only if available and known
+	if !woIsNull && !woIsUnknown {
+		return state.ClientConfigurationWO, ""
+	}
+
+	// If write-only was provided but is still unknown, that's a problem
+	if !woIsNull && woIsUnknown {
+		return basetypes.NewObjectNull(map[string]attr.Type{
+			"ca_certificate":     types.StringType,
+			"client_certificate": types.StringType,
+			"client_key":         types.StringType,
+		}), "client_configuration_wo is still unknown (ephemeral value not yet resolved)"
+	}
+
+	// Fall back to regular client_configuration
+	if !regularIsNull {
+		return state.ClientConfiguration, ""
+	}
+
+	// Both are null
+	return basetypes.NewObjectNull(map[string]attr.Type{
+		"ca_certificate":     types.StringType,
+		"client_certificate": types.StringType,
+		"client_key":         types.StringType,
+	}), "both client_configuration and client_configuration_wo are null"
 }
 
 func (r *talosMachineBootstrapResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -94,8 +157,31 @@ func (r *talosMachineBootstrapResource) Schema(ctx context.Context, _ resource.S
 						Description: "The client key",
 					},
 				},
-				Required:    true,
+				Optional:    true,
 				Description: "The client configuration data",
+			},
+			"client_configuration_wo": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"ca_certificate": schema.StringAttribute{
+						Required:    true,
+						WriteOnly:   true,
+						Description: "The client CA certificate",
+					},
+					"client_certificate": schema.StringAttribute{
+						Required:    true,
+						WriteOnly:   true,
+						Description: "The client certificate",
+					},
+					"client_key": schema.StringAttribute{
+						Required:    true,
+						Sensitive:   true,
+						WriteOnly:   true,
+						Description: "The client key",
+					},
+				},
+				Optional:    true,
+				WriteOnly:   true,
+				Description: "The client configuration data (write-only). Use this instead of client_configuration when using ephemeral resources. Requires Terraform 1.11+",
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
@@ -114,11 +200,46 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 		return
 	}
 
+	// CRITICAL: Write-only attributes are NOT in Plan, only in Config!
+	var configState talosMachineBootstrapResourceModelV1
+
+	configDiags := req.Config.Get(ctx, &configState)
+	resp.Diagnostics.Append(configDiags...)
+
+	if configDiags.HasError() {
+		return
+	}
+
+	// Use write-only client_configuration from Config
+	if !configState.ClientConfigurationWO.IsNull() {
+		state.ClientConfigurationWO = configState.ClientConfigurationWO
+	}
+
+	clientConfig, configDiag := getBootstrapClientConfiguration(&state)
+	if configDiag != "" {
+		resp.Diagnostics.AddError(
+			"Client configuration issue",
+			configDiag,
+		)
+
+		return
+	}
+
+	ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, clientConfig)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Error extracting client configuration",
+			errMsg,
+		)
+
+		return
+	}
+
 	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
 		"dynamic",
-		state.ClientConfiguration.CA.ValueString(),
-		state.ClientConfiguration.Cert.ValueString(),
-		state.ClientConfiguration.Key.ValueString(),
+		ca,
+		cert,
+		key,
 	)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -299,10 +420,19 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 					return
 				}
 
+				// Create null client configuration with proper type
+				clientConfig := basetypes.NewObjectNull(map[string]attr.Type{
+					"ca_certificate":     types.StringType,
+					"client_certificate": types.StringType,
+					"client_key":         types.StringType,
+				})
+
 				state := talosMachineBootstrapResourceModelV1{
-					ID:       basetypes.NewStringValue("machine_bootstrap"),
-					Endpoint: priorStateData.Endpoint,
-					Node:     priorStateData.Node,
+					ID:                    basetypes.NewStringValue("machine_bootstrap"),
+					Endpoint:              priorStateData.Endpoint,
+					Node:                  priorStateData.Node,
+					ClientConfiguration:   clientConfig,
+					ClientConfigurationWO: clientConfig,
 					Timeouts: timeouts.Value{
 						Object: timeout,
 					},
@@ -332,8 +462,17 @@ func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, _ resou
 		return
 	}
 
+	// Create null client configuration with proper type
+	clientConfig := basetypes.NewObjectNull(map[string]attr.Type{
+		"ca_certificate":     types.StringType,
+		"client_certificate": types.StringType,
+		"client_key":         types.StringType,
+	})
+
 	state := talosMachineBootstrapResourceModelV1{
-		ID: basetypes.NewStringValue("machine_bootstrap"),
+		ID:                    basetypes.NewStringValue("machine_bootstrap"),
+		ClientConfiguration:   clientConfig,
+		ClientConfigurationWO: clientConfig,
 		Timeouts: timeouts.Value{
 			Object: timeout,
 		},

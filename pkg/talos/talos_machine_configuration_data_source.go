@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -71,79 +72,7 @@ func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ dataso
 				Required:    true,
 				Description: "The endpoint of the talos kubernetes cluster",
 			},
-			"machine_secrets": schema.SingleNestedAttribute{
-				Description: "The secrets for the talos cluster",
-				Attributes: map[string]schema.Attribute{
-					"cluster": schema.SingleNestedAttribute{
-						Description: "The cluster secrets",
-						Attributes: map[string]schema.Attribute{
-							"id": schema.StringAttribute{
-								Required:    true,
-								Description: "The cluster id",
-							},
-							"secret": schema.StringAttribute{
-								Required:    true,
-								Sensitive:   true,
-								Description: "The cluster secret",
-							},
-						},
-						Required: true,
-					},
-					"secrets": schema.SingleNestedAttribute{
-						Description: "The secrets for the talos kubernetes cluster",
-						Attributes: map[string]schema.Attribute{
-							"bootstrap_token": schema.StringAttribute{
-								Description: "The bootstrap token for the talos kubernetes cluster",
-								Required:    true,
-								Sensitive:   true,
-							},
-							"secretbox_encryption_secret": schema.StringAttribute{
-								Description: "The secretbox encryption secret for the talos kubernetes cluster",
-								Required:    true,
-								Sensitive:   true,
-							},
-							"aescbc_encryption_secret": schema.StringAttribute{
-								Description: "The aescbc encryption secret for the talos kubernetes cluster",
-								Optional:    true,
-								Sensitive:   true,
-							},
-						},
-						Required: true,
-					},
-					"trustdinfo": schema.SingleNestedAttribute{
-						Description: "The trustd info for the talos kubernetes cluster",
-						Attributes: map[string]schema.Attribute{
-							"token": schema.StringAttribute{
-								Description: "The trustd token for the talos kubernetes cluster",
-								Required:    true,
-								Sensitive:   true,
-							},
-						},
-						Required: true,
-					},
-					"certs": schema.SingleNestedAttribute{
-						Description: "The certs for the talos kubernetes cluster",
-						Attributes: map[string]schema.Attribute{
-							"etcd":           certSchemaInput(),
-							"k8s":            certSchemaInput(),
-							"k8s_aggregator": certSchemaInput(),
-							"k8s_serviceaccount": schema.SingleNestedAttribute{
-								Attributes: map[string]schema.Attribute{
-									"key": schema.StringAttribute{
-										Description: "The key for the k8s service account",
-										Required:    true,
-										Sensitive:   true,
-									},
-								},
-								Required: true,
-							},
-							"os": certSchemaInput(),
-						},
-						Required: true,
-					},
-				},
-				Required: true,
-			},
+			"machine_secrets": machineSecretsSchemaAttribute(),
 			"machine_type": schema.StringAttribute{
 				Required:    true,
 				Description: "The type of machine to generate the configuration for",
@@ -305,20 +234,24 @@ func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context
 		return
 	}
 
-	if !state.ClusterEndpoint.IsUnknown() && !state.ClusterEndpoint.IsNull() {
-		if err := validateClusterEndpoint(state.ClusterEndpoint.ValueString()); err != nil {
-			resp.Diagnostics.AddError(
+	validateMachineConfigurationConfig(ctx, state.ClusterEndpoint, state.ConfigPatches, &resp.Diagnostics)
+}
+
+func validateMachineConfigurationConfig(ctx context.Context, clusterEndpoint types.String, configPatches types.List, diagnostics *diag.Diagnostics) {
+	if !clusterEndpoint.IsUnknown() && !clusterEndpoint.IsNull() {
+		if err := validateClusterEndpoint(clusterEndpoint.ValueString()); err != nil {
+			diagnostics.AddError(
 				"cluster_endpoint is invalid",
 				err.Error(),
 			)
 		}
 	}
 
-	var configPatches []string
+	var patches []string
 
 	loadConfigPatches := true
 
-	for _, el := range state.ConfigPatches.Elements() {
+	for _, el := range configPatches.Elements() {
 		if el.IsUnknown() || el.IsNull() {
 			loadConfigPatches = false
 
@@ -327,20 +260,94 @@ func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context
 	}
 
 	if loadConfigPatches {
-		resp.Diagnostics.Append(state.ConfigPatches.ElementsAs(ctx, &configPatches, true)...)
+		diagnostics.Append(configPatches.ElementsAs(ctx, &patches, true)...)
 
-		if resp.Diagnostics.HasError() {
+		if diagnostics.HasError() {
 			return
 		}
 
-		if _, err := configpatcher.LoadPatches(configPatches); err != nil {
-			resp.Diagnostics.AddError(
+		if _, err := configpatcher.LoadPatches(patches); err != nil {
+			diagnostics.AddError(
 				"config_patches are invalid",
 				err.Error(),
 			)
-
-			return
 		}
+	}
+}
+
+func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {
+	return schema.SingleNestedAttribute{
+		Description: "The secrets for the talos cluster",
+		Attributes: map[string]schema.Attribute{
+			"cluster": schema.SingleNestedAttribute{
+				Description: "The cluster secrets",
+				Attributes: map[string]schema.Attribute{
+					"id": schema.StringAttribute{
+						Required:    true,
+						Description: "The cluster id",
+					},
+					"secret": schema.StringAttribute{
+						Required:    true,
+						Sensitive:   true,
+						Description: "The cluster secret",
+					},
+				},
+				Required: true,
+			},
+			"secrets": schema.SingleNestedAttribute{
+				Description: "The secrets for the talos kubernetes cluster",
+				Attributes: map[string]schema.Attribute{
+					"bootstrap_token": schema.StringAttribute{
+						Description: "The bootstrap token for the talos kubernetes cluster",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"secretbox_encryption_secret": schema.StringAttribute{
+						Description: "The secretbox encryption secret for the talos kubernetes cluster",
+						Required:    true,
+						Sensitive:   true,
+					},
+					"aescbc_encryption_secret": schema.StringAttribute{
+						Description: "The aescbc encryption secret for the talos kubernetes cluster",
+						Optional:    true,
+						Sensitive:   true,
+					},
+				},
+				Required: true,
+			},
+			"trustdinfo": schema.SingleNestedAttribute{
+				Description: "The trustd info for the talos kubernetes cluster",
+				Attributes: map[string]schema.Attribute{
+					"token": schema.StringAttribute{
+						Description: "The trustd token for the talos kubernetes cluster",
+						Required:    true,
+						Sensitive:   true,
+					},
+				},
+				Required: true,
+			},
+			"certs": schema.SingleNestedAttribute{
+				Description: "The certs for the talos kubernetes cluster",
+				Attributes: map[string]schema.Attribute{
+					"etcd":           certSchemaInput(),
+					"k8s":            certSchemaInput(),
+					"k8s_aggregator": certSchemaInput(),
+					"k8s_serviceaccount": schema.SingleNestedAttribute{
+						Attributes: map[string]schema.Attribute{
+							"key": schema.StringAttribute{
+								Description: "The key for the k8s service account",
+								Required:    true,
+								Sensitive:   true,
+							},
+						},
+						Required: true,
+					},
+					"os": certSchemaInput(),
+				},
+				Required: true,
+			},
+		},
+		Required: true,
 	}
 }
 

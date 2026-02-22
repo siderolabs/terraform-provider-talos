@@ -47,15 +47,19 @@ resource "talos_machine_configuration_apply" "this" {
 
 ### Required
 
-- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
-- `machine_configuration_input` (String, Sensitive) The machine configuration to apply
 - `node` (String) The name of the node to bootstrap
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `apply_mode` (String) The mode of the apply operation. Use 'staged_if_needing_reboot' for automatic reboot prevention: performs a dry-run and uses 'staged' mode if reboot is needed, 'auto' otherwise
+- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
+- `client_configuration_wo` (Attributes, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client configuration data (write-only). Use this instead of client_configuration when using ephemeral resources. Requires Terraform 1.11+ (see [below for nested schema](#nestedatt--client_configuration_wo))
 - `config_patches` (List of String) The list of config patches to apply
 - `endpoint` (String) The endpoint of the machine to bootstrap
+- `machine_configuration_input` (String, Sensitive) The machine configuration to apply
+- `machine_configuration_input_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The machine configuration to apply (write-only). Use this instead of machine_configuration_input when using ephemeral resources. Requires Terraform 1.11+
 - `on_destroy` (Attributes) Actions to be taken on destroy, if *reset* is not set this is a no-op.
 
 > Note: Any changes to *on_destroy* block has to be applied first by running *terraform apply* first,
@@ -76,6 +80,16 @@ Required:
 - `ca_certificate` (String) The client CA certificate
 - `client_certificate` (String) The client certificate
 - `client_key` (String, Sensitive) The client key
+
+
+<a id="nestedatt--client_configuration_wo"></a>
+### Nested Schema for `client_configuration_wo`
+
+Required:
+
+- `ca_certificate` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client CA certificate
+- `client_certificate` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client certificate
+- `client_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client key
 
 
 <a id="nestedatt--on_destroy"></a>

@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -100,5 +101,16 @@ func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewTalosMachineBootstrapResource,
 		NewTalosClusterKubeConfigResource,
 		NewTalosImageFactorySchematicResource,
+	}
+}
+
+// EphemeralResources defines the ephemeral resources implemented in the provider.
+func (p *talosProvider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{
+		NewTalosMachineSecretsEphemeralResource,
+		NewTalosMachineConfigurationEphemeralResource,
+		NewTalosClientConfigurationEphemeralResource,
+		NewTalosClusterKubeConfigEphemeralResource,
+		NewTalosClusterHealthEphemeralResource,
 	}
 }

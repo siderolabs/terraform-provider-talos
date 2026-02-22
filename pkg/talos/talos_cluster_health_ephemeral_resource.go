@@ -11,79 +11,39 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
-	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/talos/pkg/cluster"
 	"github.com/siderolabs/talos/pkg/cluster/check"
 	"github.com/siderolabs/talos/pkg/conditions"
 	"github.com/siderolabs/talos/pkg/machinery/client"
-	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 )
 
-type talosClusterHealthDataSource struct{}
+var _ ephemeral.EphemeralResource = &talosClusterHealthEphemeralResource{}
 
-var _ datasource.DataSource = &talosClusterHealthDataSource{}
+type talosClusterHealthEphemeralResource struct{}
 
-type talosClusterHealthDataSourceModelV0 struct {
-	ID                   types.String        `tfsdk:"id"`
+type talosClusterHealthEphemeralResourceModel struct {
+	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
 	Endpoints            types.List          `tfsdk:"endpoints"`
 	ControlPlaneNodes    types.List          `tfsdk:"control_plane_nodes"`
 	WorkerNodes          types.List          `tfsdk:"worker_nodes"`
-	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
-	Timeouts             timeouts.Value      `tfsdk:"timeouts"`
+	Timeout              types.String        `tfsdk:"timeout"`
 	SkipKubernetesChecks types.Bool          `tfsdk:"skip_kubernetes_checks"`
 }
 
-type clusterNodes struct {
-	nodesByType map[machine.Type][]cluster.NodeInfo
-	nodes       []cluster.NodeInfo
-}
-
-func newClusterNodes(controlPlaneNodes, workerNodes []string) (*clusterNodes, error) {
-	controlPlaneNodeInfos, err := cluster.IPsToNodeInfos(controlPlaneNodes)
-	if err != nil {
-		return nil, err
-	}
-
-	workerNodeInfos, err := cluster.IPsToNodeInfos(workerNodes)
-	if err != nil {
-		return nil, err
-	}
-
-	nodesByType := make(map[machine.Type][]cluster.NodeInfo)
-	nodesByType[machine.TypeControlPlane] = controlPlaneNodeInfos
-	nodesByType[machine.TypeWorker] = workerNodeInfos
-
-	return &clusterNodes{
-		nodes:       slices.Concat(controlPlaneNodeInfos, workerNodeInfos),
-		nodesByType: nodesByType,
-	}, nil
-}
-
-// Nodes returns cluster nodeinfos.
-func (c *clusterNodes) Nodes() []cluster.NodeInfo {
-	return c.nodes
-}
-
-// NodesByType returns cluster nodeinfos by type.
-func (c *clusterNodes) NodesByType(t machine.Type) []cluster.NodeInfo {
-	return c.nodesByType[t]
-}
-
-type reporter struct {
+type healthReporter struct {
 	lastLine string
 	s        strings.Builder
 }
 
-func newReporter() *reporter {
-	return &reporter{}
+func newHealthReporter() *healthReporter {
+	return &healthReporter{}
 }
 
 // Update implements the conditions.Reporter interface.
-func (r *reporter) Update(condition conditions.Condition) {
+func (r *healthReporter) Update(condition conditions.Condition) {
 	if condition.String() != r.lastLine {
 		fmt.Fprintf(&r.s, "waiting for %s\n", condition.String())
 		r.lastLine = condition.String()
@@ -91,27 +51,23 @@ func (r *reporter) Update(condition conditions.Condition) {
 }
 
 // String returns the string representation of the reporter.
-func (r *reporter) String() string {
+func (r *healthReporter) String() string {
 	return r.s.String()
 }
 
-// NewTalosClusterHealthDataSource implements the datasource.DataSource interface.
-func NewTalosClusterHealthDataSource() datasource.DataSource {
-	return &talosClusterHealthDataSource{}
+// NewTalosClusterHealthEphemeralResource implements the ephemeral.EphemeralResource interface.
+func NewTalosClusterHealthEphemeralResource() ephemeral.EphemeralResource {
+	return &talosClusterHealthEphemeralResource{}
 }
 
-func (d *talosClusterHealthDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (r *talosClusterHealthEphemeralResource) Metadata(_ context.Context, req ephemeral.MetadataRequest, resp *ephemeral.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_cluster_health"
 }
 
-func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (r *talosClusterHealthEphemeralResource) Schema(_ context.Context, _ ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description:         "Checks the health of a Talos cluster",
-		MarkdownDescription: "Waits for the Talos cluster to be healthy. Can be used as a dependency before running other operations on the cluster.",
+		Description: "Checks the health of a Talos cluster. This is an ephemeral resource that does not persist secrets in Terraform state.",
 		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed: true,
-			},
 			"endpoints": schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
@@ -150,17 +106,18 @@ func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.
 				Required:    true,
 				Description: "The client configuration data",
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
-				Read: true,
-			}),
+			"timeout": schema.StringAttribute{
+				Optional:    true,
+				Description: "Timeout for the health check. Defaults to 10m. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.",
+			},
 		},
 	}
 }
 
-func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	var state talosClusterHealthDataSourceModelV0
+func (r *talosClusterHealthEphemeralResource) Open(ctx context.Context, req ephemeral.OpenRequest, resp *ephemeral.OpenResponse) {
+	var config talosClusterHealthEphemeralResourceModel
 
-	diags := req.Config.Get(ctx, &state)
+	diags := req.Config.Get(ctx, &config)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -173,36 +130,43 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 		workerNodes       []string
 	)
 
-	resp.Diagnostics.Append(state.Endpoints.ElementsAs(ctx, &endpoints, true)...)
+	resp.Diagnostics.Append(config.Endpoints.ElementsAs(ctx, &endpoints, true)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(state.ControlPlaneNodes.ElementsAs(ctx, &controlPlaneNodes, true)...)
+	resp.Diagnostics.Append(config.ControlPlaneNodes.ElementsAs(ctx, &controlPlaneNodes, true)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(state.WorkerNodes.ElementsAs(ctx, &workerNodes, true)...)
+	resp.Diagnostics.Append(config.WorkerNodes.ElementsAs(ctx, &workerNodes, true)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	readTimeout, diags := state.Timeouts.Read(ctx, 10*time.Minute)
-	resp.Diagnostics.Append(diags...)
+	// Parse timeout
+	timeout := 10 * time.Minute
 
-	if resp.Diagnostics.HasError() {
-		return
+	if !config.Timeout.IsNull() && !config.Timeout.IsUnknown() {
+		var err error
+
+		timeout, err = time.ParseDuration(config.Timeout.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid timeout", fmt.Sprintf("Unable to parse timeout: %s", err.Error()))
+
+			return
+		}
 	}
 
 	talosConfig, err := talosClientTFConfigToTalosClientConfig(
 		"dynamic",
-		state.ClientConfiguration.CA.ValueString(),
-		state.ClientConfiguration.Cert.ValueString(),
-		state.ClientConfiguration.Key.ValueString(),
+		config.ClientConfiguration.CA.ValueString(),
+		config.ClientConfiguration.Cert.ValueString(),
+		config.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
@@ -244,14 +208,14 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 	}
 
 	// Run cluster readiness checks
-	checkCtx, checkCtxCancel := context.WithTimeout(ctx, readTimeout)
+	checkCtx, checkCtxCancel := context.WithTimeout(ctx, timeout)
 	defer checkCtxCancel()
 
-	reporter := newReporter()
+	reporter := newHealthReporter()
 
 	checks := slices.Concat(check.PreBootSequenceChecks(), check.K8sComponentsReadinessChecks())
 
-	if !state.SkipKubernetesChecks.ValueBool() {
+	if !config.SkipKubernetesChecks.ValueBool() {
 		checks = check.DefaultClusterChecks()
 	}
 
@@ -262,9 +226,8 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 		return
 	}
 
-	state.ID = basetypes.NewStringValue("cluster_health")
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	// Set result - ephemeral resources can set a result or just complete successfully
+	resp.Diagnostics.Append(resp.Result.Set(ctx, &config)...)
 
 	if resp.Diagnostics.HasError() {
 		return

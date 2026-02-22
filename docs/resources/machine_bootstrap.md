@@ -55,11 +55,14 @@ resource "talos_machine_bootstrap" "this" {
 
 ### Required
 
-- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
 - `node` (String) The name of the node to bootstrap
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
+- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
+- `client_configuration_wo` (Attributes, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client configuration data (write-only). Use this instead of client_configuration when using ephemeral resources. Requires Terraform 1.11+ (see [below for nested schema](#nestedatt--client_configuration_wo))
 - `endpoint` (String) The endpoint of the machine to bootstrap
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
@@ -75,6 +78,16 @@ Required:
 - `ca_certificate` (String) The client CA certificate
 - `client_certificate` (String) The client certificate
 - `client_key` (String, Sensitive) The client key
+
+
+<a id="nestedatt--client_configuration_wo"></a>
+### Nested Schema for `client_configuration_wo`
+
+Required:
+
+- `ca_certificate` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client CA certificate
+- `client_certificate` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client certificate
+- `client_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) The client key
 
 
 <a id="nestedatt--timeouts"></a>

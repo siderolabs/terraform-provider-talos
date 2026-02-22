@@ -133,79 +133,7 @@ func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.Schem
 					talosMachineFeaturesVersionDefaults(),
 				},
 			},
-			"machine_secrets": schema.SingleNestedAttribute{
-				Description: "The secrets for the talos cluster",
-				Attributes: map[string]schema.Attribute{
-					"cluster": schema.SingleNestedAttribute{
-						Attributes: map[string]schema.Attribute{
-							"id": schema.StringAttribute{
-								Description: "The cluster ID",
-								Computed:    true,
-							},
-							"secret": schema.StringAttribute{
-								Description: "The cluster secret",
-								Computed:    true,
-								Sensitive:   true,
-							},
-						},
-						Description: "The cluster secrets",
-						Computed:    true,
-					},
-					"secrets": schema.SingleNestedAttribute{
-						Attributes: map[string]schema.Attribute{
-							"bootstrap_token": schema.StringAttribute{
-								Description: "The bootstrap token",
-								Computed:    true,
-								Sensitive:   true,
-							},
-							"secretbox_encryption_secret": schema.StringAttribute{
-								Description: "The secretbox encryption secret",
-								Computed:    true,
-								Sensitive:   true,
-							},
-							"aescbc_encryption_secret": schema.StringAttribute{
-								Description: "The AES-CBC encryption secret",
-								Computed:    true,
-								Sensitive:   true,
-							},
-						},
-						Description: "kubernetes cluster secrets",
-						Computed:    true,
-					},
-					"trustdinfo": schema.SingleNestedAttribute{
-						Attributes: map[string]schema.Attribute{
-							"token": schema.StringAttribute{
-								Description: "The trustd token",
-								Computed:    true,
-								Sensitive:   true,
-							},
-						},
-						Description: "trustd secrets",
-						Computed:    true,
-					},
-					"certs": schema.SingleNestedAttribute{
-						Attributes: map[string]schema.Attribute{
-							"etcd":           certSchema(),
-							"k8s":            certSchema(),
-							"k8s_aggregator": certSchema(),
-							"k8s_serviceaccount": schema.SingleNestedAttribute{
-								Attributes: map[string]schema.Attribute{
-									"key": schema.StringAttribute{
-										Description: "The service account key",
-										Computed:    true,
-										Sensitive:   true,
-									},
-								},
-								Description: "The service account secrets",
-								Computed:    true,
-							},
-							"os": certSchema(),
-						},
-						Computed: true,
-					},
-				},
-				Computed: true,
-			},
+			"machine_secrets": machineSecretsOutputSchemaAttribute(),
 			"client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"ca_certificate": schema.StringAttribute{
@@ -226,6 +154,82 @@ func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.Schem
 				Description: "The generated client configuration data",
 			},
 		},
+	}
+}
+
+func machineSecretsOutputSchemaAttribute() schema.SingleNestedAttribute {
+	return schema.SingleNestedAttribute{
+		Description: "The secrets for the talos cluster",
+		Attributes: map[string]schema.Attribute{
+			"cluster": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"id": schema.StringAttribute{
+						Description: "The cluster ID",
+						Computed:    true,
+					},
+					"secret": schema.StringAttribute{
+						Description: "The cluster secret",
+						Computed:    true,
+						Sensitive:   true,
+					},
+				},
+				Description: "The cluster secrets",
+				Computed:    true,
+			},
+			"secrets": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"bootstrap_token": schema.StringAttribute{
+						Description: "The bootstrap token",
+						Computed:    true,
+						Sensitive:   true,
+					},
+					"secretbox_encryption_secret": schema.StringAttribute{
+						Description: "The secretbox encryption secret",
+						Computed:    true,
+						Sensitive:   true,
+					},
+					"aescbc_encryption_secret": schema.StringAttribute{
+						Description: "The AES-CBC encryption secret",
+						Computed:    true,
+						Sensitive:   true,
+					},
+				},
+				Description: "kubernetes cluster secrets",
+				Computed:    true,
+			},
+			"trustdinfo": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"token": schema.StringAttribute{
+						Description: "The trustd token",
+						Computed:    true,
+						Sensitive:   true,
+					},
+				},
+				Description: "trustd secrets",
+				Computed:    true,
+			},
+			"certs": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"etcd":           certSchema(),
+					"k8s":            certSchema(),
+					"k8s_aggregator": certSchema(),
+					"k8s_serviceaccount": schema.SingleNestedAttribute{
+						Attributes: map[string]schema.Attribute{
+							"key": schema.StringAttribute{
+								Description: "The service account key",
+								Computed:    true,
+								Sensitive:   true,
+							},
+						},
+						Description: "The service account secrets",
+						Computed:    true,
+					},
+					"os": certSchema(),
+				},
+				Computed: true,
+			},
+		},
+		Computed: true,
 	}
 }
 
