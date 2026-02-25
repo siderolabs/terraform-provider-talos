@@ -62,6 +62,7 @@ output "installer_image" {
 - `sbc` (String) The SBC's (Single Board Copmuters) for which the url are generated.
 
     #### Single Board Computers
+        - rpi_5
         - rpi_generic
         - revpi_generic
         - bananapi_m64
@@ -88,6 +89,8 @@ output "installer_image" {
         - rock3b
         - orangepi-5-max
         - rock5t
+        - friendlyelec-cm3588-nas
+        - rock5b-plus
 
 ### Read-Only
 

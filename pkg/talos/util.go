@@ -51,7 +51,6 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 		generate.WithDNSDomain(constants.DefaultDNSDomain),
 		generate.WithInstallDisk("/dev/sda"),
 		generate.WithInstallImage(GenerateInstallerImage()),
-		generate.WithPersist(true),
 		generate.WithSecretsBundle(m.machineSecrets),
 	)
 

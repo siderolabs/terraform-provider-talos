@@ -92,7 +92,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 							false,
 							func(t *testing.T, config v1alpha1.Config) error {
 								assert.Equal(t, map[string]string{"foo": "bar"}, config.Machine().Sysfs())
-								assert.Equal(t, map[string]string{"foo": "bar"}, config.Cluster().APIServer().ExtraArgs())
+								assert.Equal(t, map[string][]string{"foo": {"bar"}}, config.Cluster().APIServer().ExtraArgs())
 								assert.Equal(t, "cp-test", config.Hostname())
 								assert.Empty(t, config.Cluster().AESCBCEncryptionSecret())
 								assert.NotEmpty(t, config.Cluster().SecretboxEncryptionSecret())
@@ -194,7 +194,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			{
 				PlanOnly:    true,
 				Config:      testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "v1.23.0", true, true, true, true),
-				ExpectError: regexp.MustCompile("unknown keys found during decoding:"),
+				ExpectError: regexp.MustCompile(`error decoding document /v1alpha1/ \(line 1\): unknown keys found during`),
 			},
 		},
 	})
