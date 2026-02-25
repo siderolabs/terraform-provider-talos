@@ -7,7 +7,6 @@ package talos
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -213,7 +212,7 @@ func (r *talosClusterHealthEphemeralResource) Open(ctx context.Context, req ephe
 
 	reporter := newHealthReporter()
 
-	checks := slices.Concat(check.PreBootSequenceChecks(), check.K8sComponentsReadinessChecks())
+	checks := check.PreBootSequenceChecks()
 
 	if !config.SkipKubernetesChecks.ValueBool() {
 		checks = check.DefaultClusterChecks()

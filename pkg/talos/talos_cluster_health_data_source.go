@@ -249,7 +249,7 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 
 	reporter := newReporter()
 
-	checks := slices.Concat(check.PreBootSequenceChecks(), check.K8sComponentsReadinessChecks())
+	checks := check.PreBootSequenceChecks()
 
 	if !state.SkipKubernetesChecks.ValueBool() {
 		checks = check.DefaultClusterChecks()
