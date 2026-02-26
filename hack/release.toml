@@ -5,7 +5,7 @@ project_name = "terraform-provider-talos"
 github_repo = "siderolabs/terraform-provider-talos"
 ignore_deps = ["google.golang.org/grpc"]
 
-previous = "v0.9.0"
+previous = "v0.10.1"
 pre_release = true
 
 [notes]
@@ -13,11 +13,11 @@ pre_release = true
     [notes.updates]
         title = "Component Updates"
         description = """\
-Talos sdk: v1.12.0-beta.0
+Talos sdk: v1.13.0-alpha.1
 """
 
     [notes.config_patches]
-        title = "config patches"
+        title = "ephemeral resources"
         description = """\
-JSON6502 patches are no longer supported, use strategic patches instead.
+New ephemeral resources are added, please see docs.
 """
