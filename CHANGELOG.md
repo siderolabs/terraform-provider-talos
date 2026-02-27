@@ -1,3 +1,69 @@
+## [terraform-provider-talos 0.11.0-beta.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0-beta.1) (2026-02-27)
+
+Welcome to the v0.11.0-beta.1 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### ephemeral resources
+
+New ephemeral resources are added, please see docs.
+
+
+### Component Updates
+
+Talos sdk: v1.13.0-alpha.1
+
+
+### Contributors
+
+* Mickaël Canévet
+* Noel Georgi
+* Dennis Witt
+* Nikita COEUR
+* purajit
+
+### Changes
+<details><summary>9 commits</summary>
+<p>
+
+* [`01330a9`](https://github.com/siderolabs/terraform-provider-talos/commit/01330a9d19a2a27ed79fd78c6cd1623012f61d09) chore: update goreleaser schema
+* [`1585aed`](https://github.com/siderolabs/terraform-provider-talos/commit/1585aed51fcde7e158d45afa0be78f084693d396) fix: remove unsupported windows/arm build target for Go 1.25
+* [`d7bb719`](https://github.com/siderolabs/terraform-provider-talos/commit/d7bb7199c1a212431339d634b905c3b9b21d0a3f) release(v0.11.0-beta.0): prepare release
+* [`09f6c83`](https://github.com/siderolabs/terraform-provider-talos/commit/09f6c838e7430de02f62a1b968f425e0b2be4e0d) fix: restore correct skip_kubernetes_checks behavior
+* [`eaedcfd`](https://github.com/siderolabs/terraform-provider-talos/commit/eaedcfdda3e7e3193e3d23231673ef676f575ae5) chore: bump deps
+* [`f4d673f`](https://github.com/siderolabs/terraform-provider-talos/commit/f4d673f0851f25c5e15ef8ac9bd6fc12310ab2d5) feat: add ephemeral resources to prevent secrets from leaking to state
+* [`5f07e0f`](https://github.com/siderolabs/terraform-provider-talos/commit/5f07e0f6043687b2dc475aeb16d489968a2dd2c5) feat: add staged_if_needing_reboot apply mode for automatic reboot prevention
+* [`c8e3b87`](https://github.com/siderolabs/terraform-provider-talos/commit/c8e3b87002418699bf33a2b437f7ff59aa6c70ad) feat: add exact_filters attribute to talos_image_factory_extensions_versions
+* [`efe146e`](https://github.com/siderolabs/terraform-provider-talos/commit/efe146e512fb22dd1012849fce098256115961a4) fix: gracefully handle Unknown config_patches values
+</p>
+</details>
+
+### Changes since v0.11.0-beta.0
+<details><summary>2 commits</summary>
+<p>
+
+* [`01330a9`](https://github.com/siderolabs/terraform-provider-talos/commit/01330a9d19a2a27ed79fd78c6cd1623012f61d09) chore: update goreleaser schema
+* [`1585aed`](https://github.com/siderolabs/terraform-provider-talos/commit/1585aed51fcde7e158d45afa0be78f084693d396) fix: remove unsupported windows/arm build target for Go 1.25
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-go**      v0.29.0 -> v0.30.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**  v2.38.1 -> v2.38.2
+* **github.com/siderolabs/image-factory**           v0.9.0 -> v1.0.3
+* **github.com/siderolabs/talos**                   v1.12.0 -> v1.13.0-alpha.2
+* **github.com/siderolabs/talos/pkg/machinery**     v1.12.0 -> v1.13.0-alpha.2
+* **go.yaml.in/yaml/v4**                            v4.0.0-rc.3 -> v4.0.0-rc.4
+* **golang.org/x/mod**                              v0.31.0 -> v0.33.0
+* **k8s.io/client-go**                              v0.35.0 -> v0.35.1
+
+Previous release can be found at [v0.10.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.1)
+
 ## [terraform-provider-talos 0.11.0-beta.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0-beta.0) (2026-02-26)
 
 Welcome to the v0.11.0-beta.0 release of terraform-provider-talos!  
