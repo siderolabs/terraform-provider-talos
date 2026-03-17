@@ -202,9 +202,16 @@ ephemeral "talos_machine_configuration" "controlplane" {
 }
 ```
 
-## Example: Retrieving Kubeconfig Ephemerally
+## Example: Generating Kubeconfig Ephemerally from Machine Secrets
 
-This example shows how to retrieve a kubeconfig ephemerally while using secrets from Vault:
+This example shows how to generate a kubeconfig ephemerally from machine secrets stored in Vault.
+The kubeconfig is generated locally from the Kubernetes CA key — no live cluster required.
+
+### Simple usage (CA-pinned timestamps)
+
+When `not_before` is omitted, the admin certificate validity window is taken from the K8s CA's
+own timestamps (set once when the cluster was created). The output is byte-identical on every
+plan as long as `machine_secrets` does not change.
 
 ```terraform
 # Retrieve stored secrets from Vault
@@ -217,17 +224,11 @@ locals {
   talos_data = jsondecode(ephemeral.vault_kv_secret_v2.talos_secrets.data_json)
 }
 
-# Generate client configuration ephemerally
-ephemeral "talos_client_configuration" "this" {
-  cluster_name         = "prod-cluster"
-  client_configuration = local.talos_data.client_configuration
-  endpoints            = ["10.5.0.2"]
-}
-
-# Retrieve kubeconfig without storing in state
+# Generate kubeconfig without storing in state
 ephemeral "talos_cluster_kubeconfig" "this" {
-  client_configuration = ephemeral.talos_client_configuration.this.client_configuration
-  node                 = "10.5.0.2"
+  cluster_name    = "prod-cluster"
+  machine_secrets = local.talos_data.machine_secrets
+  endpoint        = "https://10.5.0.2:6443"
 }
 
 # Output the kubeconfig (marked as ephemeral)
@@ -238,7 +239,50 @@ output "kubeconfig" {
 }
 ```
 
-**Note**: The kubeconfig itself doesn't need to be persisted since it can be regenerated deterministically from the machine secrets. The ephemeral output allows you to access the kubeconfig without storing it in state.
+### Recommended pattern for Vault-backed workflows (explicit `not_before`)
+
+When storing `kubeconfig_raw` in a Vault KV secret (or any resource that detects byte changes),
+use a `terraform_data` resource to persist a stable `not_before` timestamp in Terraform state.
+This pins the admin certificate validity window so `kubeconfig_raw` is byte-identical across
+all plan invocations — no `ignore_changes` or `data_json_wo_version` bumps required until you
+explicitly rotate the certificate.
+
+```terraform
+# Persist the admin cert NotBefore timestamp in regular Terraform state.
+# Use ignore_changes so it is set once and never updated automatically.
+# To rotate the cert: taint this resource and re-apply.
+resource "terraform_data" "kubeconfig_nbf" {
+  input = plantimestamp()
+  lifecycle {
+    ignore_changes = [input]
+  }
+}
+
+# Generate kubeconfig with pinned timestamps
+ephemeral "talos_cluster_kubeconfig" "this" {
+  cluster_name    = "prod-cluster"
+  machine_secrets = local.talos_data.machine_secrets
+  endpoint        = "https://10.5.0.2:6443"
+  not_before      = terraform_data.kubeconfig_nbf.output
+  crt_ttl         = "87600h"
+}
+
+# Store kubeconfig in Vault — kubeconfig_raw is stable so this resource
+# only updates when machine_secrets or not_before change.
+resource "vault_kv_secret_v2" "kubeconfig" {
+  mount = "secret"
+  name  = "kubeconfig-prod-cluster"
+
+  data_json_wo         = jsonencode({ kubeconfig = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw })
+  data_json_wo_version = 1
+}
+```
+
+**Certificate rotation**: taint `terraform_data.kubeconfig_nbf` to force a new `not_before`,
+which produces a new cert and triggers a `data_json_wo_version` bump on the Vault secret.
+
+**Note**: The kubeconfig is generated locally from the machine secrets and does not require
+a running cluster.
 
 ## Alternative Secret Managers
 
