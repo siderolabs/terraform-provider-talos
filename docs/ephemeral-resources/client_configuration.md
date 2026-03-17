@@ -3,12 +3,12 @@
 page_title: "talos_client_configuration Ephemeral Resource - talos"
 subcategory: ""
 description: |-
-  Generate client configuration for a Talos cluster. This is an ephemeral resource that does not persist secrets in Terraform state.
+  Generate client configuration for a Talos cluster from machine secrets. This is an ephemeral resource that does not persist secrets in Terraform state. The admin client certificate is generated with pinned timestamps so talos_config is byte-identical on every open as long as machine_secrets and not_before are unchanged.
 ---
 
 # talos_client_configuration (Ephemeral Resource)
 
-Generate client configuration for a Talos cluster. This is an ephemeral resource that does not persist secrets in Terraform state.
+Generate client configuration for a Talos cluster from machine secrets. This is an ephemeral resource that does not persist secrets in Terraform state. The admin client certificate is generated with pinned timestamps so talos_config is byte-identical on every open as long as machine_secrets and not_before are unchanged.
 
 
 
@@ -17,22 +17,122 @@ Generate client configuration for a Talos cluster. This is an ephemeral resource
 
 ### Required
 
-- `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
 - `cluster_name` (String) The name of the cluster in the generated config
+- `machine_secrets` (Attributes) The secrets for the talos cluster (see [below for nested schema](#nestedatt--machine_secrets))
 
 ### Optional
 
+- `crt_ttl` (String) The lifetime of the generated admin client certificate as a Go duration string (e.g. "8760h" for 1 year, "87600h" for 10 years). Defaults to "87600h" (10 years). Only used when not_before is set; when not_before is omitted the cert uses the OS CA's NotAfter directly.
 - `endpoints` (List of String) endpoints to set in the generated config
 - `nodes` (List of String) nodes to set in the generated config
+- `not_before` (String) RFC3339 timestamp to use as the NotBefore field of the generated admin client certificate. When set, the certificate validity starts at this time and ends at not_before + crt_ttl. Persist this value in a terraform_data resource so it is stable across plans and the generated talos_config is byte-identical on every open. When omitted, the certificate uses the OS CA's own NotBefore/NotAfter timestamps.
 
 ### Read-Only
 
+- `client_configuration` (Attributes, Sensitive) The generated client configuration data (see [below for nested schema](#nestedatt--client_configuration))
 - `talos_config` (String, Sensitive) The generated client configuration
+
+<a id="nestedatt--machine_secrets"></a>
+### Nested Schema for `machine_secrets`
+
+Required:
+
+- `certs` (Attributes) The certs for the talos kubernetes cluster (see [below for nested schema](#nestedatt--machine_secrets--certs))
+- `cluster` (Attributes) The cluster secrets (see [below for nested schema](#nestedatt--machine_secrets--cluster))
+- `secrets` (Attributes) The secrets for the talos kubernetes cluster (see [below for nested schema](#nestedatt--machine_secrets--secrets))
+- `trustdinfo` (Attributes) The trustd info for the talos kubernetes cluster (see [below for nested schema](#nestedatt--machine_secrets--trustdinfo))
+
+<a id="nestedatt--machine_secrets--certs"></a>
+### Nested Schema for `machine_secrets.certs`
+
+Required:
+
+- `etcd` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--etcd))
+- `k8s` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s))
+- `k8s_aggregator` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_aggregator))
+- `k8s_serviceaccount` (Attributes) (see [below for nested schema](#nestedatt--machine_secrets--certs--k8s_serviceaccount))
+- `os` (Attributes) The certificate and key pair (see [below for nested schema](#nestedatt--machine_secrets--certs--os))
+
+<a id="nestedatt--machine_secrets--certs--etcd"></a>
+### Nested Schema for `machine_secrets.certs.etcd`
+
+Required:
+
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
+
+
+<a id="nestedatt--machine_secrets--certs--k8s"></a>
+### Nested Schema for `machine_secrets.certs.k8s`
+
+Required:
+
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
+
+
+<a id="nestedatt--machine_secrets--certs--k8s_aggregator"></a>
+### Nested Schema for `machine_secrets.certs.k8s_aggregator`
+
+Required:
+
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
+
+
+<a id="nestedatt--machine_secrets--certs--k8s_serviceaccount"></a>
+### Nested Schema for `machine_secrets.certs.k8s_serviceaccount`
+
+Required:
+
+- `key` (String, Sensitive) The key for the k8s service account
+
+
+<a id="nestedatt--machine_secrets--certs--os"></a>
+### Nested Schema for `machine_secrets.certs.os`
+
+Required:
+
+- `cert` (String) certificate data
+- `key` (String, Sensitive) key data
+
+
+
+<a id="nestedatt--machine_secrets--cluster"></a>
+### Nested Schema for `machine_secrets.cluster`
+
+Required:
+
+- `id` (String) The cluster id
+- `secret` (String, Sensitive) The cluster secret
+
+
+<a id="nestedatt--machine_secrets--secrets"></a>
+### Nested Schema for `machine_secrets.secrets`
+
+Required:
+
+- `bootstrap_token` (String, Sensitive) The bootstrap token for the talos kubernetes cluster
+- `secretbox_encryption_secret` (String, Sensitive) The secretbox encryption secret for the talos kubernetes cluster
+
+Optional:
+
+- `aescbc_encryption_secret` (String, Sensitive) The aescbc encryption secret for the talos kubernetes cluster
+
+
+<a id="nestedatt--machine_secrets--trustdinfo"></a>
+### Nested Schema for `machine_secrets.trustdinfo`
+
+Required:
+
+- `token` (String, Sensitive) The trustd token for the talos kubernetes cluster
+
+
 
 <a id="nestedatt--client_configuration"></a>
 ### Nested Schema for `client_configuration`
 
-Required:
+Read-Only:
 
 - `ca_certificate` (String) The client CA certificate
 - `client_certificate` (String) The client certificate
