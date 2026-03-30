@@ -185,10 +185,12 @@ func testAccTalosMachineConfigurationApplyResourceConfigV1(providerName, rName s
 
 func testAccTalosMachineConfigurationApplyResourceConfigWithAutoStaged(providerName, rName string) string {
 	config := dynamicConfig{
-		Provider:        providerName,
-		ResourceName:    rName,
-		WithApplyConfig: true,
-		WithBootstrap:   false,
+		Provider:               providerName,
+		ResourceName:           rName,
+		WithApplyConfig:        true,
+		WithBootstrap:          true,
+		WithRetrieveKubeConfig: true,
+		WithClusterHealth:      true,
 	}
 
 	baseConfig := config.render()
@@ -213,6 +215,7 @@ resource "talos_machine_configuration_apply" "staged_if_needing_reboot" {
       }
     }),
   ]
+  depends_on = [data.talos_cluster_health.this]
 }
 `
 }

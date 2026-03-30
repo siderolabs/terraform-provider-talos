@@ -38,6 +38,8 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
       - name: release-notes
         run: make release-notes
+      - name: Generate SBOM
+        run: make sbom
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

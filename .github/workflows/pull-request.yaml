@@ -16,6 +16,8 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Go vulnerability check
+        run: make go-vulncheck
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:

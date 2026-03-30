@@ -1,6 +1,5 @@
 TAG ?= $(shell git describe --tag --always --dirty)
 ARTIFACTS ?= _out
-TEST_TIMEOUT ?= 600s
 
 ifneq ($(origin TESTS), undefined)
 	RUNARGS = -run='$(TESTS)'
@@ -8,7 +7,7 @@ endif
 
 ifneq ($(origin CI), undefined)
 	RUNARGS += -parallel=3
-	RUNARGS += -timeout=25m
+	RUNARGS += -timeout=40m
 	RUNARGS += -exec="sudo -E"
 endif
 
@@ -32,6 +31,15 @@ build-debug:
 install:
 	go install .
 
-release-notes:
+$(ARTIFACTS):
 	mkdir -p $(ARTIFACTS)
+
+release-notes: $(ARTIFACTS)
 	@ARTIFACTS=$(ARTIFACTS) ./hack/release.sh $@ $(ARTIFACTS)/RELEASE_NOTES.md $(TAG)
+
+go-vulncheck:
+	go tool -modfile tools/go.mod golang.org/x/vuln/cmd/govulncheck ./...
+
+sbom: $(ARTIFACTS)
+	SYFT_FORMAT_PRETTY=1 SYFT_FORMAT_SPDX_JSON_DETERMINISTIC_UUID=1 go tool -modfile tools/go.mod github.com/anchore/syft/cmd/syft dir:. -o spdx-json > $(ARTIFACTS)/sbom.spdx.json
+	SYFT_FORMAT_PRETTY=1 SYFT_FORMAT_SPDX_JSON_DETERMINISTIC_UUID=1 go tool -modfile tools/go.mod github.com/anchore/syft/cmd/syft dir:. -o cyclonedx-json > $(ARTIFACTS)/sbom.cyclonedx.json
