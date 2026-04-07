@@ -836,6 +836,25 @@ func setResolvedApplyMode(ctx context.Context, resp *resource.ModifyPlanResponse
 	resp.Diagnostics.Append(diags...)
 }
 
+func dryRunNeedsReboot(cfgBytes []byte, needsReboot *bool) func(context.Context, *client.Client) error {
+	return func(nodeCtx context.Context, c *client.Client) error {
+		applyResp, err := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
+			Mode:   machineapi.ApplyConfigurationRequest_AUTO,
+			Data:   cfgBytes,
+			DryRun: true,
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(applyResp.Messages) > 0 {
+			*needsReboot = (applyResp.Messages[0].Mode == machineapi.ApplyConfigurationRequest_REBOOT)
+		}
+
+		return nil
+	}
+}
+
 func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 	ctx context.Context,
 	req resource.ModifyPlanRequest,
@@ -871,9 +890,11 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 		}
 
 		if currentState.MachineConfiguration.Equal(types.StringValue(string(cfgBytes))) {
-			setResolvedApplyMode(ctx, resp, currentState.ResolvedApplyMode.ValueString())
+			if !currentState.ResolvedApplyMode.IsNull() && currentState.ResolvedApplyMode.ValueString() != "" {
+				setResolvedApplyMode(ctx, resp, currentState.ResolvedApplyMode.ValueString())
 
-			return
+				return
+			}
 		}
 	}
 
@@ -917,22 +938,7 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 	var needsReboot bool
 
 	err = talosClientOp(ctx, endpoint, planState.Node.ValueString(), talosClientConfig,
-		func(nodeCtx context.Context, c *client.Client) error {
-			applyResp, applyErr := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
-				Mode:   machineapi.ApplyConfigurationRequest_AUTO,
-				Data:   cfgBytes,
-				DryRun: true,
-			})
-			if applyErr != nil {
-				return applyErr
-			}
-
-			if len(applyResp.Messages) > 0 {
-				needsReboot = (applyResp.Messages[0].Mode == machineapi.ApplyConfigurationRequest_REBOOT)
-			}
-
-			return nil
-		},
+		dryRunNeedsReboot(cfgBytes, &needsReboot),
 	)
 	if err != nil {
 		resp.Diagnostics.AddWarning(
