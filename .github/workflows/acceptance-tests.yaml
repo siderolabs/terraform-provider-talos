@@ -36,7 +36,6 @@ jobs:
             bridge-utils \
             dnsmasq-base \
             libvirt-daemon-system \
-            qemu-kvm \
             qemu-utils \
             qemu-block-extra \
             ovmf

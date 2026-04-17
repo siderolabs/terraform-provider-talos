@@ -56,12 +56,13 @@ resource "libvirt_volume" "cp" {
 
 resource "libvirt_domain" "cp" {
   name     = "{{ .ResourceName }}"
-  firmware = "/usr/share/OVMF/OVMF_CODE.fd"
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
   lifecycle {
     ignore_changes = [
       cpu,
       nvram,
       disk["url"],
+      firmware,
     ]
   }
   cpu {

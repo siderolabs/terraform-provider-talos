@@ -466,7 +466,7 @@ resource "libvirt_volume" "cp" {
 
 resource "libvirt_domain" "cp" {
   name     = "%[1]s"
-  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+  firmware = "/usr/share/OVMF/OVMF_CODE.fd"
   nvram {
     file = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
     template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
@@ -477,6 +477,7 @@ resource "libvirt_domain" "cp" {
       cpu,
       nvram,
       disk["url"],
+	  firmware,
     ]
   }
 
