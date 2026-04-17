@@ -70,6 +70,7 @@ then a subsequent *terraform destroy* for the changes to take effect due to limi
 
 - `id` (String) This is a unique identifier for the machine
 - `machine_configuration` (String, Sensitive) The generated machine configuration after applying patches
+- `machine_configuration_hash` (String) SHA256 hex digest of the rendered machine configuration (input plus patches). Persisted in state so that changes to machine_configuration_input_wo — which is write-only and itself invisible to state — still surface as plan diffs.
 - `resolved_apply_mode` (String) The actual apply mode used. When apply_mode is 'staged_if_needing_reboot', shows the resolved mode ('auto' or 'staged') based on dry-run analysis. Equals apply_mode for other modes.
 
 <a id="nestedatt--client_configuration"></a>

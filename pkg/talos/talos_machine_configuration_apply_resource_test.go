@@ -355,16 +355,18 @@ resource "talos_machine_configuration_apply" "staged_if_needing_reboot" {
 //
 // This test uses ephemeral talos_machine_secrets and talos_machine_configuration WITHOUT
 // persistence (not recommended for production - see docs/guides/using_ephemeral_resources.md).
-// This causes expected drift because ephemeral secrets regenerate on each evaluation.
+// Secrets regenerate on each Open, so the rendered machine configuration — and therefore
+// machine_configuration_hash — differs between plans. ExpectNonEmptyPlan is true to reflect
+// this documented anti-pattern; production usage should persist secrets in a secret manager,
+// which keeps the hash stable across runs.
 //
 // The test validates:
-// - Write-only attributes work correctly with ephemeral inputs
-// - Resource creation succeeds with ephemeral values
-// - Write-only attributes are not stored in state
-// - The apply completes without errors
-//
-// Note: Expected drift is due to non-persisted ephemeral secrets (documented anti-pattern),
-// not a bug in the provider. Production usage should persist secrets in a secret manager.
+//   - Write-only attributes work correctly with ephemeral inputs
+//   - Resource creation succeeds with ephemeral values
+//   - Write-only attributes are not stored in state
+//   - machine_configuration_hash IS populated in state (hash fingerprint, not a secret)
+//   - Hash drift surfaces when non-persisted ephemeral secrets regenerate (correct behavior
+//     that was previously hidden by the write-only invisibility to state)
 func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -388,6 +390,8 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "node"),
 					// machine_configuration should NOT be in state when using write-only inputs
 					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "machine_configuration"),
+					// machine_configuration_hash IS in state — it's a SHA256 fingerprint, not a secret
+					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
 					// client_configuration_wo should not be in state (write-only)
 					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "client_configuration_wo"),
 					// machine_configuration_input_wo should not be in state (write-only)
@@ -397,9 +401,11 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 					// machine_configuration_input should not be set (using WO variant)
 					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "machine_configuration_input"),
 				),
-				// No drift expected when using ephemeral inputs with write-only attributes
-				// since machine_configuration is not stored in state
-				ExpectNonEmptyPlan: false,
+				// Drift on non-persisted ephemeral secrets: each Open regenerates secrets,
+				// which changes the rendered machine configuration, which changes the hash.
+				// This is the correct behavior for this anti-pattern; persist secrets in
+				// production and the hash stays stable.
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
@@ -426,9 +432,9 @@ resource "talos_machine_configuration_apply" "staged_if_needing_reboot" {
 }
 
 func testAccTalosMachineConfigurationApplyWithEphemeralClientConfigWOConfig(rName string) string {
-	cpuMode := "host-passthrough"
+	cpuMode := cpuModeHostPassthrough
 	if os.Getenv("CI") != "" {
-		cpuMode = "host-model"
+		cpuMode = cpuModeHostModel
 	}
 
 	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
@@ -525,4 +531,139 @@ resource "talos_machine_configuration_apply" "this" {
   endpoint                       = libvirt_domain.cp.network_interface[0].addresses[0]
 }
 `, rName, cpuMode, gendata.VersionTag, isoURL)
+}
+
+// TestAccTalosMachineConfigurationApplyDetectsEphemeralInputChange verifies that when
+// the ephemeral talos_machine_configuration's rendered output changes between plans —
+// which is how a talos_version bump or any patch edit propagates in real workflows —
+// the apply resource surfaces the change as a plan diff.
+//
+// Before the fix, machine_configuration_input_wo is write-only (not persisted) and
+// setPlanMachineConfiguration explicitly nulls the computed machine_configuration when
+// WO inputs are used, so changes are invisible to state and the plan is empty. The
+// fix is to persist a content fingerprint (machine_configuration_hash) that differs
+// when the rendered config differs, regardless of whether the source was write-only.
+//
+// A persistent talos_machine_secrets resource is used so the generated config is
+// deterministic between plans — the only delta is the disk path.
+func TestAccTalosMachineConfigurationApplyDetectsEphemeralInputChange(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, "/dev/vda"),
+			},
+			{
+				Config:             testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, "/dev/vdb"),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, disk string) string {
+	cpuMode := cpuModeHostPassthrough
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeHostModel
+	}
+
+	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+ephemeral "talos_machine_configuration" "this" {
+  cluster_name       = "test-cluster"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
+  talos_version      = "%[3]s"
+  kubernetes_version = "1.32.2"
+
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = "%[5]s"
+        }
+      }
+    })
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = "%[1]s"
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = "%[1]s"
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      cpu,
+      nvram,
+      disk["url"],
+    ]
+  }
+
+  cpu {
+    mode = "%[2]s"
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = "%[4]s"
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+resource "talos_machine_configuration_apply" "this" {
+  client_configuration_wo        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input_wo = ephemeral.talos_machine_configuration.this.machine_configuration
+  node                           = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint                       = libvirt_domain.cp.network_interface[0].addresses[0]
+}
+`, rName, cpuMode, gendata.VersionTag, isoURL, disk)
 }

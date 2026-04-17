@@ -36,10 +36,15 @@ type dynamicConfig struct {
 	WithClusterHealth      bool
 }
 
+const (
+	cpuModeHostPassthrough = "host-passthrough"
+	cpuModeHostModel       = "host-model"
+)
+
 func (c *dynamicConfig) render() string {
-	cpuMode := "host-passthrough"
+	cpuMode := cpuModeHostPassthrough
 	if os.Getenv("CI") != "" {
-		cpuMode = "host-model"
+		cpuMode = cpuModeHostModel
 	}
 
 	c.CPUMode = cpuMode
