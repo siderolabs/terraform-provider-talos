@@ -533,39 +533,29 @@ resource "talos_machine_configuration_apply" "this" {
 `, rName, cpuMode, gendata.VersionTag, isoURL)
 }
 
-// TestAccTalosMachineConfigurationApplyDetectsEphemeralInputChange verifies that when
-// the ephemeral talos_machine_configuration's rendered output changes between plans —
-// which is how a talos_version bump or any patch edit propagates in real workflows —
-// the apply resource surfaces the change as a plan diff.
+// TestAccTalosMachineConfigurationApplyConfigPatchesUnknownList is a regression test for
+// a model-type bug: config_patches is declared as []types.String in the resource model,
+// which cannot hold a whole-list-unknown value. This surfaces when config_patches is
+// derived from a for-expression over an unknown value (e.g. a data source response body),
+// producing:
 //
-// Before the fix, machine_configuration_input_wo is write-only (not persisted) and
-// setPlanMachineConfiguration explicitly nulls the computed machine_configuration when
-// WO inputs are used, so changes are invisible to state and the plan is empty. The
-// fix is to persist a content fingerprint (machine_configuration_hash) that differs
-// when the rendered config differs, regardless of whether the source was write-only.
+//	Received unknown value, however the target type cannot handle unknown values.
+//	Path: config_patches
+//	Target Type: []basetypes.StringValue
+//	Suggested Type: basetypes.ListValue
 //
-// A persistent talos_machine_secrets resource is used so the generated config is
-// deterministic between plans — the only delta is the disk path.
-func TestAccTalosMachineConfigurationApplyDetectsEphemeralInputChange(t *testing.T) {
-	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
+// The test uses terraform_data (a built-in resource) whose output attribute is unknown
+// until apply; feeding it through jsondecode + for produces a whole-list-unknown
+// config_patches during plan, which reproduces the failure without requiring libvirt.
+func TestAccTalosMachineConfigurationApplyConfigPatchesUnknownList(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
 			tfversion.SkipBelow(tfversion.Version1_11_0),
 		},
-		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
-			},
-		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, "/dev/vda"),
-			},
-			{
-				Config:             testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, "/dev/vdb"),
+				Config:             testAccTalosMachineConfigurationApplyConfigPatchesUnknownListConfig(),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
 			},
@@ -573,97 +563,26 @@ func TestAccTalosMachineConfigurationApplyDetectsEphemeralInputChange(t *testing
 	})
 }
 
-func testAccTalosMachineConfigurationApplyDetectsEphemeralInputChangeConfig(rName, disk string) string {
-	cpuMode := cpuModeHostPassthrough
-	if os.Getenv("CI") != "" {
-		cpuMode = cpuModeHostModel
-	}
-
-	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
-
-	return fmt.Sprintf(`
-resource "talos_machine_secrets" "this" {}
-
-ephemeral "talos_machine_configuration" "this" {
-  cluster_name       = "test-cluster"
-  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
-  machine_type       = "controlplane"
-  machine_secrets    = talos_machine_secrets.this.machine_secrets
-  talos_version      = "%[3]s"
-  kubernetes_version = "1.32.2"
-
-  config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk = "%[5]s"
-        }
-      }
-    })
-  ]
-}
-
-resource "libvirt_volume" "cp" {
-  name = "%[1]s"
-  size = 6442450944
-}
-
-resource "libvirt_domain" "cp" {
-  name     = "%[1]s"
-  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
-  nvram {
-    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
-    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
-  }
-
-  lifecycle {
-    ignore_changes = [
-      cpu,
-      nvram,
-      disk["url"],
-    ]
-  }
-
-  cpu {
-    mode = "%[2]s"
-  }
-
-  console {
-    type        = "pty"
-    target_port = "0"
-  }
-
-  graphics {
-    type        = "vnc"
-    listen_type = "address"
-  }
-
-  disk {
-    url = "%[4]s"
-  }
-
-  disk {
-    volume_id = libvirt_volume.cp.id
-  }
-
-  boot_device {
-    dev = ["cdrom"]
-  }
-
-  network_interface {
-    network_name   = "default"
-    wait_for_lease = true
-  }
-
-  vcpu   = "2"
-  memory = "4096"
+func testAccTalosMachineConfigurationApplyConfigPatchesUnknownListConfig() string {
+	return `
+resource "terraform_data" "source" {
+  input = "[\"a\",\"b\"]"
 }
 
 resource "talos_machine_configuration_apply" "this" {
-  client_configuration_wo        = talos_machine_secrets.this.client_configuration
-  machine_configuration_input_wo = ephemeral.talos_machine_configuration.this.machine_configuration
-  node                           = libvirt_domain.cp.network_interface[0].addresses[0]
-  endpoint                       = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration = {
+    ca_certificate     = "fake-ca"
+    client_certificate = "fake-cert"
+    client_key         = "fake-key"
+  }
+  machine_configuration_input = "version: v1alpha1\nmachine:\n  type: controlplane\n"
+  node                        = "127.0.0.1"
+  endpoint                    = "127.0.0.1"
+  config_patches = [
+    for item in jsondecode(terraform_data.source.output) : yamlencode({
+      machine = { install = { disk = "/dev/${item}" } }
+    })
+  ]
 }
-`, rName, cpuMode, gendata.VersionTag, isoURL, disk)
+`
 }

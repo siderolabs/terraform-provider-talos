@@ -74,7 +74,7 @@ type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
 	OnDestroy                   *onDestroyOptions     `tfsdk:"on_destroy"`
 	MachineConfiguration        types.String          `tfsdk:"machine_configuration"`
 	MachineConfigurationHash    types.String          `tfsdk:"machine_configuration_hash"`
-	ConfigPatches               []types.String        `tfsdk:"config_patches"`
+	ConfigPatches               types.List            `tfsdk:"config_patches"`
 	Timeouts                    timeouts.Value        `tfsdk:"timeouts"`
 }
 
@@ -299,11 +299,9 @@ func computeMachineConfiguration(state *talosMachineConfigurationApplyResourceMo
 		return "", fmt.Errorf("machine configuration input is null")
 	}
 
-	configPatches := make([]string, len(state.ConfigPatches))
-	for i, patch := range state.ConfigPatches {
-		if !patch.IsNull() {
-			configPatches[i] = patch.ValueString()
-		}
+	configPatches, err := configPatchesAsStrings(state.ConfigPatches)
+	if err != nil {
+		return "", err
 	}
 
 	patches, err := configpatcher.LoadPatches(configPatches)
@@ -322,6 +320,41 @@ func computeMachineConfiguration(state *talosMachineConfigurationApplyResourceMo
 	}
 
 	return string(cfgBytes), nil
+}
+
+// configPatchesAsStrings extracts a []string from a types.List of strings. It returns
+// an error if the list itself is unknown (caller cannot render in that case) or if any
+// element is unknown; null values are skipped. A null or empty list yields an empty slice.
+func configPatchesAsStrings(list types.List) ([]string, error) {
+	if list.IsUnknown() {
+		return nil, fmt.Errorf("config_patches list is unknown")
+	}
+
+	if list.IsNull() {
+		return nil, nil
+	}
+
+	elements := list.Elements()
+	result := make([]string, 0, len(elements))
+
+	for _, elem := range elements {
+		s, ok := elem.(basetypes.StringValue)
+		if !ok {
+			return nil, fmt.Errorf("config_patches element is not a string: %T", elem)
+		}
+
+		if s.IsUnknown() {
+			return nil, fmt.Errorf("config_patches element is unknown")
+		}
+
+		if s.IsNull() {
+			continue
+		}
+
+		result = append(result, s.ValueString())
+	}
+
+	return result, nil
 }
 
 // getClientConfiguration returns the effective client configuration,
@@ -1042,17 +1075,16 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 	// If inputs are unknown (e.g., ephemeral values not yet resolved), the UseStateForUnknown
 	// plan modifier will preserve the prior state value to prevent drift
 	if !machineConfigInput.IsUnknown() && !machineConfigInput.IsNull() {
-		configPatches := make([]string, len(planState.ConfigPatches))
+		// If the whole config_patches list is unknown (e.g. `[for x in <unknown> : ...]`)
+		// or any element is unknown, we can't render — return so UseStateForUnknown wins.
+		if planState.ConfigPatches.IsUnknown() {
+			return
+		}
 
-		for i, patch := range planState.ConfigPatches {
-			// if any of the patches is unknown, return early
-			if patch.IsUnknown() {
-				return
-			}
-
-			if !patch.IsUnknown() && !patch.IsNull() {
-				configPatches[i] = patch.ValueString()
-			}
+		configPatches, err := configPatchesAsStrings(planState.ConfigPatches)
+		if err != nil {
+			// err is only returned when an element is Unknown — bail out like before.
+			return
 		}
 
 		patches, err := configpatcher.LoadPatches(configPatches)
@@ -1164,9 +1196,16 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 					return
 				}
 
-				configPatches := make([]basetypes.StringValue, len(patches))
+				configPatchesElems := make([]attr.Value, len(patches))
 				for i, patch := range patches {
-					configPatches[i] = basetypes.NewStringValue(patch)
+					configPatchesElems[i] = basetypes.NewStringValue(patch)
+				}
+
+				configPatches, listDiags := basetypes.NewListValue(types.StringType, configPatchesElems)
+				resp.Diagnostics.Append(listDiags...)
+
+				if resp.Diagnostics.HasError() {
+					return
 				}
 
 				timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
