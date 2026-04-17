@@ -6,7 +6,9 @@ package talos
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -71,6 +73,7 @@ type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
 	MachineConfigurationInputWO types.String          `tfsdk:"machine_configuration_input_wo"`
 	OnDestroy                   *onDestroyOptions     `tfsdk:"on_destroy"`
 	MachineConfiguration        types.String          `tfsdk:"machine_configuration"`
+	MachineConfigurationHash    types.String          `tfsdk:"machine_configuration_hash"`
 	ConfigPatches               []types.String        `tfsdk:"config_patches"`
 	Timeouts                    timeouts.Value        `tfsdk:"timeouts"`
 }
@@ -207,6 +210,15 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 				Description: "The generated machine configuration after applying patches",
 				Computed:    true,
 				Sensitive:   true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"machine_configuration_hash": schema.StringAttribute{
+				Description: "SHA256 hex digest of the rendered machine configuration (input plus patches). " +
+					"Persisted in state so that changes to machine_configuration_input_wo — which is write-only " +
+					"and itself invisible to state — still surface as plan diffs.",
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -1085,12 +1097,17 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 // setPlanMachineConfiguration sets the machine_configuration attribute in the plan.
 // When write-only inputs are used, it sets the value to null to avoid storing secrets in state.
+// It also always sets machine_configuration_hash — a SHA256 fingerprint of the rendered
+// config — so that changes to write-only inputs (invisible to state) surface as plan diffs.
 func (p *talosMachineConfigurationApplyResource) setPlanMachineConfiguration(
 	ctx context.Context,
 	resp *resource.ModifyPlanResponse,
 	planState *talosMachineConfigurationApplyResourceModelV1,
 	cfgBytes []byte,
 ) {
+	sum := sha256.Sum256(cfgBytes)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration_hash"), hex.EncodeToString(sum[:]))...)
+
 	// When using write-only inputs (_wo variants), don't populate the computed
 	// machine_configuration to prevent secrets from being stored in state.
 	if !planState.MachineConfigurationInputWO.IsNull() {
