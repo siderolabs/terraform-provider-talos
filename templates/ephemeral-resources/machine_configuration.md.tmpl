@@ -1,0 +1,19 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+-> **Note:** It is recommended to set the optional `talos_version` attribute. Otherwise when using a new version of the provider with a new major version of the Talos SDK, new machineconfig features will be enabled by default which could cause unexpected behavior.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ tffile (printf .ExampleFile) }}
+{{- end }}
+{{ .SchemaMarkdown | trimspace }}

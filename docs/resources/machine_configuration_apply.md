@@ -35,7 +35,8 @@ resource "talos_machine_configuration_apply" "this" {
     yamlencode({
       machine = {
         install = {
-          disk = "/dev/sdd"
+          disk  = "/dev/sdd"
+          image = "ghcr.io/siderolabs/installer:v1.12.6"
         }
       }
     })

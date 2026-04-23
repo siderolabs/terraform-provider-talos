@@ -84,7 +84,7 @@ func (r *talosMachineConfigurationEphemeralResource) Schema(_ context.Context, _
 				Computed:    true,
 			},
 			"talos_version": schema.StringAttribute{
-				Description: "The version of talos features to use in generated machine configuration",
+				Description: "The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`", // nolint:lll
 				Optional:    true,
 				Computed:    true,
 				Validators: []validator.String{

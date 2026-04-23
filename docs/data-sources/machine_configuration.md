@@ -39,7 +39,7 @@ data "talos_machine_configuration" "this" {
 - `docs` (Boolean) Whether to generate documentation for the generated configuration. Defaults to false
 - `examples` (Boolean) Whether to generate examples for the generated configuration. Defaults to false
 - `kubernetes_version` (String) The version of kubernetes to use
-- `talos_version` (String) The version of talos features to use in generated machine configuration
+- `talos_version` (String) The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`
 
 ### Read-Only
 

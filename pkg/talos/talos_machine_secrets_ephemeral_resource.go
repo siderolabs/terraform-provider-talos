@@ -44,7 +44,7 @@ func (r *talosMachineSecretsEphemeralResource) Schema(_ context.Context, _ ephem
 			"talos_version": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The version of talos features to use in generated machine configuration",
+				Description: "The Talos version contract used to generate the secrets. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`",
 				Validators: []validator.String{
 					talosVersionValid(),
 				},

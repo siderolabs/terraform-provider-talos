@@ -17,7 +17,7 @@ Generate machine secrets for Talos cluster. This is an ephemeral resource that d
 
 ### Optional
 
-- `talos_version` (String) The version of talos features to use in generated machine configuration
+- `talos_version` (String) The Talos version contract used to generate the secrets. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`
 
 ### Read-Only
 
