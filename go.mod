@@ -14,10 +14,10 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.15.0
 	github.com/siderolabs/crypto v0.6.5
 	github.com/siderolabs/gen v0.8.6
-	github.com/siderolabs/image-factory v1.0.3
+	github.com/siderolabs/image-factory v1.1.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.13.0-rc.0
-	github.com/siderolabs/talos/pkg/machinery v1.13.0-rc.0
+	github.com/siderolabs/talos v1.13.0
+	github.com/siderolabs/talos/pkg/machinery v1.13.0
 	github.com/stretchr/testify v1.11.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	golang.org/x/crypto v0.50.0
@@ -85,10 +85,10 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.25.5 // indirect
 	github.com/go-test/deep v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/cel-go v0.27.0 // indirect
+	github.com/google/cel-go v0.28.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/go-containerregistry v0.21.3 // indirect
+	github.com/google/go-containerregistry v0.21.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/cli v1.1.7 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -127,7 +127,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.1-0.20231216201459-8508981c8b6c // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/moby/moby/api v1.54.0 // indirect
+	github.com/moby/moby/api v1.54.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -171,10 +171,10 @@ require (
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	golang.org/x/tools v0.43.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260316180232-0b37fe3546d5 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260319201613-d00831a3d3e7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

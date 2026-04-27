@@ -1,3 +1,88 @@
+## [terraform-provider-talos 0.11.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0) (2026-04-27)
+
+Welcome to the v0.11.0 release of terraform-provider-talos!
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### ephemeral resources
+
+New ephemeral resources are added, please see docs.
+
+
+### Component Updates
+
+Talos sdk: v1.13.0
+
+
+### Contributors
+
+* Noel Georgi
+* Mickaël Canévet
+* Nikita COEUR
+* Dennis Witt
+* Nahue
+* purajit
+
+### Changes
+<details><summary>20 commits</summary>
+<p>
+
+* [`1c68732`](https://github.com/siderolabs/terraform-provider-talos/commit/1c68732ad71c09fbb0c425bafc26002348daa9ed) release(v0.11.0): prepare release
+* [`b5affe3`](https://github.com/siderolabs/terraform-provider-talos/commit/b5affe3b5259e9ca69492090a9a632203f34ad34) fix(docs): update talos_version description
+* [`ce4ede8`](https://github.com/siderolabs/terraform-provider-talos/commit/ce4ede85cc3d8a6cc5285c86f5a98b464666cc9c) fix: handle unknown-whole-list config_patches on machine_configuration_apply
+* [`000a3ec`](https://github.com/siderolabs/terraform-provider-talos/commit/000a3ec9946024587d4389e8c2a4463c6c53cf83) fix(ephemeral): detect machine_configuration_input_wo changes via hash
+* [`032a5ac`](https://github.com/siderolabs/terraform-provider-talos/commit/032a5ac6c75bbcd6e2d0f099bbbf500651d224a7) chore: bump deps
+* [`7b6a3e4`](https://github.com/siderolabs/terraform-provider-talos/commit/7b6a3e408457faa6c54b951791d6a8b3a7146d9c) fix: prevent empty resolved_apply_mode when reusing state
+* [`f427339`](https://github.com/siderolabs/terraform-provider-talos/commit/f4273395931496053d5e5c70b7c78b3f9c7bf652) release(v0.11.0-beta.2): prepare release
+* [`6ed1274`](https://github.com/siderolabs/terraform-provider-talos/commit/6ed1274cd7276b3f46465e2c7cc712ccb651c99f) feat: add sboms to release
+* [`4729352`](https://github.com/siderolabs/terraform-provider-talos/commit/4729352f7228f1f5454b0999798b5443ab15685e) feat(ephemeral): rewrite talos_cluster_kubeconfig to generate from machine_secrets
+* [`4992c4a`](https://github.com/siderolabs/terraform-provider-talos/commit/4992c4af6d23f3e0faf7fa9d58c5ccc46810ad2d) fix(ephemeral): rewrite talos_client_configuration to generate from machine_secrets
+* [`4c8def5`](https://github.com/siderolabs/terraform-provider-talos/commit/4c8def55f9ae57e5fefcaef83aab6e7a90557c1d) release(v0.11.0-beta.1): prepare release
+* [`01330a9`](https://github.com/siderolabs/terraform-provider-talos/commit/01330a9d19a2a27ed79fd78c6cd1623012f61d09) chore: update goreleaser schema
+* [`1585aed`](https://github.com/siderolabs/terraform-provider-talos/commit/1585aed51fcde7e158d45afa0be78f084693d396) fix: remove unsupported windows/arm build target for Go 1.25
+* [`d7bb719`](https://github.com/siderolabs/terraform-provider-talos/commit/d7bb7199c1a212431339d634b905c3b9b21d0a3f) release(v0.11.0-beta.0): prepare release
+* [`09f6c83`](https://github.com/siderolabs/terraform-provider-talos/commit/09f6c838e7430de02f62a1b968f425e0b2be4e0d) fix: restore correct skip_kubernetes_checks behavior
+* [`eaedcfd`](https://github.com/siderolabs/terraform-provider-talos/commit/eaedcfdda3e7e3193e3d23231673ef676f575ae5) chore: bump deps
+* [`f4d673f`](https://github.com/siderolabs/terraform-provider-talos/commit/f4d673f0851f25c5e15ef8ac9bd6fc12310ab2d5) feat: add ephemeral resources to prevent secrets from leaking to state
+* [`5f07e0f`](https://github.com/siderolabs/terraform-provider-talos/commit/5f07e0f6043687b2dc475aeb16d489968a2dd2c5) feat: add staged_if_needing_reboot apply mode for automatic reboot prevention
+* [`c8e3b87`](https://github.com/siderolabs/terraform-provider-talos/commit/c8e3b87002418699bf33a2b437f7ff59aa6c70ad) feat: add exact_filters attribute to talos_image_factory_extensions_versions
+* [`efe146e`](https://github.com/siderolabs/terraform-provider-talos/commit/efe146e512fb22dd1012849fce098256115961a4) fix: gracefully handle Unknown config_patches values
+</p>
+</details>
+
+### Changes since v0.11.0-beta.2
+<details><summary>6 commits</summary>
+<p>
+
+* [`1c68732`](https://github.com/siderolabs/terraform-provider-talos/commit/1c68732ad71c09fbb0c425bafc26002348daa9ed) release(v0.11.0): prepare release
+* [`b5affe3`](https://github.com/siderolabs/terraform-provider-talos/commit/b5affe3b5259e9ca69492090a9a632203f34ad34) fix(docs): update talos_version description
+* [`ce4ede8`](https://github.com/siderolabs/terraform-provider-talos/commit/ce4ede85cc3d8a6cc5285c86f5a98b464666cc9c) fix: handle unknown-whole-list config_patches on machine_configuration_apply
+* [`000a3ec`](https://github.com/siderolabs/terraform-provider-talos/commit/000a3ec9946024587d4389e8c2a4463c6c53cf83) fix(ephemeral): detect machine_configuration_input_wo changes via hash
+* [`032a5ac`](https://github.com/siderolabs/terraform-provider-talos/commit/032a5ac6c75bbcd6e2d0f099bbbf500651d224a7) chore: bump deps
+* [`7b6a3e4`](https://github.com/siderolabs/terraform-provider-talos/commit/7b6a3e408457faa6c54b951791d6a8b3a7146d9c) fix: prevent empty resolved_apply_mode when reusing state
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/hashicorp/terraform-plugin-framework**  v1.17.0 -> v1.19.0
+* **github.com/hashicorp/terraform-plugin-go**         v0.29.0 -> v0.31.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**     v2.38.1 -> v2.40.0
+* **github.com/hashicorp/terraform-plugin-testing**    v1.14.0 -> v1.15.0
+* **github.com/siderolabs/crypto**                     v0.6.4 -> v0.6.5
+* **github.com/siderolabs/image-factory**              v0.9.0 -> v1.1.0
+* **github.com/siderolabs/talos**                      v1.12.0 -> v1.13.0
+* **github.com/siderolabs/talos/pkg/machinery**        v1.12.0 -> v1.13.0
+* **go.yaml.in/yaml/v4**                               v4.0.0-rc.3 -> v4.0.0-rc.4
+* **golang.org/x/crypto**                              v0.50.0 **_new_**
+* **golang.org/x/mod**                                 v0.31.0 -> v0.35.0
+* **k8s.io/client-go**                                 v0.35.0 -> v0.35.4
+
+Previous release can be found at [v0.10.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.10.1)
+
 ## [terraform-provider-talos 0.11.0-beta.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0-beta.2) (2026-03-31)
 
 Welcome to the v0.11.0-beta.2 release of terraform-provider-talos!  
