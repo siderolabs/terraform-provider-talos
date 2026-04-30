@@ -1,0 +1,67 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+On every `terraform refresh`, the provider reads the running Talos version and the active machine configuration hash from the node. If either differs from what Terraform last wrote, the next `terraform apply` will reconcile the drift — re-applying configuration or upgrading the OS as needed.
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ tffile (printf .ExampleFile) }}
+{{- end }}
+
+## Upgrade example
+
+Change `image` (and `talos_version` in the data source) to trigger an in-place OS upgrade:
+
+```terraform
+data "talos_machine_configuration" "this" {
+  # ...
+  talos_version = "v1.10.0"
+}
+
+resource "talos_machine" "this" {
+  # ...
+  image = "ghcr.io/siderolabs/installer:v1.10.0"
+}
+```
+
+## Upgrading multiple nodes safely
+
+When managing a multi-node cluster, upgrading all nodes in parallel risks losing etcd quorum. Use `depends_on` to chain upgrades sequentially, so each node is fully back before the next one starts:
+
+```terraform
+resource "talos_machine" "cp0" {
+  node             = "10.5.0.1"
+  image            = "ghcr.io/siderolabs/installer:v1.10.0"
+  drain_on_upgrade = true
+  # ...
+}
+
+resource "talos_machine" "cp1" {
+  depends_on       = [talos_machine.cp0]
+  node             = "10.5.0.2"
+  image            = "ghcr.io/siderolabs/installer:v1.10.0"
+  drain_on_upgrade = true
+  # ...
+}
+
+resource "talos_machine" "cp2" {
+  depends_on       = [talos_machine.cp1]
+  node             = "10.5.0.3"
+  image            = "ghcr.io/siderolabs/installer:v1.10.0"
+  drain_on_upgrade = true
+  # ...
+}
+```
+
+Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
+
+{{ .SchemaMarkdown | trimspace }}
