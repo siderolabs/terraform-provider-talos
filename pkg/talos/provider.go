@@ -101,6 +101,7 @@ func (p *talosProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewTalosMachineBootstrapResource,
 		NewTalosClusterKubeConfigResource,
 		NewTalosImageFactorySchematicResource,
+		NewTalosMachineResource,
 	}
 }
 
