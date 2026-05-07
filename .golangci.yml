@@ -1,7 +1,3 @@
-# THIS FILE WAS AUTOMATICALLY GENERATED, PLEASE DO NOT EDIT.
-#
-# Generated on 2025-07-11T15:25:51Z by kres 9b39fa4b-dirty.
-
 version: "2"
 
 # options for analysis running
@@ -9,6 +5,7 @@ run:
   modules-download-mode: readonly
   issues-exit-code: 1
   tests: true
+  build-tags: []
 
 # output configuration options
 output:
@@ -28,6 +25,7 @@ linters:
     - forbidigo
     - funcorder
     - funlen
+    - goconst
     - gochecknoglobals
     - gochecknoinits
     - godox
