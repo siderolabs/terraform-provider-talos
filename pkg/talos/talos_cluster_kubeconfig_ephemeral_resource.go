@@ -48,7 +48,7 @@ func NewTalosClusterKubeConfigEphemeralResource() ephemeral.EphemeralResource {
 }
 
 func (r *talosClusterKubeConfigEphemeralResource) Metadata(_ context.Context, req ephemeral.MetadataRequest, resp *ephemeral.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cluster_kubeconfig"
+	resp.TypeName = req.ProviderTypeName + FieldClusterKubeconfig
 }
 
 func (r *talosClusterKubeConfigEphemeralResource) Schema(_ context.Context, _ ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
@@ -58,19 +58,19 @@ func (r *talosClusterKubeConfigEphemeralResource) Schema(_ context.Context, _ ep
 			"The admin client certificate is generated with pinned timestamps so kubeconfig_raw " +
 			"is byte-identical on every open as long as machine_secrets and not_before are unchanged.",
 		Attributes: map[string]schema.Attribute{
-			"machine_secrets": machineSecretsSchemaAttribute(),
-			"cluster_name": schema.StringAttribute{
+			FieldMachineSecrets: machineSecretsSchemaAttribute(),
+			FieldClusterName: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the cluster; embedded in the kubeconfig context and cluster names",
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Required:    true,
 				Description: "The Kubernetes API server URL to embed in the kubeconfig (e.g. https://1.2.3.4:6443)",
 			},
-			"not_before": schema.StringAttribute{
+			FieldNotBefore: schema.StringAttribute{
 				Optional: true,
 				Description: "RFC3339 timestamp to use as the NotBefore field of the generated admin client certificate. " +
 					"When set, the certificate validity starts at this time and ends at not_before + crt_ttl. " +
@@ -81,7 +81,7 @@ func (r *talosClusterKubeConfigEphemeralResource) Schema(_ context.Context, _ ep
 					rfc3339Valid(),
 				},
 			},
-			"crt_ttl": schema.StringAttribute{
+			FieldCRTTTL: schema.StringAttribute{
 				Optional: true,
 				Description: "The lifetime of the generated admin client certificate as a Go duration string " +
 					"(e.g. \"8760h\" for 1 year, \"87600h\" for 10 years). Defaults to \"87600h\" (10 years). " +
@@ -90,33 +90,33 @@ func (r *talosClusterKubeConfigEphemeralResource) Schema(_ context.Context, _ ep
 					goDurationValid(),
 				},
 			},
-			"kubeconfig_raw": schema.StringAttribute{
+			FieldKubeconfigRaw: schema.StringAttribute{
 				Computed:    true,
-				Description: "The raw kubeconfig",
+				Description: DescRawKubeconfig,
 				Sensitive:   true,
 			},
-			"kubernetes_client_configuration": schema.SingleNestedAttribute{
+			FieldKubernetesClientConfig: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"host": schema.StringAttribute{
+					FieldHost: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes host",
+						Description: DescKubernetesHost,
 					},
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes CA certificate",
+						Description: DescKubernetesCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes client certificate",
+						Description: DescKubernetesClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The kubernetes client key",
+						Description: DescKubernetesClientKey,
 					},
 				},
 				Computed:    true,
-				Description: "The kubernetes client configuration",
+				Description: DescKubernetesClientConfig,
 			},
 		},
 	}
@@ -148,7 +148,7 @@ func (r *talosClusterKubeConfigEphemeralResource) Open(ctx context.Context, req 
 		MachineSecrets: config.MachineSecrets,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to convert machine secrets to secrets bundle", err.Error())
+		resp.Diagnostics.AddError(ErrConvertMachineToSecretsBundle, err.Error())
 
 		return
 	}
@@ -231,7 +231,7 @@ func GenerateKubeconfig(bundle *secrets.Bundle, clusterName, endpoint string, no
 	// crypto/rand (unlike ecdsa.GenerateKey which ignores the reader in Go 1.26+).
 	adminKeyBytes := make([]byte, 32) // P-256 key size
 	if _, err = deterministicReader.Read(adminKeyBytes); err != nil {
-		return nil, fmt.Errorf("error deriving admin key bytes: %w", err)
+		return nil, fmt.Errorf(ErrDeriveAdminKeyBytes, err)
 	}
 
 	adminKey, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), adminKeyBytes)
@@ -273,7 +273,7 @@ func GenerateKubeconfig(bundle *secrets.Bundle, clusterName, endpoint string, no
 	// goes through our deterministic crypto.Signer.
 	certDER, err := stdlibx509.CreateCertificate(nil, template, caCert, &adminKey.PublicKey, caSigner)
 	if err != nil {
-		return nil, fmt.Errorf("error signing admin certificate: %w", err)
+		return nil, fmt.Errorf(ErrSignAdminCertificate, err)
 	}
 
 	// PEM-encode the client cert and key.
@@ -281,10 +281,10 @@ func GenerateKubeconfig(bundle *secrets.Bundle, clusterName, endpoint string, no
 
 	adminKeyDER, err := stdlibx509.MarshalECPrivateKey(adminKey)
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling admin private key: %w", err)
+		return nil, fmt.Errorf(ErrMarshalAdminPrivateKey, err)
 	}
 
-	clientKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: adminKeyDER})
+	clientKeyPEM := pem.EncodeToMemory(&pem.Block{Type: pemBlockTypeECPrivateKey, Bytes: adminKeyDER})
 
 	// Assemble kubeconfig.
 	cfg := clientcmdapi.Config{
@@ -297,19 +297,19 @@ func GenerateKubeconfig(bundle *secrets.Bundle, clusterName, endpoint string, no
 			},
 		},
 		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"admin@" + clusterName: {
+			FieldAdmin + clusterName: {
 				ClientCertificateData: clientCertPEM,
 				ClientKeyData:         clientKeyPEM,
 			},
 		},
 		Contexts: map[string]*clientcmdapi.Context{
-			"admin@" + clusterName: {
+			FieldAdmin + clusterName: {
 				Cluster:   clusterName,
-				Namespace: "default",
-				AuthInfo:  "admin@" + clusterName,
+				Namespace: FieldDefault,
+				AuthInfo:  FieldAdmin + clusterName,
 			},
 		},
-		CurrentContext: "admin@" + clusterName,
+		CurrentContext: FieldAdmin + clusterName,
 	}
 
 	marshaled, err := clientcmd.Write(cfg)

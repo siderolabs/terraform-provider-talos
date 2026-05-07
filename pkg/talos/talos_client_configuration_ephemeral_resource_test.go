@@ -48,8 +48,8 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("talos_config"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("cluster_name"), knownvalue.StringExact("test-cluster")),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldTalosConfig), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClusterName), knownvalue.StringExact(testCluster)),
 				},
 			},
 		},
@@ -87,7 +87,7 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("talos_config"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldTalosConfig), knownvalue.NotNull()),
 				},
 			},
 		},
@@ -159,7 +159,7 @@ resource "echo" "test" {}
 			{
 				Config: cfg,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("talos_config"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldTalosConfig), knownvalue.NotNull()),
 				},
 			},
 			{
@@ -211,7 +211,7 @@ resource "echo" "test" {}
 			{
 				Config: cfg,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("talos_config"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldTalosConfig), knownvalue.NotNull()),
 				},
 			},
 			{
@@ -290,9 +290,9 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("ca_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_key"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldCACertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientCertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientKey), knownvalue.NotNull()),
 				},
 			},
 		},

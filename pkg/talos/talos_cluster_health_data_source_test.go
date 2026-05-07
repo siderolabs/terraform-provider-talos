@@ -16,22 +16,22 @@ func TestAccTalosClusterHealthDataSource(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosClusterHealthDataSourceConfig("talos", rName),
+				Config: testAccTalosClusterHealthDataSourceConfig(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.talos_cluster_health.this", "id", "cluster_health"),
 				),
 			},
 			// make sure there are no changes
 			{
-				Config:   testAccTalosClusterHealthDataSourceConfig("talos", rName),
+				Config:   testAccTalosClusterHealthDataSourceConfig(providerName, rName),
 				PlanOnly: true,
 			},
 		},

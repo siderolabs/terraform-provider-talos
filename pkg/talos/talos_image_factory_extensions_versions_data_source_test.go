@@ -18,21 +18,21 @@ func TestAccTalosImageFactoryExtensionsVersionsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryExtensionsVersionsDataSourceConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.0.name", "siderolabs/amdgpu-firmware"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryExtVersions, attrExtensionsInfoFirstName, "siderolabs/amdgpu-firmware"),
 				),
 			},
 			{
 				Config: testAccTalosImageFactoryExtensionsVersionsDataSourceConfigWithFilters(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.#", "5"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.0.name", "siderolabs/nvidia-container-toolkit"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryExtVersions, "extensions_info.#", "5"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryExtVersions, attrExtensionsInfoFirstName, "siderolabs/nvidia-container-toolkit"),
 				),
 			},
 			{
 				Config: testAccTalosImageFactoryExtensionsVersionsDataSourceConfigWithExactFilters(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.#", "1"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_extensions_versions.this", "extensions_info.0.name", "siderolabs/tailscale"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryExtVersions, "extensions_info.#", "1"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryExtVersions, attrExtensionsInfoFirstName, "siderolabs/tailscale"),
 				),
 			},
 		},

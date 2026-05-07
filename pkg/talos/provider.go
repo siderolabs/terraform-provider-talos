@@ -36,7 +36,7 @@ func New() provider.Provider {
 
 // Metadata returns the provider type name.
 func (p *talosProvider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "talos"
+	resp.TypeName = ProviderName
 }
 
 // Schema defines the provider-level schema for configuration data.

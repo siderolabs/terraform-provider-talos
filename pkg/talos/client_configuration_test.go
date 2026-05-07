@@ -28,9 +28,9 @@ func TestGetClientConfigurationValues_Typed(t *testing.T) {
 	}
 
 	objValue, diags := types.ObjectValueFrom(ctx, map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	}, config)
 
 	if diags.HasError() {
@@ -74,14 +74,14 @@ func TestGetClientConfigurationValues_Reconstructed(t *testing.T) {
 	//   }
 	objValue, diags := types.ObjectValue(
 		map[string]attr.Type{
-			"ca_certificate":     types.StringType,
-			"client_certificate": types.StringType,
-			"client_key":         types.StringType,
+			FieldCACertificate:     types.StringType,
+			FieldClientCertificate: types.StringType,
+			FieldClientKey:         types.StringType,
 		},
 		map[string]attr.Value{
-			"ca_certificate":     basetypes.NewStringValue("vault-ca-cert"),
-			"client_certificate": basetypes.NewStringValue("vault-client-cert"),
-			"client_key":         basetypes.NewStringValue("vault-client-key"),
+			FieldCACertificate:     basetypes.NewStringValue("vault-ca-cert"),
+			FieldClientCertificate: basetypes.NewStringValue("vault-client-cert"),
+			FieldClientKey:         basetypes.NewStringValue("vault-client-key"),
 		},
 	)
 
@@ -116,9 +116,9 @@ func TestGetClientConfigurationValues_Null(t *testing.T) {
 	ctx := context.Background()
 
 	objValue := basetypes.NewObjectNull(map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	})
 
 	ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, objValue)
@@ -143,9 +143,9 @@ func TestGetClientConfigurationValues_Unknown(t *testing.T) {
 	ctx := context.Background()
 
 	objValue := basetypes.NewObjectUnknown(map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	})
 
 	ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, objValue)

@@ -40,6 +40,12 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+const (
+	pemBlockTypeECPrivateKey      = "EC PRIVATE KEY"
+	pemBlockTypeEd25519PrivateKey = "ED25519 PRIVATE KEY"
+	pemBlockTypePrivateKey        = "PRIVATE KEY"
+)
+
 type machineConfigGenerateOptions struct { //nolint:govet
 	machineType       machine.Type
 	clusterName       string
@@ -137,7 +143,7 @@ func GenerateInstallerImage() string {
 
 func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineSecretsResourceModelV1, error) {
 	model := talosMachineSecretsResourceModelV1{
-		ID: types.StringValue("machine_secrets"),
+		ID: types.StringValue(FieldMachineSecrets),
 		MachineSecrets: machineSecrets{
 			Cluster: machineSecretsCluster{
 				ID:     types.StringValue(secretsBundle.Cluster.ID),
@@ -266,7 +272,7 @@ func generateClientConfiguration(secretsBundle *secrets.Bundle, clusterName stri
 	case ed25519.PrivateKey:
 		adminKeyBytes := make([]byte, ed25519.SeedSize)
 		if _, err = deterministicReader.Read(adminKeyBytes); err != nil {
-			return clientConfiguration{}, fmt.Errorf("error deriving admin key bytes: %w", err)
+			return clientConfiguration{}, fmt.Errorf(ErrDeriveAdminKeyBytes, err)
 		}
 
 		adminKey := ed25519.NewKeyFromSeed(adminKeyBytes)
@@ -274,20 +280,20 @@ func generateClientConfiguration(secretsBundle *secrets.Bundle, clusterName stri
 		// Ed25519 signing is deterministic per RFC 8032 — rand reader is unused.
 		certDER, err = stdlibx509.CreateCertificate(nil, template, caCert, adminKey.Public(), caKey)
 		if err != nil {
-			return clientConfiguration{}, fmt.Errorf("error signing admin certificate: %w", err)
+			return clientConfiguration{}, fmt.Errorf(ErrSignAdminCertificate, err)
 		}
 
 		adminKeyDER, marshalErr := stdlibx509.MarshalPKCS8PrivateKey(adminKey)
 		if marshalErr != nil {
-			return clientConfiguration{}, fmt.Errorf("error marshaling admin private key: %w", marshalErr)
+			return clientConfiguration{}, fmt.Errorf(ErrMarshalAdminPrivateKey, marshalErr)
 		}
 
-		clientKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: adminKeyDER})
+		clientKeyPEM = pem.EncodeToMemory(&pem.Block{Type: pemBlockTypePrivateKey, Bytes: adminKeyDER})
 
 	case *ecdsa.PrivateKey:
 		adminKeyBytes := make([]byte, 32)
 		if _, err = deterministicReader.Read(adminKeyBytes); err != nil {
-			return clientConfiguration{}, fmt.Errorf("error deriving admin key bytes: %w", err)
+			return clientConfiguration{}, fmt.Errorf(ErrDeriveAdminKeyBytes, err)
 		}
 
 		adminKey, ecParseErr := ecdsa.ParseRawPrivateKey(elliptic.P256(), adminKeyBytes)
@@ -299,15 +305,15 @@ func generateClientConfiguration(secretsBundle *secrets.Bundle, clusterName stri
 
 		certDER, err = stdlibx509.CreateCertificate(nil, template, caCert, &adminKey.PublicKey, caSigner)
 		if err != nil {
-			return clientConfiguration{}, fmt.Errorf("error signing admin certificate: %w", err)
+			return clientConfiguration{}, fmt.Errorf(ErrSignAdminCertificate, err)
 		}
 
 		adminKeyDER, marshalErr := stdlibx509.MarshalECPrivateKey(adminKey)
 		if marshalErr != nil {
-			return clientConfiguration{}, fmt.Errorf("error marshaling admin private key: %w", marshalErr)
+			return clientConfiguration{}, fmt.Errorf(ErrMarshalAdminPrivateKey, marshalErr)
 		}
 
-		clientKeyPEM = pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: adminKeyDER})
+		clientKeyPEM = pem.EncodeToMemory(&pem.Block{Type: pemBlockTypeECPrivateKey, Bytes: adminKeyDER})
 
 	default:
 		return clientConfiguration{}, fmt.Errorf("unsupported OS CA private key type: %T", caKeyParsed)
@@ -325,7 +331,7 @@ func generateClientConfiguration(secretsBundle *secrets.Bundle, clusterName stri
 // parseCAPrivateKey parses a PEM block into either an ed25519.PrivateKey or *ecdsa.PrivateKey.
 func parseCAPrivateKey(block *pem.Block) (any, error) {
 	switch block.Type {
-	case "EC PRIVATE KEY":
+	case pemBlockTypeECPrivateKey:
 		key, err := stdlibx509.ParseECPrivateKey(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing OS CA private key: %w", err)
@@ -333,7 +339,7 @@ func parseCAPrivateKey(block *pem.Block) (any, error) {
 
 		return key, nil
 
-	case "ED25519 PRIVATE KEY", "PRIVATE KEY":
+	case pemBlockTypeEd25519PrivateKey, pemBlockTypePrivateKey:
 		parsed, err := stdlibx509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing OS CA private key: %w", err)

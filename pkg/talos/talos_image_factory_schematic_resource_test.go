@@ -19,35 +19,35 @@ func TestAccTalosImageFactorySchematicResource(t *testing.T) {
 			{
 				Config: testAccTalosTalosImageFactorySchematicConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_image_factory_schematic.this", "id", "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"),
+					resource.TestCheckResourceAttr(resTalosImageFactorySchematic, "id", testSchematicHash),
 				),
 			},
 			// empty schematic
 			{
 				Config: testAccTalosTalosImageFactorySchematicEmptySchematicConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_image_factory_schematic.this", "id", "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"),
+					resource.TestCheckResourceAttr(resTalosImageFactorySchematic, "id", testSchematicHash),
 				),
 			},
 			// empty customization
 			{
 				Config: testAccTalosTalosImageFactorySchematicEmptyCustomizationConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_image_factory_schematic.this", "id", "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"),
+					resource.TestCheckResourceAttr(resTalosImageFactorySchematic, "id", testSchematicHash),
 				),
 			},
 			// vanilla image
 			{
 				Config: testAccTalosTalosImageFactorySchematicConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_image_factory_schematic.this", "id", "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"),
+					resource.TestCheckResourceAttr(resTalosImageFactorySchematic, "id", testSchematicHash),
 				),
 			},
 			// known extension
 			{
 				Config: testAccTalosTalosImageFactorySchematicKnownExtensionConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_image_factory_schematic.this", "id", "d01dbf04a51b44a41d62b7c9692da0a74889277651600da6b602582654e4b402"),
+					resource.TestCheckResourceAttr(resTalosImageFactorySchematic, "id", "d01dbf04a51b44a41d62b7c9692da0a74889277651600da6b602582654e4b402"),
 				),
 			},
 		},

@@ -71,7 +71,7 @@ func NewTalosClusterKubeConfigResource() resource.Resource {
 }
 
 func (r *talosClusterKubeConfigResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cluster_kubeconfig"
+	resp.TypeName = req.ProviderTypeName + FieldClusterKubeconfig
 }
 
 func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -85,64 +85,64 @@ func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"node": schema.StringAttribute{
+			FieldNode: schema.StringAttribute{
 				Required:    true,
-				Description: "controlplane node to retrieve the kubeconfig from",
+				Description: DescControlplaneNodeForKubeconfig,
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "endpoint to use for the talosclient. If not set, the node value will be used",
+				Description: DescEndpointForTalosClient,
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Required:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
-			"kubeconfig_raw": schema.StringAttribute{
+			FieldKubeconfigRaw: schema.StringAttribute{
 				Computed:    true,
-				Description: "The raw kubeconfig",
+				Description: DescRawKubeconfig,
 				Sensitive:   true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"kubernetes_client_configuration": schema.SingleNestedAttribute{
+			FieldKubernetesClientConfig: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"host": schema.StringAttribute{
+					FieldHost: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes host",
+						Description: DescKubernetesHost,
 					},
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes CA certificate",
+						Description: DescKubernetesCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes client certificate",
+						Description: DescKubernetesClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The kubernetes client key",
+						Description: DescKubernetesClientKey,
 					},
 				},
 				Computed:    true,
-				Description: "The kubernetes client configuration",
+				Description: DescKubernetesClientConfig,
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
 				},
@@ -153,7 +153,7 @@ func (r *talosClusterKubeConfigResource) Schema(ctx context.Context, _ resource.
 				Description: "The duration in hours before the certificate is renewed, defaults to 720h. Must be a valid duration string",
 				Default:     stringdefault.StaticString("720h"),
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+			FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
 			}),
@@ -185,13 +185,13 @@ func (r *talosClusterKubeConfigResource) Create(ctx context.Context, req resourc
 	}
 
 	talosConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		state.ClientConfiguration.CA.ValueString(),
 		state.ClientConfiguration.Cert.ValueString(),
 		state.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}
@@ -230,14 +230,14 @@ func (r *talosClusterKubeConfigResource) Create(ctx context.Context, req resourc
 
 		return nil
 	}); retryErr != nil {
-		resp.Diagnostics.AddError("failed to retrieve kubeconfig", retryErr.Error())
+		resp.Diagnostics.AddError(ErrRetrieveKubeconfig, retryErr.Error())
 
 		return
 	}
 
 	kubeConfig, err := clientcmd.Load([]byte(state.KubeConfigRaw.ValueString()))
 	if err != nil {
-		resp.Diagnostics.AddError("failed to parse kubeconfig", err.Error())
+		resp.Diagnostics.AddError(ErrParseKubeconfig, err.Error())
 
 		return
 	}
@@ -350,7 +350,7 @@ func (r *talosClusterKubeConfigResource) ModifyPlan(ctx context.Context, req res
 	}
 
 	if planState.Endpoint.IsUnknown() || planState.Endpoint.IsNull() {
-		diags = resp.Plan.SetAttribute(ctx, path.Root("endpoint"), planState.Node.ValueString())
+		diags = resp.Plan.SetAttribute(ctx, path.Root(FieldEndpoint), planState.Node.ValueString())
 		resp.Diagnostics.Append(diags...)
 
 		if diags.HasError() {
@@ -358,7 +358,7 @@ func (r *talosClusterKubeConfigResource) ModifyPlan(ctx context.Context, req res
 		}
 	}
 
-	kubernetesClientConfigPath := path.Root("kubernetes_client_configuration")
+	kubernetesClientConfigPath := path.Root(FieldKubernetesClientConfig)
 
 	var obj types.Object
 
@@ -387,14 +387,14 @@ func (r *talosClusterKubeConfigResource) ModifyPlan(ctx context.Context, req res
 
 	kubernetesClientCertificateBytes, err := base64ToBytes(kubernetesClientCertificate)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to decode kubernetes client certificate", err.Error())
+		resp.Diagnostics.AddError(ErrDecodeKubernetesClientCert, err.Error())
 
 		return
 	}
 
 	block, _ := pem.Decode(kubernetesClientCertificateBytes)
 	if block == nil {
-		resp.Diagnostics.AddError("failed to decode kubernetes client certificate", "failed to decode PEM block")
+		resp.Diagnostics.AddError(ErrDecodeKubernetesClientCert, "failed to decode PEM block")
 
 		return
 	}
@@ -442,11 +442,11 @@ func (r *talosClusterKubeConfigResource) ModifyPlan(ctx context.Context, req res
 	if x509Cert.NotAfter.Before(OverridableTimeFunc().Add(renewalDuration)) {
 		tflog.Info(ctx, fmt.Sprintf("kubernetes client certificate expires in %s, needs regeneration", existingState.CertificateRenewalDuration.ValueString()))
 
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("host"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("client_certificate"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("client_key"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("ca_certificate"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("kubeconfig_raw"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldHost), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldClientCertificate), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldClientKey), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldCACertificate), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldKubeconfigRaw), types.StringUnknown())...)
 
 		if resp.Diagnostics.HasError() {
 			return
@@ -462,52 +462,52 @@ func (r *talosClusterKubeConfigResource) UpgradeState(ctx context.Context) map[i
 					"id": schema.StringAttribute{
 						Computed: true,
 					},
-					"node": schema.StringAttribute{
+					FieldNode: schema.StringAttribute{
 						Required: true,
 					},
-					"endpoint": schema.StringAttribute{
+					FieldEndpoint: schema.StringAttribute{
 						Optional: true,
 						Computed: true,
 					},
-					"client_configuration": schema.SingleNestedAttribute{
+					FieldClientConfiguration: schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
-							"ca_certificate": schema.StringAttribute{
+							FieldCACertificate: schema.StringAttribute{
 								Required: true,
 							},
-							"client_certificate": schema.StringAttribute{
+							FieldClientCertificate: schema.StringAttribute{
 								Required: true,
 							},
-							"client_key": schema.StringAttribute{
+							FieldClientKey: schema.StringAttribute{
 								Required:  true,
 								Sensitive: true,
 							},
 						},
 						Required: true,
 					},
-					"kubeconfig_raw": schema.StringAttribute{
+					FieldKubeconfigRaw: schema.StringAttribute{
 						Computed: true,
 
 						Sensitive: true,
 					},
-					"kubernetes_client_configuration": schema.SingleNestedAttribute{
+					FieldKubernetesClientConfig: schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
-							"host": schema.StringAttribute{
+							FieldHost: schema.StringAttribute{
 								Computed: true,
 							},
-							"ca_certificate": schema.StringAttribute{
+							FieldCACertificate: schema.StringAttribute{
 								Computed: true,
 							},
-							"client_certificate": schema.StringAttribute{
+							FieldClientCertificate: schema.StringAttribute{
 								Computed: true,
 							},
-							"client_key": schema.StringAttribute{
+							FieldClientKey: schema.StringAttribute{
 								Computed:  true,
 								Sensitive: true,
 							},
 						},
 						Computed: true,
 					},
-					"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+					FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 						Create: true,
 						Update: true,
 					}),
@@ -593,7 +593,7 @@ func (r *talosClusterKubeConfigResource) Update(ctx context.Context, req resourc
 		return
 	}
 
-	kubernetesClientConfigPath := path.Root("kubernetes_client_configuration")
+	kubernetesClientConfigPath := path.Root(FieldKubernetesClientConfig)
 
 	var stateObj types.Object
 
@@ -622,14 +622,14 @@ func (r *talosClusterKubeConfigResource) Update(ctx context.Context, req resourc
 
 	kubernetesClientCertificateBytes, err := base64ToBytes(kubernetesClientCertificate)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to decode kubernetes client certificate", err.Error())
+		resp.Diagnostics.AddError(ErrDecodeKubernetesClientCert, err.Error())
 
 		return
 	}
 
 	block, _ := pem.Decode(kubernetesClientCertificateBytes)
 	if block == nil {
-		resp.Diagnostics.AddError("failed to decode kubernetes client certificate", "failed to decode PEM block")
+		resp.Diagnostics.AddError(ErrDecodeKubernetesClientCert, "failed to decode PEM block")
 
 		return
 	}
@@ -653,13 +653,13 @@ func (r *talosClusterKubeConfigResource) Update(ctx context.Context, req resourc
 		tflog.Info(ctx, fmt.Sprintf("kubernetes client certificate expires in %s, regenerating", state.CertificateRenewalDuration.ValueString()))
 
 		talosConfig, err := talosClientTFConfigToTalosClientConfig(
-			"dynamic",
+			FieldDynamic,
 			state.ClientConfiguration.CA.ValueString(),
 			state.ClientConfiguration.Cert.ValueString(),
 			state.ClientConfiguration.Key.ValueString(),
 		)
 		if err != nil {
-			resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+			resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 			return
 		}
@@ -698,14 +698,14 @@ func (r *talosClusterKubeConfigResource) Update(ctx context.Context, req resourc
 
 			return nil
 		}); retryErr != nil {
-			resp.Diagnostics.AddError("failed to retrieve kubeconfig", retryErr.Error())
+			resp.Diagnostics.AddError(ErrRetrieveKubeconfig, retryErr.Error())
 
 			return
 		}
 
 		kubeConfig, err := clientcmd.Load([]byte(state.KubeConfigRaw.ValueString()))
 		if err != nil {
-			resp.Diagnostics.AddError("failed to parse kubeconfig", err.Error())
+			resp.Diagnostics.AddError(ErrParseKubeconfig, err.Error())
 
 			return
 		}
@@ -720,11 +720,11 @@ func (r *talosClusterKubeConfigResource) Update(ctx context.Context, req resourc
 			ClientKey:         basetypes.NewStringValue(bytesToBase64(kubeConfig.AuthInfos[authName].ClientKeyData)),
 		}
 
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("host"), &state.KubernetesClientConfiguration.Host)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("client_certificate"), &state.KubernetesClientConfiguration.ClientCertificate)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("client_key"), &state.KubernetesClientConfiguration.ClientKey)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("kubernetes_client_configuration").AtName("ca_certificate"), &state.KubernetesClientConfiguration.CACertificate)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("kubeconfig_raw"), &state.KubeConfigRaw)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldHost), &state.KubernetesClientConfiguration.Host)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldClientCertificate), &state.KubernetesClientConfiguration.ClientCertificate)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldClientKey), &state.KubernetesClientConfiguration.ClientKey)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldKubernetesClientConfig).AtName(FieldCACertificate), &state.KubernetesClientConfiguration.CACertificate)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldKubeconfigRaw), &state.KubeConfigRaw)...)
 
 		if resp.Diagnostics.HasError() {
 			return

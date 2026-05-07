@@ -46,15 +46,15 @@ func (r *talosClientConfigurationEphemeralResource) Schema(_ context.Context, _ 
 			"The admin client certificate is generated with pinned timestamps so talos_config " +
 			"is byte-identical on every open as long as machine_secrets and not_before are unchanged.",
 		Attributes: map[string]schema.Attribute{
-			"cluster_name": schema.StringAttribute{
+			FieldClusterName: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the cluster in the generated config",
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"machine_secrets": machineSecretsSchemaAttribute(),
-			"not_before": schema.StringAttribute{
+			FieldMachineSecrets: machineSecretsSchemaAttribute(),
+			FieldNotBefore: schema.StringAttribute{
 				Optional: true,
 				Description: "RFC3339 timestamp to use as the NotBefore field of the generated admin client certificate. " +
 					"When set, the certificate validity starts at this time and ends at not_before + crt_ttl. " +
@@ -65,7 +65,7 @@ func (r *talosClientConfigurationEphemeralResource) Schema(_ context.Context, _ 
 					rfc3339Valid(),
 				},
 			},
-			"crt_ttl": schema.StringAttribute{
+			FieldCRTTTL: schema.StringAttribute{
 				Optional: true,
 				Description: "The lifetime of the generated admin client certificate as a Go duration string " +
 					"(e.g. \"8760h\" for 1 year, \"87600h\" for 10 years). Defaults to \"87600h\" (10 years). " +
@@ -74,40 +74,40 @@ func (r *talosClientConfigurationEphemeralResource) Schema(_ context.Context, _ 
 					goDurationValid(),
 				},
 			},
-			"endpoints": schema.ListAttribute{
+			FieldEndpoints: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "endpoints to set in the generated config",
 			},
-			"nodes": schema.ListAttribute{
+			FieldNodes: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "nodes to set in the generated config",
 			},
-			"talos_config": schema.StringAttribute{
+			FieldTalosConfig: schema.StringAttribute{
 				Computed:    true,
-				Description: "The generated client configuration",
+				Description: DescGeneratedClientConfig,
 				Sensitive:   true,
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Computed:    true,
 				Sensitive:   true,
-				Description: "The generated client configuration data",
+				Description: DescGeneratedClientConfig,
 			},
 		},
 	}
@@ -155,7 +155,7 @@ func (r *talosClientConfigurationEphemeralResource) Open(ctx context.Context, re
 		MachineSecrets: config.MachineSecrets,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("failed to convert machine secrets to secrets bundle", err.Error())
+		resp.Diagnostics.AddError(ErrConvertMachineToSecretsBundle, err.Error())
 
 		return
 	}
@@ -181,7 +181,7 @@ func (r *talosClientConfigurationEphemeralResource) Open(ctx context.Context, re
 		cc.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}

@@ -22,32 +22,32 @@ func TestAccTalosClientConfigurationDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// test data source with default values
 			{
-				Config: testAccTalosClientConfigurationDataSourceConfig("test-cluster", nil, nil),
+				Config: testAccTalosClientConfigurationDataSourceConfig(testCluster, nil, nil),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "id", "test-cluster"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "cluster_name", "test-cluster"),
-					resource.TestCheckResourceAttrSet("data.talos_client_configuration.this", "client_configuration.%"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "endpoints.#", "0"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "nodes.#", "0"),
-					resource.TestCheckResourceAttrSet("data.talos_client_configuration.this", "talos_config"),
-					resource.TestCheckResourceAttrWith("data.talos_client_configuration.this", "talos_config", func(value string) error {
-						return validateTalosClientConfigContext(t, value, "test-cluster", nil, nil)
+					resource.TestCheckResourceAttr(dataTalosClientConf, "id", testCluster),
+					resource.TestCheckResourceAttr(dataTalosClientConf, fieldClusterName, testCluster),
+					resource.TestCheckResourceAttrSet(dataTalosClientConf, "client_configuration.%"),
+					resource.TestCheckResourceAttr(dataTalosClientConf, "endpoints.#", "0"),
+					resource.TestCheckResourceAttr(dataTalosClientConf, "nodes.#", "0"),
+					resource.TestCheckResourceAttrSet(dataTalosClientConf, fieldTalosConfig),
+					resource.TestCheckResourceAttrWith(dataTalosClientConf, fieldTalosConfig, func(value string) error {
+						return validateTalosClientConfigContext(t, value, testCluster, nil, nil)
 					}),
 				),
 			},
 			// test data source with overrides
 			{
-				Config: testAccTalosClientConfigurationDataSourceConfig("test-cluster-1", []string{"10.5.0.2", "10.5.0.3"}, []string{"10.5.0.4"}),
+				Config: testAccTalosClientConfigurationDataSourceConfig(testCluster1, []string{testIP1, testIP2}, []string{testIP3}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "id", "test-cluster-1"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "cluster_name", "test-cluster-1"),
-					resource.TestCheckResourceAttrSet("data.talos_client_configuration.this", "client_configuration.%"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "endpoints.0", "10.5.0.2"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "endpoints.1", "10.5.0.3"),
-					resource.TestCheckResourceAttr("data.talos_client_configuration.this", "nodes.0", "10.5.0.4"),
-					resource.TestCheckResourceAttrSet("data.talos_client_configuration.this", "talos_config"),
-					resource.TestCheckResourceAttrWith("data.talos_client_configuration.this", "talos_config", func(value string) error {
-						return validateTalosClientConfigContext(t, value, "test-cluster-1", []string{"10.5.0.2", "10.5.0.3"}, []string{"10.5.0.4"})
+					resource.TestCheckResourceAttr(dataTalosClientConf, "id", testCluster1),
+					resource.TestCheckResourceAttr(dataTalosClientConf, fieldClusterName, testCluster1),
+					resource.TestCheckResourceAttrSet(dataTalosClientConf, "client_configuration.%"),
+					resource.TestCheckResourceAttr(dataTalosClientConf, "endpoints.0", testIP1),
+					resource.TestCheckResourceAttr(dataTalosClientConf, "endpoints.1", testIP2),
+					resource.TestCheckResourceAttr(dataTalosClientConf, "nodes.0", testIP3),
+					resource.TestCheckResourceAttrSet(dataTalosClientConf, fieldTalosConfig),
+					resource.TestCheckResourceAttrWith(dataTalosClientConf, fieldTalosConfig, func(value string) error {
+						return validateTalosClientConfigContext(t, value, testCluster1, []string{testIP1, testIP2}, []string{testIP3})
 					}),
 				),
 			},
@@ -75,7 +75,7 @@ data "talos_client_configuration" "this" {
 
 	var config strings.Builder
 
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, struct { //nolint:errcheck
+	template.Must(template.New(tfConfigTemplateName).Parse(configTemplate)).Execute(&config, struct { //nolint:errcheck
 		ClusterName string
 		Endpoints   []string
 		Nodes       []string

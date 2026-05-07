@@ -31,26 +31,26 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// test data source with default values
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster", "controlplane", "https://cluster.local:6443", "", false, false, true, true),
+				Config: testAccTalosMachineConfigurationDataSourceConfig("", exampleCluster, fieldControlplane, testClusterLocalFull, "", false, false, true, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_endpoint", "https://cluster.local:6443"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
-					resource.TestCheckNoResourceAttr("data.talos_machine_configuration.this", "config_patches"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", constants.DefaultKubernetesVersion),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "true"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "true"),
-					resource.TestCheckResourceAttrWith("data.talos_machine_configuration.this", "machine_configuration", func(value string) error {
+					resource.TestCheckResourceAttr(dataTalosMachineConf, "id", exampleCluster),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterName, exampleCluster),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterEndpoint, testClusterLocalFull),
+					resource.TestCheckResourceAttrSet(dataTalosMachineConf, attrMachineSecretsPercent),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldMachineType, fieldControlplane),
+					resource.TestCheckNoResourceAttr(dataTalosMachineConf, fieldConfigPatches),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldKubernetesVersion, constants.DefaultKubernetesVersion),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldTalosVersion, semver.MajorMinor(gendata.VersionTag)),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldDocs, boolTrue),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldExamples, boolTrue),
+					resource.TestCheckResourceAttrWith(dataTalosMachineConf, fieldMachineConfiguration, func(value string) error {
 						return validateGeneratedTalosMachineConfig(
 							t,
-							"example-cluster",
-							"https://cluster.local:6443",
-							"/dev/sda",
+							exampleCluster,
+							testClusterLocalFull,
+							testDevSDA,
 							constants.DefaultKubernetesVersion,
-							"controlplane",
+							fieldControlplane,
 							value,
 							true,
 							true,
@@ -66,27 +66,27 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test data source with custom values
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-1", "controlplane", "https://cluster-1.local:6443", "v1.28.0", true, false, false, false),
+				Config: testAccTalosMachineConfigurationDataSourceConfig("", exampleCluster1, fieldControlplane, testClusterEndpoint1, "v1.28.0", true, false, false, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster-1"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster-1"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_endpoint", "https://cluster-1.local:6443"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.#", "3"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/sdd\"\n"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", "v1.28.0"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "false"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "false"),
-					resource.TestCheckResourceAttrWith("data.talos_machine_configuration.this", "machine_configuration", func(value string) error {
+					resource.TestCheckResourceAttr(dataTalosMachineConf, "id", exampleCluster1),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterName, exampleCluster1),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterEndpoint, testClusterEndpoint1),
+					resource.TestCheckResourceAttrSet(dataTalosMachineConf, attrMachineSecretsPercent),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldMachineType, fieldControlplane),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, attrConfigPatchesCount, "3"),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, attrConfigPatchesFirst, "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/sdd\"\n"),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldKubernetesVersion, "v1.28.0"),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldTalosVersion, semver.MajorMinor(gendata.VersionTag)),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldDocs, boolFalse),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldExamples, boolFalse),
+					resource.TestCheckResourceAttrWith(dataTalosMachineConf, fieldMachineConfiguration, func(value string) error {
 						return validateGeneratedTalosMachineConfig(
 							t,
-							"example-cluster-1",
-							"https://cluster-1.local:6443",
+							exampleCluster1,
+							testClusterEndpoint1,
 							"/dev/sdd",
 							"1.28.0",
-							"controlplane",
+							fieldControlplane,
 							value,
 							false,
 							false,
@@ -105,26 +105,26 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test data source for a worker node
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-2", "worker", "https://cluster-2.local:6443", "", false, false, true, false),
+				Config: testAccTalosMachineConfigurationDataSourceConfig("", exampleCluster2, fieldWorker, testClusterEndpoint2, "", false, false, true, false),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster-2"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster-2"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_endpoint", "https://cluster-2.local:6443"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "worker"),
-					resource.TestCheckNoResourceAttr("data.talos_machine_configuration.this", "config_patches"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", constants.DefaultKubernetesVersion),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "true"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "false"),
-					resource.TestCheckResourceAttrWith("data.talos_machine_configuration.this", "machine_configuration", func(value string) error {
+					resource.TestCheckResourceAttr(dataTalosMachineConf, "id", exampleCluster2),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterName, exampleCluster2),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterEndpoint, testClusterEndpoint2),
+					resource.TestCheckResourceAttrSet(dataTalosMachineConf, attrMachineSecretsPercent),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldMachineType, fieldWorker),
+					resource.TestCheckNoResourceAttr(dataTalosMachineConf, fieldConfigPatches),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldKubernetesVersion, constants.DefaultKubernetesVersion),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldTalosVersion, semver.MajorMinor(gendata.VersionTag)),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldDocs, boolTrue),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldExamples, boolFalse),
+					resource.TestCheckResourceAttrWith(dataTalosMachineConf, fieldMachineConfiguration, func(value string) error {
 						return validateGeneratedTalosMachineConfig(
 							t,
-							"example-cluster-2",
-							"https://cluster-2.local:6443",
-							"/dev/sda",
+							exampleCluster2,
+							testClusterEndpoint2,
+							testDevSDA,
 							constants.DefaultKubernetesVersion,
-							"worker",
+							fieldWorker,
 							value,
 							true,
 							false,
@@ -135,26 +135,26 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 			},
 			// test data source for talos v1.2 that has aescbc encryption
 			{
-				Config: testAccTalosMachineConfigurationDataSourceConfig("v1.2", "example-cluster-3", "controlplane", "https://cluster-3.local:6443", "", false, false, false, true),
+				Config: testAccTalosMachineConfigurationDataSourceConfig(testV1p2, exampleCluster3, fieldControlplane, testClusterEndpoint3, "", false, false, false, true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "id", "example-cluster-3"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_name", "example-cluster-3"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "cluster_endpoint", "https://cluster-3.local:6443"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
-					resource.TestCheckNoResourceAttr("data.talos_machine_configuration.this", "config_patches"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", constants.DefaultKubernetesVersion),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", "v1.2"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "false"),
-					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "examples", "true"),
-					resource.TestCheckResourceAttrWith("data.talos_machine_configuration.this", "machine_configuration", func(value string) error {
+					resource.TestCheckResourceAttr(dataTalosMachineConf, "id", exampleCluster3),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterName, exampleCluster3),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldClusterEndpoint, testClusterEndpoint3),
+					resource.TestCheckResourceAttrSet(dataTalosMachineConf, attrMachineSecretsPercent),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldMachineType, fieldControlplane),
+					resource.TestCheckNoResourceAttr(dataTalosMachineConf, fieldConfigPatches),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldKubernetesVersion, constants.DefaultKubernetesVersion),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldTalosVersion, testV1p2),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldDocs, boolFalse),
+					resource.TestCheckResourceAttr(dataTalosMachineConf, fieldExamples, boolTrue),
+					resource.TestCheckResourceAttrWith(dataTalosMachineConf, fieldMachineConfiguration, func(value string) error {
 						return validateGeneratedTalosMachineConfig(
 							t,
-							"example-cluster-3",
-							"https://cluster-3.local:6443",
-							"/dev/sda",
+							exampleCluster3,
+							testClusterEndpoint3,
+							testDevSDA,
 							constants.DefaultKubernetesVersion,
-							"controlplane",
+							fieldControlplane,
 							value,
 							false,
 							true,
@@ -177,23 +177,23 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// test validating cluster endpoint
 			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-4", "controlplane", "cluster.local", "", false, false, true, true),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-4", fieldControlplane, "cluster.local", "", false, false, true, true),
 				ExpectError: regexp.MustCompile("no scheme and port specified for the cluster endpoint URL\ntry: \"https://cluster.local:6443\""),
 			},
 			// test validating talos machine config features version
 			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("nil", "example-cluster-5", "controlplane", "https://cluster.local", "", false, false, true, true),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig("nil", "example-cluster-5", fieldControlplane, testClusterLocal, "", false, false, true, true),
 				ExpectError: regexp.MustCompile("error parsing version \"vnil\""),
 			},
 			// test validating machine type
 			{
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-6", "control", "https://cluster.local", "", false, false, true, true),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig("", "example-cluster-6", "control", testClusterLocal, "", false, false, true, true),
 				ExpectError: regexp.MustCompile("Attribute machine_type value must be one of:"),
 			},
 			// test validating config patches at plan time
 			{
 				PlanOnly:    true,
-				Config:      testAccTalosMachineConfigurationDataSourceConfig("v1.3", "example-cluster-8", "controlplane", "https://cluster.local", "v1.23.0", true, true, true, true),
+				Config:      testAccTalosMachineConfigurationDataSourceConfig(testV1p3, "example-cluster-8", fieldControlplane, testClusterLocal, "v1.23.0", true, true, true, true),
 				ExpectError: regexp.MustCompile(`error decoding document /v1alpha1/ \(line 1\): unknown keys found during`),
 			},
 		},
@@ -277,7 +277,7 @@ data "talos_machine_configuration" "this" {
 
 	var config strings.Builder
 
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, templateConfig) //nolint:errcheck
+	template.Must(template.New(tfConfigTemplateName).Parse(configTemplate)).Execute(&config, templateConfig) //nolint:errcheck
 
 	return config.String()
 }
@@ -308,10 +308,10 @@ func validateGeneratedTalosMachineConfig(
 	}
 
 	switch machineType {
-	case "controlplane":
+	case fieldControlplane:
 		assert.Equal(t, machine.TypeControlPlane, machineConfig.Machine().Type())
 		assert.Equal(t, clusterName, machineConfig.Cluster().Name())
-	case "worker":
+	case fieldWorker:
 		assert.Equal(t, machine.TypeWorker, machineConfig.Machine().Type())
 	}
 

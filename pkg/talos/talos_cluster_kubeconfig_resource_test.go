@@ -21,9 +21,9 @@ func TestAccTalosClusterKubeconfigResource(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -31,17 +31,17 @@ func TestAccTalosClusterKubeconfigResource(t *testing.T) {
 			{
 				Config: testAccTalosClusterKubeconfigResourceConfig(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_cluster_kubeconfig.this", "id", "example-cluster"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "node"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubeconfig_raw"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.host"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_key"),
+					resource.TestCheckResourceAttr(resTalosClusterKubeconfig, "id", exampleCluster),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldNode),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigClientKey),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldKubeconfigRaw),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.host"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.ca_certificate"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.client_certificate"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.client_key"),
 				),
 			},
 			// test kubeconfig regeneration
@@ -64,9 +64,9 @@ func TestAccTalosClusterKubeconfigResource(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -74,17 +74,17 @@ func TestAccTalosClusterKubeconfigResource(t *testing.T) {
 			{
 				Config: testAccTalosClusterKubeconfigResourceConfig(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_cluster_kubeconfig.this", "id", "example-cluster"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "node"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubeconfig_raw"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.host"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_cluster_kubeconfig.this", "kubernetes_client_configuration.client_key"),
+					resource.TestCheckResourceAttr(resTalosClusterKubeconfig, "id", exampleCluster),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldNode),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, attrClientConfigClientKey),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, fieldKubeconfigRaw),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.host"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.ca_certificate"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.client_certificate"),
+					resource.TestCheckResourceAttrSet(resTalosClusterKubeconfig, "kubernetes_client_configuration.client_key"),
 				),
 			},
 			// make sure there are no changes
@@ -98,7 +98,7 @@ func TestAccTalosClusterKubeconfigResource(t *testing.T) {
 
 func testAccTalosClusterKubeconfigResourceConfig(rName string) string {
 	config := dynamicConfig{
-		Provider:               "talos",
+		Provider:               providerName,
 		ResourceName:           rName,
 		WithApplyConfig:        true,
 		WithBootstrap:          true,

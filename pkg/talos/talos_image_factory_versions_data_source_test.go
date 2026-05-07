@@ -20,13 +20,13 @@ func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryVersionsDataSourceConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_versions.this", "talos_versions.0", "v1.2.0"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_versions.this", "talos_versions.0", testV1p2p0),
 				),
 			},
 			{
 				Config: testAccTalosImageFactoryVersionsDataSourceWithFilterConfig(),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.13.0")),
+					statecheck.ExpectKnownOutputValue(fieldTalosVersion, knownvalue.StringExact("v1.13.0")),
 				},
 			},
 		},

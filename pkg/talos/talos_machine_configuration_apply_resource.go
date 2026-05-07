@@ -105,78 +105,78 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"apply_mode": schema.StringAttribute{
+			FieldApplyMode: schema.StringAttribute{
 				Optional: true,
 				Computed: true,
 				Description: "The mode of the apply operation. Use 'staged_if_needing_reboot' for automatic reboot prevention: " +
 					"performs a dry-run and uses 'staged' mode if reboot is needed, 'auto' otherwise",
 				Validators: []validator.String{
-					stringvalidator.OneOf("auto", "reboot", "no_reboot", "staged", "staged_if_needing_reboot"),
+					stringvalidator.OneOf(FieldAuto, FieldReboot, "no_reboot", FieldStaged, FieldStagedIfNeedingReboot),
 				},
-				Default: stringdefault.StaticString("auto"),
+				Default: stringdefault.StaticString(FieldAuto),
 			},
-			"resolved_apply_mode": schema.StringAttribute{
+			FieldResolvedApplyMode: schema.StringAttribute{
 				Computed: true,
 				Description: "The actual apply mode used. When apply_mode is 'staged_if_needing_reboot', " +
 					"shows the resolved mode ('auto' or 'staged') based on dry-run analysis. Equals apply_mode for other modes.",
 			},
-			"node": schema.StringAttribute{
+			FieldNode: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the node to bootstrap",
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The endpoint of the machine to bootstrap",
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Optional:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
-			"client_configuration_wo": schema.SingleNestedAttribute{
+			FieldClientConfigurationWO: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
 						WriteOnly:   true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
 						WriteOnly:   true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
 						WriteOnly:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Optional:    true,
 				WriteOnly:   true,
 				Description: "The client configuration data (write-only). Use this instead of client_configuration when using ephemeral resources. Requires Terraform 1.11+",
 			},
-			"machine_configuration_input": schema.StringAttribute{
+			FieldMachineConfigurationInput: schema.StringAttribute{
 				Description: "The machine configuration to apply",
 				Optional:    true,
 				Sensitive:   true,
 			},
-			"machine_configuration_input_wo": schema.StringAttribute{
+			FieldMachineConfigurationInputWO: schema.StringAttribute{
 				Description: "The machine configuration to apply (write-only). Use this instead of machine_configuration_input when using ephemeral resources. Requires Terraform 1.11+",
 				Optional:    true,
 				WriteOnly:   true,
@@ -198,7 +198,7 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 						Computed:    true,
 						Default:     booldefault.StaticBool(true),
 					},
-					"reboot": schema.BoolAttribute{
+					FieldReboot: schema.BoolAttribute{
 						Description: "Reboot indicates whether node should reboot or halt after resetting. Default false",
 						Optional:    true,
 						Computed:    true,
@@ -206,7 +206,7 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 					},
 				},
 			},
-			"machine_configuration": schema.StringAttribute{
+			FieldMachineConfiguration: schema.StringAttribute{
 				Description: "The generated machine configuration after applying patches",
 				Computed:    true,
 				Sensitive:   true,
@@ -214,7 +214,7 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"machine_configuration_hash": schema.StringAttribute{
+			FieldMachineConfigurationHash: schema.StringAttribute{
 				Description: "SHA256 hex digest of the rendered machine configuration (input plus patches). " +
 					"Persisted in state so that changes to machine_configuration_input_wo — which is write-only " +
 					"and itself invisible to state — still surface as plan diffs.",
@@ -223,12 +223,12 @@ func (p *talosMachineConfigurationApplyResource) Schema(ctx context.Context, _ r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"config_patches": schema.ListAttribute{
+			FieldConfigPatches: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "The list of config patches to apply",
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+			FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
 				Delete: true,
@@ -372,9 +372,9 @@ func getClientConfiguration(state *talosMachineConfigurationApplyResourceModelV1
 	// If write-only was provided but is still unknown, that's a problem
 	if !woIsNull && woIsUnknown {
 		return basetypes.NewObjectNull(map[string]attr.Type{
-			"ca_certificate":     types.StringType,
-			"client_certificate": types.StringType,
-			"client_key":         types.StringType,
+			FieldCACertificate:     types.StringType,
+			FieldClientCertificate: types.StringType,
+			FieldClientKey:         types.StringType,
 		}), "client_configuration_wo is still unknown (ephemeral value not yet resolved)"
 	}
 
@@ -385,9 +385,9 @@ func getClientConfiguration(state *talosMachineConfigurationApplyResourceModelV1
 
 	// Both are null
 	return basetypes.NewObjectNull(map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	}), "both client_configuration and client_configuration_wo are null"
 }
 
@@ -410,22 +410,22 @@ func getClientConfigurationValues(ctx context.Context, clientConfig basetypes.Ob
 		// without full schema metadata attached at runtime
 		attrs := clientConfig.Attributes()
 
-		caAttr, caOk := attrs["ca_certificate"]
-		certAttr, certOk := attrs["client_certificate"]
-		keyAttr, keyOk := attrs["client_key"]
+		caAttr, caOk := attrs[FieldCACertificate]
+		certAttr, certOk := attrs[FieldClientCertificate]
+		keyAttr, keyOk := attrs[FieldClientKey]
 
 		if !caOk || !certOk || !keyOk {
 			missingKeys := []string{}
 			if !caOk {
-				missingKeys = append(missingKeys, "ca_certificate")
+				missingKeys = append(missingKeys, FieldCACertificate)
 			}
 
 			if !certOk {
-				missingKeys = append(missingKeys, "client_certificate")
+				missingKeys = append(missingKeys, FieldClientCertificate)
 			}
 
 			if !keyOk {
-				missingKeys = append(missingKeys, "client_key")
+				missingKeys = append(missingKeys, FieldClientKey)
 			}
 
 			return "", "", "", fmt.Sprintf("missing required keys: %v (available keys: %v)", missingKeys, getMapKeys(attrs)), false
@@ -503,7 +503,7 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 	clientConfig, configDiag := getClientConfiguration(&state)
 	if configDiag != "" {
 		resp.Diagnostics.AddError(
-			"Client configuration issue",
+			ErrClientConfigurationIssue,
 			configDiag,
 		)
 
@@ -513,7 +513,7 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 	ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, clientConfig)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"Error reading client configuration",
+			ErrReadClientConfiguration,
 			errMsg,
 		)
 
@@ -521,14 +521,14 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 	}
 
 	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		ca,
 		cert,
 		key,
 	)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error converting config to talos client config",
+			ErrConvertConfigToTalosClient,
 			err.Error(),
 		)
 
@@ -595,7 +595,7 @@ func (p *talosMachineConfigurationApplyResource) Create(ctx context.Context, req
 		return
 	}
 
-	state.ID = basetypes.NewStringValue("machine_configuration_apply")
+	state.ID = basetypes.NewStringValue(FieldMachineConfigurationApply)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
@@ -641,7 +641,7 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 	clientConfig, configDiag := getClientConfiguration(&state)
 	if configDiag != "" {
 		resp.Diagnostics.AddError(
-			"Client configuration issue",
+			ErrClientConfigurationIssue,
 			configDiag,
 		)
 
@@ -651,7 +651,7 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 	ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, clientConfig)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"Error reading client configuration",
+			ErrReadClientConfiguration,
 			errMsg,
 		)
 
@@ -659,14 +659,14 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 	}
 
 	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		ca,
 		cert,
 		key,
 	)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error converting config to talos client config",
+			ErrConvertConfigToTalosClient,
 			err.Error(),
 		)
 
@@ -733,7 +733,7 @@ func (p *talosMachineConfigurationApplyResource) Update(ctx context.Context, req
 		return
 	}
 
-	state.ID = basetypes.NewStringValue("machine_configuration_apply")
+	state.ID = basetypes.NewStringValue(FieldMachineConfigurationApply)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
@@ -782,7 +782,7 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 		ca, cert, key, errMsg, ok := getClientConfigurationValues(ctx, clientConfig)
 		if !ok {
 			resp.Diagnostics.AddError(
-				"Error reading client configuration",
+				ErrReadClientConfiguration,
 				errMsg,
 			)
 
@@ -790,14 +790,14 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 		}
 
 		talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
-			"dynamic",
+			FieldDynamic,
 			ca,
 			cert,
 			key,
 		)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error converting config to talos client config",
+				ErrConvertConfigToTalosClient,
 				err.Error(),
 			)
 
@@ -877,7 +877,7 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 }
 
 func setResolvedApplyMode(ctx context.Context, resp *resource.ModifyPlanResponse, mode string) {
-	diags := resp.Plan.SetAttribute(ctx, path.Root("resolved_apply_mode"), mode)
+	diags := resp.Plan.SetAttribute(ctx, path.Root(FieldResolvedApplyMode), mode)
 	resp.Diagnostics.Append(diags...)
 }
 
@@ -909,10 +909,10 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 ) {
 	applyMode := strings.ToLower(planState.ApplyMode.ValueString())
 	if applyMode == "" || planState.ApplyMode.IsNull() || planState.ApplyMode.IsUnknown() {
-		applyMode = "auto"
+		applyMode = FieldAuto
 	}
 
-	if applyMode != "staged_if_needing_reboot" {
+	if applyMode != FieldStagedIfNeedingReboot {
 		setResolvedApplyMode(ctx, resp, applyMode)
 
 		return
@@ -920,7 +920,7 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 
 	// Cannot perform dry-run if node address is unknown (computed from another resource)
 	if planState.Node.IsUnknown() {
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 
 		return
 	}
@@ -952,20 +952,20 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 	clientConfig, configDiag := getClientConfiguration(planState)
 	if configDiag != "" {
 		// If configuration is not available (unknown/null), fall back to auto mode
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 
 		return
 	}
 
 	ca, cert, key, _, ok := getClientConfigurationValues(ctx, clientConfig)
 	if !ok {
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 
 		return
 	}
 
 	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		ca,
 		cert,
 		key,
@@ -975,7 +975,7 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 			"Cannot check reboot requirement",
 			fmt.Sprintf("Node %s: %v. Using 'auto' mode (may reboot).", planState.Node.ValueString(), err),
 		)
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 
 		return
 	}
@@ -990,20 +990,20 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 			"Cannot check reboot requirement",
 			fmt.Sprintf("Node %s: %v. Using 'auto' mode (may reboot).", planState.Node.ValueString(), err),
 		)
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 
 		return
 	}
 
 	if needsReboot {
-		setResolvedApplyMode(ctx, resp, "staged")
+		setResolvedApplyMode(ctx, resp, FieldStaged)
 		resp.Diagnostics.AddWarning(
 			"Reboot prevented - using staged mode",
 			fmt.Sprintf("Node %s: Configuration requires reboot. Using 'staged' mode. Manually reboot with: talosctl reboot --nodes %s",
 				planState.Node.ValueString(), planState.Node.ValueString()),
 		)
 	} else {
-		setResolvedApplyMode(ctx, resp, "auto")
+		setResolvedApplyMode(ctx, resp, FieldAuto)
 	}
 }
 
@@ -1061,7 +1061,7 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 	}
 
 	if planState.Endpoint.IsUnknown() || planState.Endpoint.IsNull() {
-		diags = resp.Plan.SetAttribute(ctx, path.Root("endpoint"), planState.Node.ValueString())
+		diags = resp.Plan.SetAttribute(ctx, path.Root(FieldEndpoint), planState.Node.ValueString())
 		resp.Diagnostics.Append(diags...)
 
 		if diags.HasError() {
@@ -1138,17 +1138,17 @@ func (p *talosMachineConfigurationApplyResource) setPlanMachineConfiguration(
 	cfgBytes []byte,
 ) {
 	sum := sha256.Sum256(cfgBytes)
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration_hash"), hex.EncodeToString(sum[:]))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldMachineConfigurationHash), hex.EncodeToString(sum[:]))...)
 
 	// When using write-only inputs (_wo variants), don't populate the computed
 	// machine_configuration to prevent secrets from being stored in state.
 	if !planState.MachineConfigurationInputWO.IsNull() {
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration"), types.StringNull())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldMachineConfiguration), types.StringNull())...)
 
 		return
 	}
 
-	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration"), string(cfgBytes))...)
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldMachineConfiguration), string(cfgBytes))...)
 }
 
 func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
@@ -1159,19 +1159,19 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 					"mode": schema.StringAttribute{
 						Optional: true,
 					},
-					"endpoint": schema.StringAttribute{
+					FieldEndpoint: schema.StringAttribute{
 						Required: true,
 					},
-					"node": schema.StringAttribute{
+					FieldNode: schema.StringAttribute{
 						Required: true,
 					},
-					"talos_config": schema.StringAttribute{
+					FieldTalosConfig: schema.StringAttribute{
 						Required: true,
 					},
-					"machine_configuration": schema.StringAttribute{
+					FieldMachineConfiguration: schema.StringAttribute{
 						Required: true,
 					},
-					"config_patches": schema.ListAttribute{
+					FieldConfigPatches: schema.ListAttribute{
 						Optional:    true,
 						ElementType: types.StringType,
 					},
@@ -1209,11 +1209,11 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 				}
 
 				timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
-					"create": types.StringType,
-					"update": types.StringType,
+					FieldCreate: types.StringType,
+					"update":    types.StringType,
 				}, map[string]attr.Value{
-					"create": basetypes.NewStringNull(),
-					"update": basetypes.NewStringNull(),
+					FieldCreate: basetypes.NewStringNull(),
+					"update":    basetypes.NewStringNull(),
 				})
 				resp.Diagnostics.Append(diag...)
 
@@ -1222,7 +1222,7 @@ func (p *talosMachineConfigurationApplyResource) UpgradeState(_ context.Context)
 				}
 
 				state := talosMachineConfigurationApplyResourceModelV1{
-					ID:                        basetypes.NewStringValue("machine_configuration_apply"),
+					ID:                        basetypes.NewStringValue(FieldMachineConfigurationApply),
 					ApplyMode:                 priorStateData.Mode,
 					Node:                      priorStateData.Node,
 					Endpoint:                  priorStateData.Endpoint,

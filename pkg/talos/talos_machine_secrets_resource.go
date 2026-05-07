@@ -122,7 +122,7 @@ func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.Schem
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The Talos version contract used to generate the secrets. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`",
@@ -133,25 +133,25 @@ func (r *talosMachineSecretsResource) Schema(_ context.Context, _ resource.Schem
 					talosMachineFeaturesVersionDefaults(),
 				},
 			},
-			"machine_secrets": machineSecretsOutputSchemaAttribute(),
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldMachineSecrets: machineSecretsOutputSchemaAttribute(),
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Computed:    true,
-				Description: "The generated client configuration data",
+				Description: DescGeneratedClientConfig,
 			},
 		},
 	}
@@ -161,13 +161,13 @@ func machineSecretsOutputSchemaAttribute() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Description: "The secrets for the talos cluster",
 		Attributes: map[string]schema.Attribute{
-			"cluster": schema.SingleNestedAttribute{
+			FieldCluster: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"id": schema.StringAttribute{
 						Description: "The cluster ID",
 						Computed:    true,
 					},
-					"secret": schema.StringAttribute{
+					FieldSecret: schema.StringAttribute{
 						Description: "The cluster secret",
 						Computed:    true,
 						Sensitive:   true,
@@ -176,19 +176,19 @@ func machineSecretsOutputSchemaAttribute() schema.SingleNestedAttribute {
 				Description: "The cluster secrets",
 				Computed:    true,
 			},
-			"secrets": schema.SingleNestedAttribute{
+			FieldSecrets: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"bootstrap_token": schema.StringAttribute{
+					FieldBootstrapToken: schema.StringAttribute{
 						Description: "The bootstrap token",
 						Computed:    true,
 						Sensitive:   true,
 					},
-					"secretbox_encryption_secret": schema.StringAttribute{
+					FieldSecretboxEncryptionSecret: schema.StringAttribute{
 						Description: "The secretbox encryption secret",
 						Computed:    true,
 						Sensitive:   true,
 					},
-					"aescbc_encryption_secret": schema.StringAttribute{
+					FieldAESCBCEncryptionSecret: schema.StringAttribute{
 						Description: "The AES-CBC encryption secret",
 						Computed:    true,
 						Sensitive:   true,
@@ -197,9 +197,9 @@ func machineSecretsOutputSchemaAttribute() schema.SingleNestedAttribute {
 				Description: "kubernetes cluster secrets",
 				Computed:    true,
 			},
-			"trustdinfo": schema.SingleNestedAttribute{
+			FieldTrustdInfo: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"token": schema.StringAttribute{
+					FieldToken: schema.StringAttribute{
 						Description: "The trustd token",
 						Computed:    true,
 						Sensitive:   true,
@@ -208,14 +208,14 @@ func machineSecretsOutputSchemaAttribute() schema.SingleNestedAttribute {
 				Description: "trustd secrets",
 				Computed:    true,
 			},
-			"certs": schema.SingleNestedAttribute{
+			FieldCerts: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"etcd":           certSchema(),
-					"k8s":            certSchema(),
-					"k8s_aggregator": certSchema(),
-					"k8s_serviceaccount": schema.SingleNestedAttribute{
+					FieldEtcd:          certSchema(),
+					FieldK8s:           certSchema(),
+					FieldK8sAggregator: certSchema(),
+					FieldK8sServiceAccount: schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
-							"key": schema.StringAttribute{
+							FieldKey: schema.StringAttribute{
 								Description: "The service account key",
 								Computed:    true,
 								Sensitive:   true,
@@ -237,11 +237,11 @@ func certSchema() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Description: "The certificate and key pair",
 		Attributes: map[string]schema.Attribute{
-			"cert": schema.StringAttribute{
+			FieldCert: schema.StringAttribute{
 				Description: "certificate data",
 				Computed:    true,
 			},
-			"key": schema.StringAttribute{
+			FieldKey: schema.StringAttribute{
 				Description: "key data",
 				Computed:    true,
 				Sensitive:   true,
@@ -295,7 +295,7 @@ func (r *talosMachineSecretsResource) Create(ctx context.Context, req resource.C
 
 	state, err := secretsBundleTomachineSecrets(secretsBundle)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+		resp.Diagnostics.AddError(ErrConvertSecretsBundleToMachine, err.Error())
 
 		return
 	}
@@ -320,7 +320,7 @@ func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resour
 		return
 	}
 
-	clientConfigurationPath := path.Root("client_configuration")
+	clientConfigurationPath := path.Root(FieldClientConfiguration)
 
 	var obj types.Object
 
@@ -350,14 +350,14 @@ func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resour
 
 	clientCertificateBytes, err := base64ToBytes(clientCertificate)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to decode client certificate", err.Error())
+		resp.Diagnostics.AddError(ErrDecodeClientCert, err.Error())
 
 		return
 	}
 
 	block, _ := pem.Decode(clientCertificateBytes)
 	if block == nil {
-		resp.Diagnostics.AddError("failed to decode client certificate", "failed to parse PEM block")
+		resp.Diagnostics.AddError(ErrDecodeClientCert, "failed to parse PEM block")
 
 		return
 	}
@@ -373,9 +373,9 @@ func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resour
 	if x509Cert.NotAfter.Before(OverridableTimeFunc().AddDate(0, 1, 0)) {
 		tflog.Info(ctx, "client certificate expires in a month, needs regeneration")
 
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("ca_certificate"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("client_certificate"), types.StringUnknown())...)
-		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("client_configuration").AtName("client_key"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldCACertificate), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldClientCertificate), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldClientKey), types.StringUnknown())...)
 
 		if resp.Diagnostics.HasError() {
 			return
@@ -386,7 +386,7 @@ func (r *talosMachineSecretsResource) ModifyPlan(ctx context.Context, req resour
 func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var talosVersion string
 
-	diags := req.Plan.GetAttribute(ctx, path.Root("talos_version"), &talosVersion)
+	diags := req.Plan.GetAttribute(ctx, path.Root(FieldTalosVersion), &talosVersion)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -394,14 +394,14 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 	}
 
 	// Set state to fully populated data
-	diags = resp.State.SetAttribute(ctx, path.Root("talos_version"), talosVersion)
+	diags = resp.State.SetAttribute(ctx, path.Root(FieldTalosVersion), talosVersion)
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	clientConfigurationPath := path.Root("client_configuration")
+	clientConfigurationPath := path.Root(FieldClientConfiguration)
 
 	var obj types.Object
 
@@ -431,14 +431,14 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 
 	clientCertificateBytes, err := base64ToBytes(clientCertificate)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to decode client certificate", err.Error())
+		resp.Diagnostics.AddError(ErrDecodeClientCert, err.Error())
 
 		return
 	}
 
 	block, _ := pem.Decode(clientCertificateBytes)
 	if block == nil {
-		resp.Diagnostics.AddError("failed to decode client certificate", "failed to parse PEM block")
+		resp.Diagnostics.AddError(ErrDecodeClientCert, "failed to parse PEM block")
 
 		return
 	}
@@ -477,7 +477,7 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 
 		secretsBundle, err := machineSecretsToSecretsBundle(config)
 		if err != nil {
-			resp.Diagnostics.AddError("failed to convert machine secrets to secrets bundle", err.Error())
+			resp.Diagnostics.AddError(ErrConvertMachineToSecretsBundle, err.Error())
 
 			return
 		}
@@ -488,14 +488,14 @@ func (r *talosMachineSecretsResource) Update(ctx context.Context, req resource.U
 
 		state, err := secretsBundleTomachineSecrets(secretsBundle)
 		if err != nil {
-			resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+			resp.Diagnostics.AddError(ErrConvertSecretsBundleToMachine, err.Error())
 
 			return
 		}
 
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("ca_certificate"), &state.ClientConfiguration.CA)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("client_certificate"), &state.ClientConfiguration.Cert)...)
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("client_configuration").AtName("client_key"), &state.ClientConfiguration.Key)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldCACertificate), &state.ClientConfiguration.CA)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldClientCertificate), &state.ClientConfiguration.Cert)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldClientConfiguration).AtName(FieldClientKey), &state.ClientConfiguration.Key)...)
 
 		if resp.Diagnostics.HasError() {
 			return
@@ -550,10 +550,10 @@ func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]
 					"id": schema.StringAttribute{
 						Computed: true,
 					},
-					"talos_version": schema.StringAttribute{
+					FieldTalosVersion: schema.StringAttribute{
 						Optional: true,
 					},
-					"machine_secrets": schema.StringAttribute{
+					FieldMachineSecrets: schema.StringAttribute{
 						Computed: true,
 					},
 				},
@@ -577,7 +577,7 @@ func (r *talosMachineSecretsResource) UpgradeState(_ context.Context) map[int64]
 
 				state, err := secretsBundleTomachineSecrets(secretsBundle)
 				if err != nil {
-					resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+					resp.Diagnostics.AddError(ErrConvertSecretsBundleToMachine, err.Error())
 
 					return
 				}
@@ -625,7 +625,7 @@ func (r *talosMachineSecretsResource) ImportState(ctx context.Context, req resou
 
 	state, err := secretsBundleTomachineSecrets(secretsBundle)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+		resp.Diagnostics.AddError(ErrConvertSecretsBundleToMachine, err.Error())
 
 		return
 	}

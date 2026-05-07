@@ -101,9 +101,9 @@ func getBootstrapClientConfiguration(state *talosMachineBootstrapResourceModelV1
 	// If write-only was provided but is still unknown, that's a problem
 	if !woIsNull && woIsUnknown {
 		return basetypes.NewObjectNull(map[string]attr.Type{
-			"ca_certificate":     types.StringType,
-			"client_certificate": types.StringType,
-			"client_key":         types.StringType,
+			FieldCACertificate:     types.StringType,
+			FieldClientCertificate: types.StringType,
+			FieldClientKey:         types.StringType,
 		}), "client_configuration_wo is still unknown (ephemeral value not yet resolved)"
 	}
 
@@ -114,9 +114,9 @@ func getBootstrapClientConfiguration(state *talosMachineBootstrapResourceModelV1
 
 	// Both are null
 	return basetypes.NewObjectNull(map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	}), "both client_configuration and client_configuration_wo are null"
 }
 
@@ -132,58 +132,58 @@ func (r *talosMachineBootstrapResource) Schema(ctx context.Context, _ resource.S
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The endpoint of the machine to bootstrap",
 			},
-			"node": schema.StringAttribute{
+			FieldNode: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the node to bootstrap",
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Optional:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
-			"client_configuration_wo": schema.SingleNestedAttribute{
+			FieldClientConfigurationWO: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
 						WriteOnly:   true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
 						WriteOnly:   true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
 						WriteOnly:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Optional:    true,
 				WriteOnly:   true,
 				Description: "The client configuration data (write-only). Use this instead of client_configuration when using ephemeral resources. Requires Terraform 1.11+",
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+			FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 			}),
 		},
@@ -218,7 +218,7 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 	clientConfig, configDiag := getBootstrapClientConfiguration(&state)
 	if configDiag != "" {
 		resp.Diagnostics.AddError(
-			"Client configuration issue",
+			ErrClientConfigurationIssue,
 			configDiag,
 		)
 
@@ -236,14 +236,14 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 	}
 
 	talosClientConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		ca,
 		cert,
 		key,
 	)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error converting config to talos client config",
+			ErrConvertConfigToTalosClient,
 			err.Error(),
 		)
 
@@ -281,7 +281,7 @@ func (r *talosMachineBootstrapResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	state.ID = basetypes.NewStringValue("machine_bootstrap")
+	state.ID = basetypes.NewStringValue(FieldMachineBootstrap)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, &state)
@@ -371,7 +371,7 @@ func (r *talosMachineBootstrapResource) ModifyPlan(ctx context.Context, req reso
 	}
 
 	if planState.Endpoint.IsUnknown() || planState.Endpoint.IsNull() {
-		diags = resp.Plan.SetAttribute(ctx, path.Root("endpoint"), planState.Node.ValueString())
+		diags = resp.Plan.SetAttribute(ctx, path.Root(FieldEndpoint), planState.Node.ValueString())
 		resp.Diagnostics.Append(diags...)
 
 		if diags.HasError() {
@@ -388,13 +388,13 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 					"id": schema.StringAttribute{
 						Computed: true,
 					},
-					"endpoint": schema.StringAttribute{
+					FieldEndpoint: schema.StringAttribute{
 						Required: true,
 					},
-					"node": schema.StringAttribute{
+					FieldNode: schema.StringAttribute{
 						Required: true,
 					},
-					"talos_config": schema.StringAttribute{
+					FieldTalosConfig: schema.StringAttribute{
 						Required: true,
 					},
 				},
@@ -410,9 +410,9 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 				}
 
 				timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
-					"create": types.StringType,
+					FieldCreate: types.StringType,
 				}, map[string]attr.Value{
-					"create": basetypes.NewStringNull(),
+					FieldCreate: basetypes.NewStringNull(),
 				})
 				resp.Diagnostics.Append(diag...)
 
@@ -422,13 +422,13 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 
 				// Create null client configuration with proper type
 				clientConfig := basetypes.NewObjectNull(map[string]attr.Type{
-					"ca_certificate":     types.StringType,
-					"client_certificate": types.StringType,
-					"client_key":         types.StringType,
+					FieldCACertificate:     types.StringType,
+					FieldClientCertificate: types.StringType,
+					FieldClientKey:         types.StringType,
 				})
 
 				state := talosMachineBootstrapResourceModelV1{
-					ID:                    basetypes.NewStringValue("machine_bootstrap"),
+					ID:                    basetypes.NewStringValue(FieldMachineBootstrap),
 					Endpoint:              priorStateData.Endpoint,
 					Node:                  priorStateData.Node,
 					ClientConfiguration:   clientConfig,
@@ -452,9 +452,9 @@ func (r *talosMachineBootstrapResource) UpgradeState(_ context.Context) map[int6
 
 func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, _ resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
-		"create": types.StringType,
+		FieldCreate: types.StringType,
 	}, map[string]attr.Value{
-		"create": basetypes.NewStringNull(),
+		FieldCreate: basetypes.NewStringNull(),
 	})
 	resp.Diagnostics.Append(diag...)
 
@@ -464,13 +464,13 @@ func (r *talosMachineBootstrapResource) ImportState(ctx context.Context, _ resou
 
 	// Create null client configuration with proper type
 	clientConfig := basetypes.NewObjectNull(map[string]attr.Type{
-		"ca_certificate":     types.StringType,
-		"client_certificate": types.StringType,
-		"client_key":         types.StringType,
+		FieldCACertificate:     types.StringType,
+		FieldClientCertificate: types.StringType,
+		FieldClientKey:         types.StringType,
 	})
 
 	state := talosMachineBootstrapResourceModelV1{
-		ID:                    basetypes.NewStringValue("machine_bootstrap"),
+		ID:                    basetypes.NewStringValue(FieldMachineBootstrap),
 		ClientConfiguration:   clientConfig,
 		ClientConfigurationWO: clientConfig,
 		Timeouts: timeouts.Value{

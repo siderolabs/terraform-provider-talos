@@ -45,7 +45,7 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("machine_configuration"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldMachineConfiguration), knownvalue.NotNull()),
 				},
 			},
 		},
@@ -83,7 +83,7 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("machine_configuration"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldMachineConfiguration), knownvalue.NotNull()),
 				},
 			},
 		},

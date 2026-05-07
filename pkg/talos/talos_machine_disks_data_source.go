@@ -62,35 +62,35 @@ func (d *talosMachineDisksDataSource) Schema(ctx context.Context, _ datasource.S
 				Description: "The generated ID of this resource",
 				Computed:    true,
 			},
-			"node": schema.StringAttribute{
+			FieldNode: schema.StringAttribute{
 				Required:    true,
-				Description: "controlplane node to retrieve the kubeconfig from",
+				Description: DescControlplaneNodeForKubeconfig,
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "endpoint to use for the talosclient. If not set, the node value will be used",
+				Description: DescEndpointForTalosClient,
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Required:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
-			"selector": schema.StringAttribute{
+			FieldSelector: schema.StringAttribute{
 				Optional: true,
 				MarkdownDescription: `The CEL expression to filter the disks.
 If not set, all disks will be returned.
@@ -103,7 +103,7 @@ See [CEL documentation](https://www.talos.dev/latest/talos-guides/configuration/
 				},
 				Computed: true,
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+			FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 				Read: true,
 			}),
 		},
@@ -133,13 +133,13 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 	}
 
 	talosConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		state.ClientConfiguration.CA.ValueString(),
 		state.ClientConfiguration.Cert.ValueString(),
 		state.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}
@@ -162,7 +162,7 @@ func (d *talosMachineDisksDataSource) Read(ctx context.Context, req datasource.R
 
 	if selector == "" {
 		// if there is no selector, we can return all disks
-		selector = "true"
+		selector = CELExprTrue
 	}
 
 	exp, err := cel.ParseBooleanExpression(selector, celenv.DiskLocator())

@@ -26,7 +26,7 @@ func TestGenerateKubeconfigDeterminism(t *testing.T) {
 	}
 
 	clusterName := "determinism-test"
-	endpoint := "https://10.0.0.1:6443"
+	endpoint := testEndpoint
 	notBefore := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	notAfter := notBefore.Add(87600 * time.Hour)
 

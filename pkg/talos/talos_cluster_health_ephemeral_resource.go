@@ -67,43 +67,43 @@ func (r *talosClusterHealthEphemeralResource) Schema(_ context.Context, _ epheme
 	resp.Schema = schema.Schema{
 		Description: "Checks the health of a Talos cluster. This is an ephemeral resource that does not persist secrets in Terraform state.",
 		Attributes: map[string]schema.Attribute{
-			"endpoints": schema.ListAttribute{
+			FieldEndpoints: schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
 				Description: "endpoints to use for the health check client. Use at least one control plane endpoint.",
 			},
-			"control_plane_nodes": schema.ListAttribute{
+			FieldControlPlaneNodes: schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
 				Description: "List of control plane nodes to check for health.",
 			},
-			"worker_nodes": schema.ListAttribute{
+			FieldWorkerNodes: schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "List of worker nodes to check for health.",
 			},
-			"skip_kubernetes_checks": schema.BoolAttribute{
+			FieldSkipKubernetesChecks: schema.BoolAttribute{
 				Optional:    true,
 				Description: "Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.",
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Required:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
 			"timeout": schema.StringAttribute{
 				Optional:    true,
@@ -162,13 +162,13 @@ func (r *talosClusterHealthEphemeralResource) Open(ctx context.Context, req ephe
 	}
 
 	talosConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		config.ClientConfiguration.CA.ValueString(),
 		config.ClientConfiguration.Cert.ValueString(),
 		config.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}

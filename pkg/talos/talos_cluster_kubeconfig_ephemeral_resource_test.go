@@ -47,8 +47,8 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("kubeconfig_raw"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("host"), knownvalue.StringExact("https://10.0.0.1:6443")),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldKubeconfigRaw), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldHost), knownvalue.StringExact(testEndpoint)),
 				},
 			},
 		},
@@ -88,10 +88,10 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("host"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("ca_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_key"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldHost), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldCACertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientCertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientKey), knownvalue.NotNull()),
 				},
 			},
 		},
@@ -130,7 +130,7 @@ resource "echo" "test" {}
 			{
 				Config: cfg,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("kubeconfig_raw"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldKubeconfigRaw), knownvalue.NotNull()),
 				},
 			},
 			{
@@ -183,7 +183,7 @@ resource "echo" "test" {}
 			{
 				Config: cfg,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("kubeconfig_raw"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldKubeconfigRaw), knownvalue.NotNull()),
 				},
 			},
 			{
@@ -230,7 +230,7 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("kubeconfig_raw"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldKubeconfigRaw), knownvalue.NotNull()),
 				},
 			},
 		},

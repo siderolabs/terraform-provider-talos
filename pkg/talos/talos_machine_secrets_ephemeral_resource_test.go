@@ -21,8 +21,8 @@ import (
 
 // testAccProtoV6ProviderFactoriesWithEcho includes both the talos provider and echo provider.
 var testAccProtoV6ProviderFactoriesWithEcho = map[string]func() (tfprotov6.ProviderServer, error){
-	"talos": providerserver.NewProtocol6WithError(talos.New()),
-	"echo":  echoprovider.NewProviderServer(),
+	providerName: providerserver.NewProtocol6WithError(talos.New()),
+	resEcho:      echoprovider.NewProviderServer(),
 }
 
 // TestAccTalosMachineSecretsEphemeralResource tests that:
@@ -53,16 +53,16 @@ resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
 					// Verify that the ephemeral resource provides client_configuration
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_configuration").AtMapKey("ca_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_configuration").AtMapKey("client_certificate"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("client_configuration").AtMapKey("client_key"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientConfiguration).AtMapKey(fieldCACertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientConfiguration).AtMapKey(fieldClientCertificate), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldClientConfiguration).AtMapKey(fieldClientKey), knownvalue.NotNull()),
 
 					// Verify that machine_secrets are populated
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("machine_secrets").AtMapKey("cluster").AtMapKey("id"), knownvalue.NotNull()),
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("machine_secrets").AtMapKey("cluster").AtMapKey("secret"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldMachineSecrets).AtMapKey("cluster").AtMapKey("id"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldMachineSecrets).AtMapKey("cluster").AtMapKey("secret"), knownvalue.NotNull()),
 
 					// Verify bootstrap token exists
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("machine_secrets").AtMapKey("secrets").AtMapKey("bootstrap_token"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey(fieldMachineSecrets).AtMapKey("secrets").AtMapKey("bootstrap_token"), knownvalue.NotNull()),
 				},
 			},
 		},
@@ -111,7 +111,7 @@ provider "echo" {
 resource "echo" "test" {}
 `,
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownValue("echo.test", tfjsonpath.New("data").AtMapKey("cluster_id"), knownvalue.NotNull()),
+					statecheck.ExpectKnownValue(resEchoTest, tfjsonpath.New(echoDataKey).AtMapKey("cluster_id"), knownvalue.NotNull()),
 				},
 			},
 		},

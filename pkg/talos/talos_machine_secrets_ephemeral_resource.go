@@ -41,7 +41,7 @@ func (r *talosMachineSecretsEphemeralResource) Schema(_ context.Context, _ ephem
 	resp.Schema = schema.Schema{
 		Description: "Generate machine secrets for Talos cluster. This is an ephemeral resource that does not persist secrets in Terraform state.",
 		Attributes: map[string]schema.Attribute{
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The Talos version contract used to generate the secrets. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`",
@@ -49,25 +49,25 @@ func (r *talosMachineSecretsEphemeralResource) Schema(_ context.Context, _ ephem
 					talosVersionValid(),
 				},
 			},
-			"machine_secrets": machineSecretsOutputSchemaAttribute(),
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldMachineSecrets: machineSecretsOutputSchemaAttribute(),
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Computed:    true,
-				Description: "The generated client configuration data",
+				Description: DescGeneratedClientConfig,
 			},
 		},
 	}
@@ -126,7 +126,7 @@ func (r *talosMachineSecretsEphemeralResource) Open(ctx context.Context, req eph
 	// Convert to model
 	temp, err := secretsBundleTomachineSecrets(secretsBundle)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to convert secrets bundle to machine secrets", err.Error())
+		resp.Diagnostics.AddError(ErrConvertSecretsBundleToMachine, err.Error())
 
 		return
 	}

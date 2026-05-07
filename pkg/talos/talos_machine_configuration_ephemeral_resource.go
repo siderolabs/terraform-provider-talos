@@ -54,36 +54,36 @@ func (r *talosMachineConfigurationEphemeralResource) Schema(_ context.Context, _
 	resp.Schema = schema.Schema{
 		Description: "Generate a machine configuration for a node type. This is an ephemeral resource that does not persist secrets in Terraform state.",
 		Attributes: map[string]schema.Attribute{
-			"cluster_name": schema.StringAttribute{
+			FieldClusterName: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the talos kubernetes cluster",
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"cluster_endpoint": schema.StringAttribute{
+			FieldClusterEndpoint: schema.StringAttribute{
 				Required:    true,
 				Description: "The endpoint of the talos kubernetes cluster",
 			},
-			"machine_secrets": machineSecretsSchemaAttribute(),
-			"machine_type": schema.StringAttribute{
+			FieldMachineSecrets: machineSecretsSchemaAttribute(),
+			FieldMachineType: schema.StringAttribute{
 				Required:    true,
 				Description: "The type of machine to generate the configuration for",
 				Validators: []validator.String{
-					stringvalidator.OneOf("controlplane", "worker"),
+					stringvalidator.OneOf(FieldControlplane, FieldWorker),
 				},
 			},
-			"config_patches": schema.ListAttribute{
+			FieldConfigPatches: schema.ListAttribute{
 				Description: "The list of config patches to apply to the generated configuration",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
-			"kubernetes_version": schema.StringAttribute{
+			FieldKubernetesVersion: schema.StringAttribute{
 				Description: "The version of kubernetes to use",
 				Optional:    true,
 				Computed:    true,
 			},
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Description: "The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`", // nolint:lll
 				Optional:    true,
 				Computed:    true,
@@ -91,15 +91,15 @@ func (r *talosMachineConfigurationEphemeralResource) Schema(_ context.Context, _
 					talosVersionValid(),
 				},
 			},
-			"docs": schema.BoolAttribute{
+			FieldDocs: schema.BoolAttribute{
 				Description: "Whether to generate documentation for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
-			"examples": schema.BoolAttribute{
+			FieldExamples: schema.BoolAttribute{
 				Description: "Whether to generate examples for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
-			"machine_configuration": schema.StringAttribute{
+			FieldMachineConfiguration: schema.StringAttribute{
 				Description: "The generated machine configuration",
 				Computed:    true,
 				Sensitive:   true,
@@ -143,9 +143,9 @@ func (r *talosMachineConfigurationEphemeralResource) Open(ctx context.Context, r
 	var machineType machine.Type
 
 	switch config.MachineType.ValueString() {
-	case "controlplane":
+	case FieldControlplane:
 		machineType = machine.TypeControlPlane
-	case "worker":
+	case FieldWorker:
 		machineType = machine.TypeWorker
 	}
 

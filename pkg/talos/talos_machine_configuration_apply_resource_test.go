@@ -21,32 +21,32 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
+				Config: testAccTalosMachineConfigurationApplyResourceConfig(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "id", "machine_configuration_apply"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "apply_mode", "auto"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "node"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_input"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.#", "1"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, "id", fieldMachineConfigApply),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, fieldApplyMode, fieldAuto),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldNode),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigClientKey),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldMachineConfigInput),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldMachineConfiguration),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, attrConfigPatchesCount, "1"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, attrConfigPatchesFirst, "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
 				),
 			},
 			// ensure there is no diff
 			{
-				Config:   testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
+				Config:   testAccTalosMachineConfigurationApplyResourceConfig(providerName, rName),
 				PlanOnly: true,
 			},
 		},
@@ -66,19 +66,19 @@ func TestAccTalosMachineConfigurationApplyResourceAutoStaged(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosMachineConfigurationApplyResourceConfigWithAutoStaged("talos", rName),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigWithAutoStaged(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "id", "machine_configuration_apply"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode", "staged"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, "id", fieldMachineConfigApply),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldApplyMode, fieldStagedIfNeedingReboot),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldResolvedApplyMode, fieldStaged),
 				),
 			},
 		},
@@ -89,16 +89,16 @@ func TestAccTalosMachineConfigurationApplyResourceAutoStaged(t *testing.T) {
 // attributes of the staged_if_needing_reboot resource for debugging upgrade tests.
 func logApplyModeState(t *testing.T, stepName string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources["talos_machine_configuration_apply.staged_if_needing_reboot"]
+		rs, ok := s.RootModule().Resources[resTalosMachineConfigApplyStaged]
 		if !ok {
 			t.Logf("[%s] Resource not found in state", stepName)
 
 			return nil
 		}
 
-		t.Logf("[%s] apply_mode = %q", stepName, rs.Primary.Attributes["apply_mode"])
+		t.Logf("[%s] apply_mode = %q", stepName, rs.Primary.Attributes[fieldApplyMode])
 
-		resolvedApplyMode, exists := rs.Primary.Attributes["resolved_apply_mode"]
+		resolvedApplyMode, exists := rs.Primary.Attributes[fieldResolvedApplyMode]
 
 		switch {
 		case !exists:
@@ -126,39 +126,39 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBu
 			// Step 1: v0.10.0 - staged_if_needing_reboot doesn't exist, use default apply_mode
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
+					providerName: {
 						VersionConstraint: "=0.10.0",
-						Source:            "siderolabs/talos",
+						Source:            testSiderolabsTalos,
 					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "auto"),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, fieldAuto),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.0 - baseline"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "auto"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldApplyMode, fieldAuto),
 				),
 			},
 			// Step 2: v0.10.1 - switch to staged_if_needing_reboot, resolved_apply_mode is EMPTY (bug)
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
+					providerName: {
 						VersionConstraint: "=0.10.1",
-						Source:            "siderolabs/talos",
+						Source:            testSiderolabsTalos,
 					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot"),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, fieldStagedIfNeedingReboot),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.1 - BUG: resolved_apply_mode is empty"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldApplyMode, fieldStagedIfNeedingReboot),
 					// Bug: resolved_apply_mode is empty here because config didn't change
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode", ""),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldResolvedApplyMode, ""),
 				),
 			},
 		},
@@ -178,36 +178,36 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFi
 			// Step 1: v0.10.0 - staged_if_needing_reboot doesn't exist, use default apply_mode
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
+					providerName: {
 						VersionConstraint: "=0.10.0",
-						Source:            "siderolabs/talos",
+						Source:            testSiderolabsTalos,
 					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "auto"),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, fieldAuto),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.0 - baseline"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "auto"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldApplyMode, fieldAuto),
 				),
 			},
 			// Step 2: Current version - switch to staged_if_needing_reboot, resolved_apply_mode is correctly computed
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Config:                   testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot"),
+				Config:                   testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, fieldStagedIfNeedingReboot),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "current version - FIX: resolved_apply_mode is computed"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApplyStaged, fieldApplyMode, fieldStagedIfNeedingReboot),
 					// Fix: resolved_apply_mode should now be computed (not empty)
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode"),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApplyStaged, fieldResolvedApplyMode),
 				),
 			},
 		},
@@ -225,55 +225,55 @@ func TestAccTalosMachineConfigurationApplyResourceUpgrade(t *testing.T) {
 			// create TF config with v0.1.2 of the talos provider
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
-						VersionConstraint: "=0.1.2",
-						Source:            "siderolabs/talos",
+					providerName: {
+						VersionConstraint: testVersionConstraint,
+						Source:            testSiderolabsTalos,
 					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigV0("talosv1", rName),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigV0(tfTalosV1Provider, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr("talos_client_configuration", "this"),
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_controlplane", "this"),
+					resource.TestCheckNoResourceAttr(fieldTalosClientConf, resourceThis),
+					resource.TestCheckNoResourceAttr(tfMachineConfigCtrl, resourceThis),
 				),
 			},
 			// now test state migration with the latest version of the provider
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Config:                   testAccTalosMachineConfigurationApplyResourceConfigV1("talos", rName),
+				Config:                   testAccTalosMachineConfigurationApplyResourceConfigV1(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "id", "machine_configuration_apply"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "apply_mode", "auto"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "node"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_input"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.#", "1"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, "id", fieldMachineConfigApply),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, fieldApplyMode, fieldAuto),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldNode),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, attrClientConfigClientKey),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldMachineConfigInput),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldMachineConfiguration),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, attrConfigPatchesCount, "1"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, attrConfigPatchesFirst, "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
 				),
 			},
 			// ensure there is no diff
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Config:                   testAccTalosMachineConfigurationApplyResourceConfigV1("talos", rName),
+				Config:                   testAccTalosMachineConfigurationApplyResourceConfigV1(providerName, rName),
 				PlanOnly:                 true,
 			},
 		},
@@ -375,9 +375,9 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 			tfversion.SkipBelow(tfversion.Version1_11_0),
 		},
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -385,21 +385,21 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 			{
 				Config: testAccTalosMachineConfigurationApplyWithEphemeralClientConfigWOConfig(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "id", "machine_configuration_apply"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "apply_mode", "auto"),
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "node"),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, "id", fieldMachineConfigApply),
+					resource.TestCheckResourceAttr(resTalosMachineConfigApply, fieldApplyMode, fieldAuto),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, fieldNode),
 					// machine_configuration should NOT be in state when using write-only inputs
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "machine_configuration"),
+					resource.TestCheckNoResourceAttr(resTalosMachineConfigApply, fieldMachineConfiguration),
 					// machine_configuration_hash IS in state — it's a SHA256 fingerprint, not a secret
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
+					resource.TestCheckResourceAttrSet(resTalosMachineConfigApply, "machine_configuration_hash"),
 					// client_configuration_wo should not be in state (write-only)
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "client_configuration_wo"),
+					resource.TestCheckNoResourceAttr(resTalosMachineConfigApply, "client_configuration_wo"),
 					// machine_configuration_input_wo should not be in state (write-only)
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "machine_configuration_input_wo"),
+					resource.TestCheckNoResourceAttr(resTalosMachineConfigApply, "machine_configuration_input_wo"),
 					// client_configuration should not be set (using WO variant)
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "client_configuration"),
+					resource.TestCheckNoResourceAttr(resTalosMachineConfigApply, fieldClientConfiguration),
 					// machine_configuration_input should not be set (using WO variant)
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_apply.this", "machine_configuration_input"),
+					resource.TestCheckNoResourceAttr(resTalosMachineConfigApply, fieldMachineConfigInput),
 				),
 				// Drift on non-persisted ephemeral secrets: each Open regenerates secrets,
 				// which changes the rendered machine configuration, which changes the hash.
@@ -413,7 +413,7 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 
 func testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, applyMode string) string {
 	config := dynamicConfig{
-		Provider:        "talos",
+		Provider:        providerName,
 		ResourceName:    rName,
 		WithApplyConfig: false,
 		WithBootstrap:   false,

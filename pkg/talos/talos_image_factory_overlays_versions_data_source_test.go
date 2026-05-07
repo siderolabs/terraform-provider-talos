@@ -18,14 +18,14 @@ func TestAccTalosImageFactoryOverlaysVersionsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryOverlaysVersionsDataSourceConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_overlays_versions.this", "overlays_info.0.name", "rpi_generic"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryOverlayVers, "overlays_info.0.name", fieldRPIGeneric),
 				),
 			},
 			{
 				Config: testAccTalosImageFactoryOverlaysVersionsDataSourceConfigWithFilters(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_image_factory_overlays_versions.this", "overlays_info.#", "1"),
-					resource.TestCheckResourceAttr("data.talos_image_factory_overlays_versions.this", "overlays_info.0.name", "rock4cplus"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryOverlayVers, "overlays_info.#", "1"),
+					resource.TestCheckResourceAttr(dataTalosImageFactoryOverlayVers, "overlays_info.0.name", "rock4cplus"),
 				),
 			},
 		},

@@ -61,15 +61,15 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Schema(_ context.Context
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Required:    true,
 				Description: "The talos version to get extensions for.",
 			},
-			"filters": schema.SingleNestedAttribute{
+			FieldFilters: schema.SingleNestedAttribute{
 				Optional:    true,
 				Description: "The filter to apply to the extensions list.",
 				Attributes: map[string]schema.Attribute{
-					"names": schema.ListAttribute{
+					FieldNames: schema.ListAttribute{
 						ElementType: types.StringType,
 						Optional:    true,
 						Description: "The name of the extension to filter by.",
@@ -80,19 +80,19 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Schema(_ context.Context
 				Optional:    true,
 				Description: "The filter to apply to the extensions list.",
 				Attributes: map[string]schema.Attribute{
-					"names": schema.ListAttribute{
+					FieldNames: schema.ListAttribute{
 						ElementType: types.StringType,
 						Optional:    true,
 						Description: "The exact name match of the extension to filter by.",
 					},
 				},
 			},
-			"extensions_info": schema.ListAttribute{
+			FieldExtensionsInfo: schema.ListAttribute{
 				ElementType: types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"name":        types.StringType,
-						"ref":         types.StringType,
-						"digest":      types.StringType,
+						FieldName:     types.StringType,
+						FieldRef:      types.StringType,
+						FieldDigest:   types.StringType,
 						"author":      types.StringType,
 						"description": types.StringType,
 					},
@@ -112,8 +112,8 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Configure(_ context.Cont
 	imageFactoryClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"failed to get image factory client",
-			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			ErrGetImageFactoryClient,
+			fmt.Sprintf(FmtExpectedClientGot, req.ProviderData),
 		)
 
 		return
@@ -125,7 +125,7 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Configure(_ context.Cont
 //nolint:gocyclo,cyclop,gocognit
 func (d *talosImageFactoryExtensionsVersionsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
-		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
+		resp.Diagnostics.AddError(ErrImageFactoryNotConfigured, ErrPleaseReportIssue)
 
 		return
 	}
@@ -196,13 +196,13 @@ func (d *talosImageFactoryExtensionsVersionsDataSource) Read(ctx context.Context
 		}
 	})
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), "extensions_info")...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), FieldExtensionsInfo)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("extensions_info"), &tfExtensionsInfo)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldExtensionsInfo), &tfExtensionsInfo)...)
 
 	if resp.Diagnostics.HasError() {
 		return

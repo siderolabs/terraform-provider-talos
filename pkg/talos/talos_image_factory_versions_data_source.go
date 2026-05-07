@@ -49,12 +49,12 @@ func (d *talosImageFactoryVersionsDataSource) Schema(_ context.Context, _ dataso
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"talos_versions": schema.ListAttribute{
+			FieldTalosVersions: schema.ListAttribute{
 				ElementType: types.StringType,
 				Computed:    true,
 				Description: "The list of available talos versions.",
 			},
-			"filters": schema.SingleNestedAttribute{
+			FieldFilters: schema.SingleNestedAttribute{
 				Optional:    true,
 				Description: "The filter to apply to the overlays list.",
 				Attributes: map[string]schema.Attribute{
@@ -76,8 +76,8 @@ func (d *talosImageFactoryVersionsDataSource) Configure(_ context.Context, req d
 	imageFactoryClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"failed to get image factory client",
-			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			ErrGetImageFactoryClient,
+			fmt.Sprintf(FmtExpectedClientGot, req.ProviderData),
 		)
 
 		return
@@ -88,7 +88,7 @@ func (d *talosImageFactoryVersionsDataSource) Configure(_ context.Context, req d
 
 func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
-		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
+		resp.Diagnostics.AddError(ErrImageFactoryNotConfigured, ErrPleaseReportIssue)
 
 		return
 	}
@@ -134,7 +134,7 @@ func (d *talosImageFactoryVersionsDataSource) Read(ctx context.Context, req data
 	}
 
 	state := talosImageFactoryVersionsDataSourceModelV0{
-		ID:            basetypes.NewStringValue("talos_versions"),
+		ID:            basetypes.NewStringValue(FieldTalosVersions),
 		TalosVersions: versions,
 	}
 

@@ -19,22 +19,22 @@ func TestAccTalosMachineBootstrapResource(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// import the resource
-				Config:             testAccTalosMachineBootstrapResourceConfigImport("10.5.0.2"),
-				ResourceName:       "talos_machine_bootstrap.this",
-				ImportStateId:      "this",
+				Config:             testAccTalosMachineBootstrapResourceConfigImport(testIP1),
+				ResourceName:       resTalosMachineBootstrap,
+				ImportStateId:      resourceThis,
 				ImportState:        true,
 				ImportStatePersist: true,
 			},
 			// verify state is correct after import
 			{
-				Config: testAccTalosMachineBootstrapResourceConfigImport("10.5.0.2"),
+				Config: testAccTalosMachineBootstrapResourceConfigImport(testIP1),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_bootstrap.this", "id", "machine_bootstrap"),
-					resource.TestCheckResourceAttr("talos_machine_bootstrap.this", "node", "10.5.0.2"),
-					resource.TestCheckResourceAttr("talos_machine_bootstrap.this", "endpoint", "10.5.0.2"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.client_key"),
+					resource.TestCheckResourceAttr(resTalosMachineBootstrap, "id", "machine_bootstrap"),
+					resource.TestCheckResourceAttr(resTalosMachineBootstrap, fieldNode, testIP1),
+					resource.TestCheckResourceAttr(resTalosMachineBootstrap, fieldEndpoint, testIP1),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigClientKey),
 				),
 			},
 		},
@@ -52,51 +52,51 @@ func TestAccTalosMachineBootstrapResourceUpgrade(t *testing.T) {
 			// create TF config with v0.1.2 of the talos provider
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
-						VersionConstraint: "=0.1.2",
-						Source:            "siderolabs/talos",
+					providerName: {
+						VersionConstraint: testVersionConstraint,
+						Source:            testSiderolabsTalos,
 					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineBootstrapResourceConfigV0("talosv1", rName),
+				Config: testAccTalosMachineBootstrapResourceConfigV0(tfTalosV1Provider, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr("talos_client_configuration", "this"),
-					resource.TestCheckNoResourceAttr("talos_machine_configuration_controlplane", "this"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply", "id", "this"),
+					resource.TestCheckNoResourceAttr(fieldTalosClientConf, resourceThis),
+					resource.TestCheckNoResourceAttr(tfMachineConfigCtrl, resourceThis),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply", "id", resourceThis),
 				),
 			},
 			// now test state migration with the latest version of the provider
 			{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config: testAccTalosMachineBootstrapResourceConfigV1("talos", rName),
+				Config: testAccTalosMachineBootstrapResourceConfigV1(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("talos_machine_bootstrap.this", "id", "machine_bootstrap"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "node"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("talos_machine_bootstrap.this", "client_configuration.client_key"),
+					resource.TestCheckResourceAttr(resTalosMachineBootstrap, "id", "machine_bootstrap"),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, fieldNode),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(resTalosMachineBootstrap, attrClientConfigClientKey),
 				),
 			},
 			// ensure there is no diff
 			{
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 				ExternalProviders: map[string]resource.ExternalProvider{
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
+					libvirtProvider: {
+						Source:            libvirtProviderSource,
+						VersionConstraint: libvirtProviderVersionConstraint,
 					},
 				},
-				Config:   testAccTalosMachineBootstrapResourceConfigV1("talos", rName),
+				Config:   testAccTalosMachineBootstrapResourceConfigV1(providerName, rName),
 				PlanOnly: true,
 			},
 		},

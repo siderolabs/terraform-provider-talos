@@ -6,6 +6,7 @@ package talos
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -71,8 +72,8 @@ func (r *talosImageFactorySchematicResource) Configure(_ context.Context, req re
 	imageFactoryClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"failed to get image factory client",
-			"Expected *client.Client, got: %T. Please report this issue to the provider developers.",
+			ErrGetImageFactoryClient,
+			fmt.Sprintf(FmtExpectedClientGot, req.ProviderData),
 		)
 
 		return

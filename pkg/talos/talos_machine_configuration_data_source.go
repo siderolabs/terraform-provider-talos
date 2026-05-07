@@ -61,50 +61,50 @@ func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ dataso
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"cluster_name": schema.StringAttribute{
+			FieldClusterName: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the talos kubernetes cluster",
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"cluster_endpoint": schema.StringAttribute{
+			FieldClusterEndpoint: schema.StringAttribute{
 				Required:    true,
 				Description: "The endpoint of the talos kubernetes cluster",
 			},
-			"machine_secrets": machineSecretsSchemaAttribute(),
-			"machine_type": schema.StringAttribute{
+			FieldMachineSecrets: machineSecretsSchemaAttribute(),
+			FieldMachineType: schema.StringAttribute{
 				Required:    true,
 				Description: "The type of machine to generate the configuration for",
 				Validators: []validator.String{
-					stringvalidator.OneOf("controlplane", "worker"),
+					stringvalidator.OneOf(FieldControlplane, FieldWorker),
 				},
 			},
-			"config_patches": schema.ListAttribute{
+			FieldConfigPatches: schema.ListAttribute{
 				Description: "The list of config patches to apply to the generated configuration",
 				Optional:    true,
 				ElementType: types.StringType,
 			},
-			"kubernetes_version": schema.StringAttribute{
+			FieldKubernetesVersion: schema.StringAttribute{
 				Description: "The version of kubernetes to use",
 				Optional:    true,
 			},
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Description: "The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`", // nolint:lll
 				Optional:    true,
 				Validators: []validator.String{
 					talosVersionValid(),
 				},
 			},
-			"docs": schema.BoolAttribute{
+			FieldDocs: schema.BoolAttribute{
 				Description: "Whether to generate documentation for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
-			"examples": schema.BoolAttribute{
+			FieldExamples: schema.BoolAttribute{
 				Description: "Whether to generate examples for the generated configuration. Defaults to false",
 				Optional:    true,
 			},
-			"machine_configuration": schema.StringAttribute{
+			FieldMachineConfiguration: schema.StringAttribute{
 				Description: "The generated machine configuration",
 				Computed:    true,
 				Sensitive:   true,
@@ -134,9 +134,9 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 	var machineType machine.Type
 
 	switch state.MachineType.ValueString() {
-	case "controlplane":
+	case FieldControlplane:
 		machineType = machine.TypeControlPlane
-	case "worker":
+	case FieldWorker:
 		machineType = machine.TypeWorker
 	}
 
@@ -279,14 +279,14 @@ func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Description: "The secrets for the talos cluster",
 		Attributes: map[string]schema.Attribute{
-			"cluster": schema.SingleNestedAttribute{
+			FieldCluster: schema.SingleNestedAttribute{
 				Description: "The cluster secrets",
 				Attributes: map[string]schema.Attribute{
 					"id": schema.StringAttribute{
 						Required:    true,
 						Description: "The cluster id",
 					},
-					"secret": schema.StringAttribute{
+					FieldSecret: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
 						Description: "The cluster secret",
@@ -294,20 +294,20 @@ func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {
 				},
 				Required: true,
 			},
-			"secrets": schema.SingleNestedAttribute{
+			FieldSecrets: schema.SingleNestedAttribute{
 				Description: "The secrets for the talos kubernetes cluster",
 				Attributes: map[string]schema.Attribute{
-					"bootstrap_token": schema.StringAttribute{
+					FieldBootstrapToken: schema.StringAttribute{
 						Description: "The bootstrap token for the talos kubernetes cluster",
 						Required:    true,
 						Sensitive:   true,
 					},
-					"secretbox_encryption_secret": schema.StringAttribute{
+					FieldSecretboxEncryptionSecret: schema.StringAttribute{
 						Description: "The secretbox encryption secret for the talos kubernetes cluster",
 						Required:    true,
 						Sensitive:   true,
 					},
-					"aescbc_encryption_secret": schema.StringAttribute{
+					FieldAESCBCEncryptionSecret: schema.StringAttribute{
 						Description: "The aescbc encryption secret for the talos kubernetes cluster",
 						Optional:    true,
 						Sensitive:   true,
@@ -315,10 +315,10 @@ func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {
 				},
 				Required: true,
 			},
-			"trustdinfo": schema.SingleNestedAttribute{
+			FieldTrustdInfo: schema.SingleNestedAttribute{
 				Description: "The trustd info for the talos kubernetes cluster",
 				Attributes: map[string]schema.Attribute{
-					"token": schema.StringAttribute{
+					FieldToken: schema.StringAttribute{
 						Description: "The trustd token for the talos kubernetes cluster",
 						Required:    true,
 						Sensitive:   true,
@@ -326,15 +326,15 @@ func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {
 				},
 				Required: true,
 			},
-			"certs": schema.SingleNestedAttribute{
+			FieldCerts: schema.SingleNestedAttribute{
 				Description: "The certs for the talos kubernetes cluster",
 				Attributes: map[string]schema.Attribute{
-					"etcd":           certSchemaInput(),
-					"k8s":            certSchemaInput(),
-					"k8s_aggregator": certSchemaInput(),
-					"k8s_serviceaccount": schema.SingleNestedAttribute{
+					FieldEtcd:          certSchemaInput(),
+					FieldK8s:           certSchemaInput(),
+					FieldK8sAggregator: certSchemaInput(),
+					FieldK8sServiceAccount: schema.SingleNestedAttribute{
 						Attributes: map[string]schema.Attribute{
-							"key": schema.StringAttribute{
+							FieldKey: schema.StringAttribute{
 								Description: "The key for the k8s service account",
 								Required:    true,
 								Sensitive:   true,
@@ -355,11 +355,11 @@ func certSchemaInput() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		Description: "The certificate and key pair",
 		Attributes: map[string]schema.Attribute{
-			"cert": schema.StringAttribute{
+			FieldCert: schema.StringAttribute{
 				Description: "certificate data",
 				Required:    true,
 			},
-			"key": schema.StringAttribute{
+			FieldKey: schema.StringAttribute{
 				Description: "key data",
 				Required:    true,
 				Sensitive:   true,

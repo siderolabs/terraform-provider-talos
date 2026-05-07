@@ -16,26 +16,26 @@ func TestAccTalosMachineDisksDataSource(t *testing.T) {
 
 	resource.ParallelTest(t, resource.TestCase{
 		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
+			libvirtProvider: {
+				Source:            libvirtProviderSource,
+				VersionConstraint: libvirtProviderVersionConstraint,
 			},
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// test default config
 			{
-				Config: testAccTalosMachineDisksDataSourceConfigV0("talos", rName),
+				Config: testAccTalosMachineDisksDataSourceConfigV0(providerName, rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "endpoint"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.ca_certificate"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_certificate"),
-					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_key"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "selector", "disk.size > 6u * GB"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.#", "1"),
-					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.0.dev_path", "/dev/vda"),
+					resource.TestCheckResourceAttr(dataTalosMachineDisks, "id", "machine_disks"),
+					resource.TestCheckResourceAttrSet(dataTalosMachineDisks, fieldNode),
+					resource.TestCheckResourceAttrSet(dataTalosMachineDisks, fieldEndpoint),
+					resource.TestCheckResourceAttrSet(dataTalosMachineDisks, attrClientConfigCACert),
+					resource.TestCheckResourceAttrSet(dataTalosMachineDisks, attrClientConfigClientCert),
+					resource.TestCheckResourceAttrSet(dataTalosMachineDisks, attrClientConfigClientKey),
+					resource.TestCheckResourceAttr(dataTalosMachineDisks, fieldSelector, "disk.size > 6u * GB"),
+					resource.TestCheckResourceAttr(dataTalosMachineDisks, "disks.#", "1"),
+					resource.TestCheckResourceAttr(dataTalosMachineDisks, "disks.0.dev_path", testDevVDA),
 				),
 			},
 		},

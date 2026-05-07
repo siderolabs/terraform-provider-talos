@@ -41,7 +41,7 @@ func NewTalosClusterKubeConfigDataSource() datasource.DataSource {
 }
 
 func (d *talosClusterKubeConfigDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_cluster_kubeconfig"
+	resp.TypeName = req.ProviderTypeName + FieldClusterKubeconfig
 }
 
 func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
@@ -52,68 +52,68 @@ func (d *talosClusterKubeConfigDataSource) Schema(ctx context.Context, _ datasou
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"node": schema.StringAttribute{
+			FieldNode: schema.StringAttribute{
 				Required:    true,
-				Description: "controlplane node to retrieve the kubeconfig from",
+				Description: DescControlplaneNodeForKubeconfig,
 			},
-			"endpoint": schema.StringAttribute{
+			FieldEndpoint: schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "endpoint to use for the talosclient. If not set, the node value will be used",
+				Description: DescEndpointForTalosClient,
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Required:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
 			"wait": schema.BoolAttribute{
 				Optional:           true,
 				Description:        "Wait for the kubernetes api to be available",
 				DeprecationMessage: "This attribute is deprecated and no-op. Will be removed in a future version. Use talos_cluster_health instead.",
 			},
-			"kubeconfig_raw": schema.StringAttribute{
+			FieldKubeconfigRaw: schema.StringAttribute{
 				Computed:    true,
-				Description: "The raw kubeconfig",
+				Description: DescRawKubeconfig,
 				Sensitive:   true,
 			},
-			"kubernetes_client_configuration": schema.SingleNestedAttribute{
+			FieldKubernetesClientConfig: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"host": schema.StringAttribute{
+					FieldHost: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes host",
+						Description: DescKubernetesHost,
 					},
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes CA certificate",
+						Description: DescKubernetesCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Computed:    true,
-						Description: "The kubernetes client certificate",
+						Description: DescKubernetesClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Computed:    true,
 						Sensitive:   true,
-						Description: "The kubernetes client key",
+						Description: DescKubernetesClientKey,
 					},
 				},
 				Computed:    true,
-				Description: "The kubernetes client configuration",
+				Description: DescKubernetesClientConfig,
 			},
-			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+			FieldTimeouts: timeouts.Attributes(ctx, timeouts.Opts{
 				Read: true,
 			}),
 		},
@@ -144,13 +144,13 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 	}
 
 	talosConfig, err := talosClientTFConfigToTalosClientConfig(
-		"dynamic",
+		FieldDynamic,
 		state.ClientConfiguration.CA.ValueString(),
 		state.ClientConfiguration.Cert.ValueString(),
 		state.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}
@@ -189,14 +189,14 @@ func (d *talosClusterKubeConfigDataSource) Read(ctx context.Context, req datasou
 
 		return nil
 	}); retryErr != nil {
-		resp.Diagnostics.AddError("failed to retrieve kubeconfig", retryErr.Error())
+		resp.Diagnostics.AddError(ErrRetrieveKubeconfig, retryErr.Error())
 
 		return
 	}
 
 	kubeConfig, err := clientcmd.Load([]byte(state.KubeConfigRaw.ValueString()))
 	if err != nil {
-		resp.Diagnostics.AddError("failed to parse kubeconfig", err.Error())
+		resp.Diagnostics.AddError(ErrParseKubeconfig, err.Error())
 
 		return
 	}

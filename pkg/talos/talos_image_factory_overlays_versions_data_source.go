@@ -58,27 +58,27 @@ func (d *talosImageFactoryOverlaysVersionsDataSource) Schema(_ context.Context, 
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
-			"talos_version": schema.StringAttribute{
+			FieldTalosVersion: schema.StringAttribute{
 				Required:    true,
 				Description: "The talos version to get overlays for.",
 			},
-			"filters": schema.SingleNestedAttribute{
+			FieldFilters: schema.SingleNestedAttribute{
 				Optional:    true,
 				Description: "The filter to apply to the overlays list.",
 				Attributes: map[string]schema.Attribute{
-					"name": schema.StringAttribute{
+					FieldName: schema.StringAttribute{
 						Optional:    true,
 						Description: "The name of the overlay to filter by.",
 					},
 				},
 			},
-			"overlays_info": schema.ListAttribute{
+			FieldOverlaysInfo: schema.ListAttribute{
 				ElementType: types.ObjectType{
 					AttrTypes: map[string]attr.Type{
-						"name":   types.StringType,
-						"image":  types.StringType,
-						"ref":    types.StringType,
-						"digest": types.StringType,
+						FieldName:   types.StringType,
+						"image":     types.StringType,
+						FieldRef:    types.StringType,
+						FieldDigest: types.StringType,
 					},
 				},
 				Computed:    true,
@@ -96,8 +96,8 @@ func (d *talosImageFactoryOverlaysVersionsDataSource) Configure(_ context.Contex
 	imageFactoryClient, ok := req.ProviderData.(*client.Client)
 	if !ok {
 		resp.Diagnostics.AddError(
-			"failed to get image factory client",
-			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			ErrGetImageFactoryClient,
+			fmt.Sprintf(FmtExpectedClientGot, req.ProviderData),
 		)
 
 		return
@@ -108,7 +108,7 @@ func (d *talosImageFactoryOverlaysVersionsDataSource) Configure(_ context.Contex
 
 func (d *talosImageFactoryOverlaysVersionsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
-		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
+		resp.Diagnostics.AddError(ErrImageFactoryNotConfigured, ErrPleaseReportIssue)
 
 		return
 	}
@@ -147,13 +147,13 @@ func (d *talosImageFactoryOverlaysVersionsDataSource) Read(ctx context.Context, 
 		}
 	})
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), "overlays_info")...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), FieldOverlaysInfo)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("overlays_info"), &tfOverlaysInfo)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(FieldOverlaysInfo), &tfOverlaysInfo)...)
 
 	if resp.Diagnostics.HasError() {
 		return

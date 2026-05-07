@@ -45,45 +45,45 @@ func (d *talosClientConfigurationDataSource) Schema(_ context.Context, _ datasou
 				Description: "The ID of this resource",
 				Computed:    true,
 			},
-			"cluster_name": schema.StringAttribute{
+			FieldClusterName: schema.StringAttribute{
 				Required:    true,
 				Description: "The name of the cluster in the generated config",
 				Validators: []validator.String{
 					stringvalidator.LengthAtLeast(1),
 				},
 			},
-			"client_configuration": schema.SingleNestedAttribute{
+			FieldClientConfiguration: schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"ca_certificate": schema.StringAttribute{
+					FieldCACertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client CA certificate",
+						Description: DescClientCACertificate,
 					},
-					"client_certificate": schema.StringAttribute{
+					FieldClientCertificate: schema.StringAttribute{
 						Required:    true,
-						Description: "The client certificate",
+						Description: DescClientCertificate,
 					},
-					"client_key": schema.StringAttribute{
+					FieldClientKey: schema.StringAttribute{
 						Required:    true,
 						Sensitive:   true,
-						Description: "The client key",
+						Description: DescClientKey,
 					},
 				},
 				Required:    true,
-				Description: "The client configuration data",
+				Description: DescClientConfig,
 			},
-			"endpoints": schema.ListAttribute{
+			FieldEndpoints: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "endpoints to set in the generated config",
 			},
-			"nodes": schema.ListAttribute{
+			FieldNodes: schema.ListAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
 				Description: "nodes to set in the generated config",
 			},
-			"talos_config": schema.StringAttribute{
+			FieldTalosConfig: schema.StringAttribute{
 				Computed:    true,
-				Description: "The generated client configuration",
+				Description: DescGeneratedClientConfig,
 				Sensitive:   true,
 			},
 		},
@@ -123,7 +123,7 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 		state.ClientConfiguration.Key.ValueString(),
 	)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}
@@ -138,7 +138,7 @@ func (d *talosClientConfigurationDataSource) Read(ctx context.Context, req datas
 
 	talosConfigStringBytes, err := talosConfig.Bytes()
 	if err != nil {
-		resp.Diagnostics.AddError("failed to generate talos config", err.Error())
+		resp.Diagnostics.AddError(ErrGenerateTalosConfig, err.Error())
 
 		return
 	}

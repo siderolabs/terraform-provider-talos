@@ -22,7 +22,7 @@ import (
 // CLI command executed to create a provider server to which the CLI can
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"talos": providerserver.NewProtocol6WithError(talos.New()),
+	providerName: providerserver.NewProtocol6WithError(talos.New()),
 }
 
 type dynamicConfig struct {
@@ -37,8 +37,10 @@ type dynamicConfig struct {
 }
 
 const (
-	cpuModeHostPassthrough = "host-passthrough"
-	cpuModeHostModel       = "host-model"
+	cpuModeHostPassthrough           = "host-passthrough"
+	cpuModeHostModel                 = "host-model"
+	libvirtProviderSource            = "dmacvicar/libvirt"
+	libvirtProviderVersionConstraint = "= 0.8.3"
 )
 
 func (c *dynamicConfig) render() string {
@@ -211,7 +213,7 @@ data "talos_cluster_health" "this" {
 
 	var config strings.Builder
 
-	template.Must(template.New("tf_config").Parse(configTemplate)).Execute(&config, c) //nolint:errcheck
+	template.Must(template.New(tfConfigTemplateName).Parse(configTemplate)).Execute(&config, c) //nolint:errcheck
 
 	return config.String()
 }
