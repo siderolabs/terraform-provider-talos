@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/talos/pkg/cluster"
@@ -28,13 +30,13 @@ type talosClusterHealthDataSource struct{}
 var _ datasource.DataSource = &talosClusterHealthDataSource{}
 
 type talosClusterHealthDataSourceModelV0 struct {
-	ID                   types.String        `tfsdk:"id"`
-	Endpoints            types.List          `tfsdk:"endpoints"`
-	ControlPlaneNodes    types.List          `tfsdk:"control_plane_nodes"`
-	WorkerNodes          types.List          `tfsdk:"worker_nodes"`
-	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
-	Timeouts             timeouts.Value      `tfsdk:"timeouts"`
-	SkipKubernetesChecks types.Bool          `tfsdk:"skip_kubernetes_checks"`
+	ID                  types.String        `tfsdk:"id"`
+	Endpoints           types.List          `tfsdk:"endpoints"`
+	ControlPlaneNodes   types.List          `tfsdk:"control_plane_nodes"`
+	WorkerNodes         types.List          `tfsdk:"worker_nodes"`
+	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
+	Timeouts            timeouts.Value      `tfsdk:"timeouts"`
+	HealthCheckLevel    types.String        `tfsdk:"health_check_level"`
 }
 
 type clusterNodes struct {
@@ -127,9 +129,13 @@ func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.
 				ElementType: types.StringType,
 				Description: "List of worker nodes to check for health.",
 			},
-			"skip_kubernetes_checks": schema.BoolAttribute{
+			"health_check_level": schema.StringAttribute{
 				Optional:    true,
-				Description: "Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.",
+				Computed:    true,
+				Description: "Health check level to perform. Options: 'full' (all checks), 'talos' (pre-boot sequence checks), 'k8s' (pre-boot + k8s readiness checks). Use 'k8s' when Talos has no CNI, as it will pass once Kubernetes components are healthy even if CNI is absent and the node is not Ready. Default is 'full'.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("full", "talos", "k8s"),
+				},
 			},
 			"client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -249,10 +255,19 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 
 	reporter := newReporter()
 
-	checks := check.PreBootSequenceChecks()
+	var checks []check.ClusterCheck
+	healthCheckLevel := state.HealthCheckLevel.ValueString()
+	if healthCheckLevel == "" {
+		healthCheckLevel = "full"
+	}
 
-	if !state.SkipKubernetesChecks.ValueBool() {
+	switch healthCheckLevel {
+	case "full":
 		checks = check.DefaultClusterChecks()
+	case "talos":
+		checks = check.PreBootSequenceChecks()
+	case "k8s":
+		checks = slices.Concat(check.PreBootSequenceChecks(), check.K8sComponentsReadinessChecks())
 	}
 
 	if err := check.Wait(checkCtx, &clusterState, checks, reporter); err != nil {

@@ -7,11 +7,14 @@ package talos
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/talos/pkg/cluster"
 	"github.com/siderolabs/talos/pkg/cluster/check"
@@ -24,12 +27,12 @@ var _ ephemeral.EphemeralResource = &talosClusterHealthEphemeralResource{}
 type talosClusterHealthEphemeralResource struct{}
 
 type talosClusterHealthEphemeralResourceModel struct {
-	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
-	Endpoints            types.List          `tfsdk:"endpoints"`
-	ControlPlaneNodes    types.List          `tfsdk:"control_plane_nodes"`
-	WorkerNodes          types.List          `tfsdk:"worker_nodes"`
-	Timeout              types.String        `tfsdk:"timeout"`
-	SkipKubernetesChecks types.Bool          `tfsdk:"skip_kubernetes_checks"`
+	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
+	Endpoints           types.List          `tfsdk:"endpoints"`
+	ControlPlaneNodes   types.List          `tfsdk:"control_plane_nodes"`
+	WorkerNodes         types.List          `tfsdk:"worker_nodes"`
+	Timeout             types.String        `tfsdk:"timeout"`
+	HealthCheckLevel    types.String        `tfsdk:"health_check_level"`
 }
 
 type healthReporter struct {
@@ -82,9 +85,13 @@ func (r *talosClusterHealthEphemeralResource) Schema(_ context.Context, _ epheme
 				ElementType: types.StringType,
 				Description: "List of worker nodes to check for health.",
 			},
-			"skip_kubernetes_checks": schema.BoolAttribute{
+			"health_check_level": schema.StringAttribute{
 				Optional:    true,
-				Description: "Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.",
+				Computed:    true,
+				Description: "Health check level to perform. Options: 'full' (all checks), 'talos' (pre-boot sequence checks), 'k8s' (pre-boot + k8s readiness checks). Use 'k8s' when Talos has no CNI, as it will pass once Kubernetes components are healthy even if CNI is absent and the node is not Ready. Default is 'full'.",
+				Validators: []validator.String{
+					stringvalidator.OneOf("full", "talos", "k8s"),
+				},
 			},
 			"client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -212,10 +219,19 @@ func (r *talosClusterHealthEphemeralResource) Open(ctx context.Context, req ephe
 
 	reporter := newHealthReporter()
 
-	checks := check.PreBootSequenceChecks()
+	var checks []check.ClusterCheck
+	healthCheckLevel := config.HealthCheckLevel.ValueString()
+	if healthCheckLevel == "" {
+		healthCheckLevel = "full"
+	}
 
-	if !config.SkipKubernetesChecks.ValueBool() {
+	switch healthCheckLevel {
+	case "full":
 		checks = check.DefaultClusterChecks()
+	case "talos":
+		checks = check.PreBootSequenceChecks()
+	case "k8s":
+		checks = slices.Concat(check.PreBootSequenceChecks(), check.K8sComponentsReadinessChecks())
 	}
 
 	if err := check.Wait(checkCtx, &clusterState, checks, reporter); err != nil {

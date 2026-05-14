@@ -107,11 +107,11 @@ resource "talos_machine_bootstrap" "this" {
 
 # Wait for cluster to be healthy (ephemeral — doesn't leak secrets to state).
 ephemeral "talos_cluster_health" "this" {
-  client_configuration   = ephemeral.talos_client_configuration.this.client_configuration
-  endpoints              = ["10.5.0.2"]
-  control_plane_nodes    = ["10.5.0.2"]
-  worker_nodes           = []
-  skip_kubernetes_checks = false
+  client_configuration = ephemeral.talos_client_configuration.this.client_configuration
+  endpoints            = ["10.5.0.2"]
+  control_plane_nodes  = ["10.5.0.2"]
+  worker_nodes         = []
+  health_check_level   = "full"
 
   depends_on = [
     talos_machine_bootstrap.this

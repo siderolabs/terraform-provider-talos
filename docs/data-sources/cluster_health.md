@@ -23,7 +23,7 @@ Waits for the Talos cluster to be healthy. Can be used as a dependency before ru
 
 ### Optional
 
-- `skip_kubernetes_checks` (Boolean) Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.
+- `health_check_level` (String) Health check level to perform. Options: 'full' (all checks), 'talos' (pre-boot sequence checks), 'k8s' (pre-boot + k8s readiness checks). Use 'k8s' when Talos has no CNI, as it will pass once Kubernetes components are healthy even if CNI is absent and the node is not Ready. Default is 'full'.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `worker_nodes` (List of String) List of worker nodes to check for health.
 
