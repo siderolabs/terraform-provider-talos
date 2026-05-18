@@ -98,7 +98,7 @@ func (r *talosImageFactorySchematicResource) Create(ctx context.Context, req res
 		return
 	}
 
-	schematicID, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)
+	schematicID, _, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create schematic", err.Error())
 
@@ -138,7 +138,7 @@ func (r *talosImageFactorySchematicResource) Update(ctx context.Context, req res
 		return
 	}
 
-	schematicID, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)
+	schematicID, _, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to update schematic", err.Error())
 
