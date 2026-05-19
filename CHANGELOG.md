@@ -1,3 +1,69 @@
+## [terraform-provider-talos 0.12.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.1) (2026-05-19)
+
+Welcome to the v0.12.0-alpha.1 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### new resources
+
+New `talos_machine` and `talos_cluster` resources are added, please see docs.
+
+
+### Component Updates
+
+Talos sdk: v1.14.0-alpha.0
+
+
+### Contributors
+
+* Mickaël Canévet
+* Noel Georgi
+
+### Changes
+<details><summary>8 commits</summary>
+<p>
+
+* [`7c725d5`](https://github.com/siderolabs/terraform-provider-talos/commit/7c725d51ce3e6992b57fe50b74e65789fcda8c8b) fix(on_destroy): use types.Bool to handle unknown values in on_destroy block
+* [`c2530a7`](https://github.com/siderolabs/terraform-provider-talos/commit/c2530a7643b20391d4026d5cb07776a19e4d5fe2) fix(talos_cluster): add control_plane_nodes to fix HA bootstrap
+* [`3c258d9`](https://github.com/siderolabs/terraform-provider-talos/commit/3c258d94014abd494a058b079c191e7a615d24d7) fix(talos_machine): fix client_configuration_wo support
+* [`01464b4`](https://github.com/siderolabs/terraform-provider-talos/commit/01464b4bed82d8f1aae944cbb3df267b2c961b02) release(v0.12.0-alpha.0): prepare release
+* [`fbf12d5`](https://github.com/siderolabs/terraform-provider-talos/commit/fbf12d56acc36e1d1e0e51011cba77f25c2a645a) feat: bump deps
+* [`23a9efc`](https://github.com/siderolabs/terraform-provider-talos/commit/23a9efc65d2192655c6fc5b190f73737a5b627a6) feat(talos_cluster): add talos_cluster resource
+* [`6c38092`](https://github.com/siderolabs/terraform-provider-talos/commit/6c38092cce102dce15149385d919a4483237b654) feat: add talos_machine resource
+* [`5e7b893`](https://github.com/siderolabs/terraform-provider-talos/commit/5e7b893add9448b48bcc56b64858fdf16c935ba4) chore: disable goconst
+</p>
+</details>
+
+### Changes since v0.12.0-alpha.0
+<details><summary>3 commits</summary>
+<p>
+
+* [`7c725d5`](https://github.com/siderolabs/terraform-provider-talos/commit/7c725d51ce3e6992b57fe50b74e65789fcda8c8b) fix(on_destroy): use types.Bool to handle unknown values in on_destroy block
+* [`c2530a7`](https://github.com/siderolabs/terraform-provider-talos/commit/c2530a7643b20391d4026d5cb07776a19e4d5fe2) fix(talos_cluster): add control_plane_nodes to fix HA bootstrap
+* [`3c258d9`](https://github.com/siderolabs/terraform-provider-talos/commit/3c258d94014abd494a058b079c191e7a615d24d7) fix(talos_machine): fix client_configuration_wo support
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/cosi-project/runtime**                v1.16.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-docs**     v0.24.0 -> v0.25.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**   v2.40.0 -> v2.40.1
+* **github.com/hashicorp/terraform-plugin-testing**  v1.15.0 -> v1.16.0
+* **github.com/siderolabs/go-kubernetes**            v0.2.37 **_new_**
+* **github.com/siderolabs/image-factory**            v1.1.0 -> v1.3.1
+* **github.com/siderolabs/talos**                    v1.13.0 -> v1.14.0-alpha.0
+* **github.com/siderolabs/talos/pkg/machinery**      v1.13.0 -> v1.14.0-alpha.0
+* **golang.org/x/crypto**                            v0.50.0 -> v0.51.0
+* **golang.org/x/mod**                               v0.35.0 -> v0.36.0
+* **k8s.io/client-go**                               v0.35.4 -> v0.36.1
+
+Previous release can be found at [v0.11.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0)
+
 ## [terraform-provider-talos 0.12.0-alpha.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.0) (2026-05-18)
 
 Welcome to the v0.12.0-alpha.0 release of terraform-provider-talos!  
