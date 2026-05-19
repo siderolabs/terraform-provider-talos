@@ -592,7 +592,7 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	if state.OnDestroy == nil || !state.OnDestroy.Reset {
+	if state.OnDestroy == nil || !state.OnDestroy.Reset.ValueBool() {
 		return
 	}
 
@@ -614,8 +614,8 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	resetRequest := &machineapi.ResetRequest{
-		Graceful: state.OnDestroy.Graceful,
-		Reboot:   state.OnDestroy.Reboot,
+		Graceful: state.OnDestroy.Graceful.ValueBool(),
+		Reboot:   state.OnDestroy.Reboot.ValueBool(),
 		SystemPartitionsToWipe: []*machineapi.ResetPartitionSpec{
 			{Label: "STATE", Wipe: true},
 			{Label: "EPHEMERAL", Wipe: true},

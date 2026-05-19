@@ -79,9 +79,9 @@ type talosMachineConfigurationApplyResourceModelV1 struct { //nolint:govet
 }
 
 type onDestroyOptions struct {
-	Reset    bool `tfsdk:"reset"`
-	Graceful bool `tfsdk:"graceful"`
-	Reboot   bool `tfsdk:"reboot"`
+	Reset    types.Bool `tfsdk:"reset"`
+	Graceful types.Bool `tfsdk:"graceful"`
+	Reboot   types.Bool `tfsdk:"reboot"`
 }
 
 // NewTalosMachineConfigurationApplyResource implements the resource.Resource interface.
@@ -763,7 +763,7 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 		return
 	}
 
-	if state.OnDestroy != nil && state.OnDestroy.Reset {
+	if state.OnDestroy != nil && state.OnDestroy.Reset.ValueBool() {
 		// NOTE: During Delete, write-only attributes are not available (not in state)
 		// If using client_configuration_wo, the reset on destroy won't work
 		// Users must use client_configuration (non-write-only) if they need on_destroy.reset
@@ -812,8 +812,8 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 		}
 
 		resetRequest := &machineapi.ResetRequest{
-			Graceful: state.OnDestroy.Graceful,
-			Reboot:   state.OnDestroy.Reboot,
+			Graceful: state.OnDestroy.Graceful.ValueBool(),
+			Reboot:   state.OnDestroy.Reboot.ValueBool(),
 			SystemPartitionsToWipe: []*machineapi.ResetPartitionSpec{
 				{
 					Label: "STATE",
@@ -832,7 +832,7 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 
 		var postCheckFn func(context.Context, *client.Client, string) error
 
-		if state.OnDestroy.Reboot {
+		if state.OnDestroy.Reboot.ValueBool() {
 			postCheckFn = func(ctx context.Context, c *client.Client, preActionBootID string) error {
 				insecureClient, err := client.New(
 					ctx,

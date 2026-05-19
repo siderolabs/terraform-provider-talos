@@ -586,3 +586,53 @@ resource "talos_machine_configuration_apply" "this" {
 }
 `
 }
+
+// TestAccTalosMachineConfigurationApplyOnDestroyUnknownBool is a regression test for
+// a model-type bug: on_destroy fields (graceful, reboot, reset) were declared as plain
+// bool in the resource model, which cannot hold unknown values. This surfaces when any
+// field is derived from an expression over an unknown value (e.g. a ternary on a
+// terraform_data output), producing:
+//
+//	Received unknown value, however the target type cannot handle unknown values.
+//	Path: on_destroy.graceful
+//	Target Type: bool
+//	Suggested Type: basetypes.BoolValue
+//
+// The test feeds terraform_data.flag.output (unknown at plan time) through a
+// conditional into on_destroy.graceful, reproducing the failure without a real node.
+func TestAccTalosMachineConfigurationApplyOnDestroyUnknownBool(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccTalosMachineConfigurationApplyOnDestroyUnknownBoolConfig(),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func testAccTalosMachineConfigurationApplyOnDestroyUnknownBoolConfig() string {
+	return `
+resource "terraform_data" "flag" {
+  input = "false"
+}
+
+resource "talos_machine_configuration_apply" "this" {
+  client_configuration = {
+    ca_certificate     = "fake-ca"
+    client_certificate = "fake-cert"
+    client_key         = "fake-key"
+  }
+  machine_configuration_input = "version: v1alpha1\nmachine:\n  type: controlplane\n"
+  node                        = "127.0.0.1"
+  endpoint                    = "127.0.0.1"
+  on_destroy = {
+    reset    = true
+    graceful = terraform_data.flag.output == "true" ? true : false
+    reboot   = false
+  }
+}
+`
+}
