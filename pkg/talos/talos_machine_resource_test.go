@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
@@ -151,6 +152,48 @@ func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 			{
 				Config:   testAccTalosMachineConfig(rName, upgradeVersion, baseVersion),
 				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig verifies that talos_machine
+// creates successfully when client_configuration_wo is used instead of client_configuration,
+// and that client_configuration is absent from state after apply.
+// Without the fix in Create(), OpenTofu would reject the apply with
+// "provider produced inconsistent result after apply" because the plan said
+// client_configuration = null but the provider returned a non-null value.
+func TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTalosMachineConfigWithWriteOnlyAttrs(rName, gendata.VersionTag, gendata.VersionTag),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine.this", "id"),
+					resource.TestCheckResourceAttrSet("talos_machine.this", "node"),
+					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+					// write-only variants used — client_configuration must be absent from state
+					resource.TestCheckNoResourceAttr("talos_machine.this", "client_configuration.ca_certificate"),
+					resource.TestCheckNoResourceAttr("talos_machine.this", "client_configuration.client_certificate"),
+					resource.TestCheckNoResourceAttr("talos_machine.this", "client_configuration.client_key"),
+					// machine_configuration_wo used — machine_configuration must be absent from state
+					resource.TestCheckNoResourceAttr("talos_machine.this", "machine_configuration"),
+				),
+				// Ephemeral secrets regenerate on each Open, so the machine_configuration_hash
+				// will differ on the next plan — expected drift for this anti-pattern.
+				ExpectNonEmptyPlan: true,
 			},
 		},
 	})
@@ -289,6 +332,114 @@ data "talos_cluster_health" "this" {
 
   timeouts = {
     read = "25m"
+  }
+}
+`, rName, cpuMode, isoURL, imageTag, isoVersion)
+}
+
+// testAccTalosMachineConfigWithWriteOnlyAttrs uses ephemeral talos_machine_secrets and
+// talos_machine_configuration so that no credentials touch state, exercising the
+// client_configuration_wo / machine_configuration_wo code path end-to-end.
+func testAccTalosMachineConfigWithWriteOnlyAttrs(rName, imageTag, isoVersion string) string {
+	cpuMode := cpuModeDefault
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeCI
+	}
+
+	isoURL := fmt.Sprintf(
+		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
+		isoVersion,
+	)
+
+	return fmt.Sprintf(`
+ephemeral "talos_machine_secrets" "this" {}
+
+ephemeral "talos_machine_configuration" "this" {
+  cluster_name       = "test"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = ephemeral.talos_machine_secrets.this.machine_secrets
+  talos_version      = %[4]q
+  kubernetes_version = "v1.35.3"
+  docs               = false
+  examples           = false
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk  = "/dev/vda"
+          image = "ghcr.io/siderolabs/installer:%[5]s"
+        }
+      }
+    })
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = %[1]q
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = %[1]q
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [cpu, nvram, disk["url"]]
+  }
+
+  cpu {
+    mode = %[2]q
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = %[3]q
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+resource "talos_machine" "this" {
+  node                     = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint                 = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration_wo  = ephemeral.talos_machine_secrets.this.client_configuration
+  machine_configuration_wo = ephemeral.talos_machine_configuration.this.machine_configuration
+  image            = "ghcr.io/siderolabs/installer:%[4]s"
+  drain_on_upgrade = false
+
+  timeouts = {
+    create = "20m"
+    update = "60m"
+    delete = "5m"
   }
 }
 `, rName, cpuMode, isoURL, imageTag, isoVersion)

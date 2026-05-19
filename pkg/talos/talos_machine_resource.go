@@ -368,8 +368,12 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	// Always persist resolved client config so Read() can connect without _wo.
-	plan.ClientConfiguration = resolvedClientConfig
+	// Only persist client_configuration when the non-write-only variant was used.
+	// When client_configuration_wo is used the planned value is null; setting it here
+	// would produce an "inconsistent values for sensitive attribute" error from Terraform.
+	if cfgModel.ClientConfigurationWO.IsNull() {
+		plan.ClientConfiguration = resolvedClientConfig
+	}
 
 	timeout, diags := plan.Timeouts.Create(ctx, DefaultCreateTimeout)
 	resp.Diagnostics.Append(diags...)
@@ -419,6 +423,12 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Write-only credentials are not persisted to state. Skip the live refresh
+	// rather than failing — drift detection is unavailable in this mode.
+	if state.ClientConfiguration.IsNull() {
 		return
 	}
 
