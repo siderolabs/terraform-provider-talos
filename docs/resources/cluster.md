@@ -2,12 +2,12 @@
 page_title: "talos_cluster Resource - talos"
 subcategory: ""
 description: |-
-  Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. Use talos_cluster_kubeconfig to retrieve credentials.
+  Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. This resource completes once the Talos layer (etcd, apid, kubelet) is healthy across all control plane nodes. It does not wait for Kubernetes components to be ready — use talos_cluster_health for that before depending on the Kubernetes API.
 ---
 
 # talos_cluster (Resource)
 
-Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. Use talos_cluster_kubeconfig to retrieve credentials.
+Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. This resource completes once the Talos layer (etcd, apid, kubelet) is healthy across all control plane nodes. It does not wait for Kubernetes components to be ready — use talos_cluster_health for that before depending on the Kubernetes API.
 
 ## Example Usage
 
@@ -56,7 +56,7 @@ data "talos_cluster_kubeconfig" "this" {
 ### Required
 
 - `kubernetes_version` (String) Desired Kubernetes version (e.g. `v1.32.0`). Changing this triggers a rolling upgrade.
-- `node` (String) The IP address or hostname of a control plane node.
+- `node` (String) The IP address or hostname of the control plane node to bootstrap etcd on.
 
 ### Optional
 
@@ -64,6 +64,7 @@ data "talos_cluster_kubeconfig" "this" {
 
 - `client_configuration` (Attributes) The Talos client configuration. Use client_configuration_wo when using ephemeral resources. (see [below for nested schema](#nestedatt--client_configuration))
 - `client_configuration_wo` (Attributes, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of client_configuration for use with ephemeral resources. Requires Terraform 1.11+. (see [below for nested schema](#nestedatt--client_configuration_wo))
+- `control_plane_nodes` (List of String) List of all control plane node IPs used for etcd health checks. Defaults to [node]. Required for HA clusters where all control plane IPs must be listed.
 - `endpoint` (String) The endpoint to use when connecting to the node. Defaults to node.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 

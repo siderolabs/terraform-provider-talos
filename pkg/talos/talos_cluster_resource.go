@@ -7,13 +7,17 @@ package talos
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -43,6 +47,7 @@ var (
 type talosClusterResourceModel struct {
 	ClientConfiguration   basetypes.ObjectValue `tfsdk:"client_configuration"`
 	ClientConfigurationWO basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
+	ControlPlaneNodes     types.List            `tfsdk:"control_plane_nodes"`
 	Endpoint              types.String          `tfsdk:"endpoint"`
 	ID                    types.String          `tfsdk:"id"`
 	KubernetesVersion     types.String          `tfsdk:"kubernetes_version"`
@@ -61,7 +66,9 @@ func (r *talosClusterResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. Use talos_cluster_kubeconfig to retrieve credentials.",
+		Description: "Manages a Talos cluster: bootstraps etcd and tracks Kubernetes version. " +
+			"This resource completes once the Talos layer (etcd, apid, kubelet) is healthy across all control plane nodes. " +
+			"It does not wait for Kubernetes components to be ready — use talos_cluster_health for that before depending on the Kubernetes API.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -71,7 +78,16 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 			},
 			"node": schema.StringAttribute{
 				Required:    true,
-				Description: "The IP address or hostname of a control plane node.",
+				Description: "The IP address or hostname of the control plane node to bootstrap etcd on.",
+			},
+			"control_plane_nodes": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "List of all control plane node IPs used for etcd health checks. Defaults to [node]. Required for HA clusters where all control plane IPs must be listed.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"endpoint": schema.StringAttribute{
 				Optional:    true,
@@ -160,6 +176,20 @@ func (r *talosClusterResource) ValidateConfig(ctx context.Context, req resource.
 			"Only one of client_configuration or client_configuration_wo can be set, not both.",
 		)
 	}
+
+	if !cfg.ControlPlaneNodes.IsNull() && !cfg.Node.IsNull() && !cfg.Node.IsUnknown() {
+		var nodes []string
+
+		if diags := cfg.ControlPlaneNodes.ElementsAs(ctx, &nodes, false); !diags.HasError() {
+			if !slices.Contains(nodes, cfg.Node.ValueString()) {
+				resp.Diagnostics.AddAttributeError(
+					path.Root("control_plane_nodes"),
+					"node not in control_plane_nodes",
+					fmt.Sprintf("node %q must be included in control_plane_nodes", cfg.Node.ValueString()),
+				)
+			}
+		}
+	}
 }
 
 func (r *talosClusterResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
@@ -185,6 +215,11 @@ func (r *talosClusterResource) ModifyPlan(ctx context.Context, req resource.Modi
 
 	if cfgFromConfig.Endpoint.IsNull() && !plan.Node.IsUnknown() && !plan.Node.IsNull() {
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("endpoint"), plan.Node)...)
+	}
+
+	if cfgFromConfig.ControlPlaneNodes.IsNull() && !plan.Node.IsUnknown() && !plan.Node.IsNull() {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("control_plane_nodes"),
+			types.ListValueMust(types.StringType, []attr.Value{plan.Node}))...)
 	}
 }
 
@@ -235,7 +270,15 @@ func (r *talosClusterResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if err = talosClusterWaitForK8s(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig); err != nil {
+	var controlPlaneNodes []string
+
+	resp.Diagnostics.Append(plan.ControlPlaneNodes.ElementsAs(ctx, &controlPlaneNodes, true)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err = talosClusterWaitForK8s(ctxDeadline, endpoint, controlPlaneNodes, talosConfig); err != nil {
 		resp.Diagnostics.AddError("error waiting for cluster health", err.Error())
 
 		return
@@ -343,7 +386,7 @@ func talosClusterBootstrap(ctx context.Context, endpoint, node string, talosConf
 }
 
 // talosClusterWaitForK8s waits for the cluster to pass all default health checks.
-func talosClusterWaitForK8s(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config) error {
+func talosClusterWaitForK8s(ctx context.Context, endpoint string, controlPlaneNodes []string, talosConfig *clientconfig.Config) error {
 	c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(endpoint))
 	if err != nil {
 		return err
@@ -354,7 +397,7 @@ func talosClusterWaitForK8s(ctx context.Context, endpoint, node string, talosCon
 	clientProvider := &cluster.ConfigClientProvider{DefaultClient: c}
 	defer clientProvider.Close() //nolint:errcheck
 
-	nodeInfos, err := newClusterNodes([]string{node}, nil)
+	nodeInfos, err := newClusterNodes(controlPlaneNodes, nil)
 	if err != nil {
 		return err
 	}
@@ -369,7 +412,7 @@ func talosClusterWaitForK8s(ctx context.Context, endpoint, node string, talosCon
 		Info:           nodeInfos,
 	}
 
-	return check.Wait(ctx, &clusterState, check.DefaultClusterChecks(), newReporter())
+	return check.Wait(ctx, &clusterState, check.PreBootSequenceChecks(), newReporter())
 }
 
 // talosClusterUpgradeKubernetes runs a rolling Kubernetes upgrade via the talos cluster package.
