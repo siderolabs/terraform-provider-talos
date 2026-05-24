@@ -612,7 +612,7 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 	imageChanged := !plan.Image.IsNull() && !plan.Image.Equal(state.Image)
 
 	if imageChanged {
-		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
+		if err := talosMachineUpgrade(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return
@@ -739,18 +739,9 @@ func talosMachineApplyConfig(ctx context.Context, endpoint, node string, talosCo
 	})
 }
 
-// talosMachineUpgradeIfNeeded checks the running Talos version and, if it differs from
-// the desired image, performs: pull → install → drain → reboot → uncordon.
-func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel) (retErr error) {
-	runningImage, err := talosMachineRunningVersion(ctx, endpoint, node, talosConfig, state.Image.ValueString())
-	if err != nil {
-		return fmt.Errorf("reading running version: %w", err)
-	}
-
-	if runningImage == state.Image.ValueString() {
-		return nil
-	}
-
+// talosMachineUpgrade upgrades the Talos OS to the desired installer image
+// by performing: pull → install → drain → reboot → uncordon.
+func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel) (retErr error) {
 	rebootModeStr := strings.ToUpper(state.RebootMode.ValueString())
 
 	containerdInst := &commonapi.ContainerdInstance{
@@ -801,6 +792,21 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 	}
 
 	return nil
+}
+
+// talosMachineUpgradeIfNeeded checks the running Talos version and, if it differs from
+// the desired image, performs: pull → install → drain → reboot → uncordon.
+func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel) (retErr error) {
+	runningImage, err := talosMachineRunningVersion(ctx, endpoint, node, talosConfig, state.Image.ValueString())
+	if err != nil {
+		return fmt.Errorf("reading running version: %w", err)
+	}
+
+	if runningImage == state.Image.ValueString() {
+		return nil
+	}
+
+	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state)
 }
 
 func talosMachineRunningVersion(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, desiredImage string) (string, error) {

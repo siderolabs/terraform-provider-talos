@@ -32,6 +32,10 @@ import (
 // TestAccTalosMachine_bootstrap applies machine configuration via talos_machine,
 // bootstraps etcd, waits for cluster health, and confirms idempotency.
 func TestAccTalosMachine_bootstrap(t *testing.T) {
+	const (
+		baseImage = "ghcr.io/siderolabs/installer"
+	)
+
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -44,7 +48,7 @@ func TestAccTalosMachine_bootstrap(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosMachineConfig(rName, gendata.VersionTag, gendata.VersionTag),
+				Config: testAccTalosMachineConfig(rName, baseImage, gendata.VersionTag, gendata.VersionTag),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("talos_machine.this", "id"),
 					resource.TestCheckResourceAttrSet("talos_machine.this", "node"),
@@ -58,7 +62,7 @@ func TestAccTalosMachine_bootstrap(t *testing.T) {
 			},
 			// second apply must produce an empty plan
 			{
-				Config:   testAccTalosMachineConfig(rName, gendata.VersionTag, gendata.VersionTag),
+				Config:   testAccTalosMachineConfig(rName, baseImage, gendata.VersionTag, gendata.VersionTag),
 				PlanOnly: true,
 			},
 		},
@@ -337,8 +341,11 @@ data "talos_cluster_health" "this" {
 
 // TestAccTalosMachine_upgrade tests that changing `image` triggers an OS upgrade:
 // the node is initially at v1.12.7 and is upgraded to v1.13.0.
+//
+//nolint:dupl
 func TestAccTalosMachine_upgrade(t *testing.T) {
 	const (
+		baseImage      = "ghcr.io/siderolabs/installer"
 		baseVersion    = "v1.12.7"
 		upgradeVersion = "v1.13.0"
 	)
@@ -356,26 +363,76 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Step 1: node at base version, cluster bootstrapped and healthy
 			{
-				Config: testAccTalosMachineConfig(rName, baseVersion, baseVersion),
+				Config: testAccTalosMachineConfig(rName, baseImage, baseVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", baseVersion)),
+						fmt.Sprintf("%s:%s", baseImage, baseVersion)),
 					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
 			// Step 2: upgrade to v1.13.0, cluster still healthy afterwards
 			{
-				Config: testAccTalosMachineConfig(rName, upgradeVersion, baseVersion),
+				Config: testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", upgradeVersion)),
+						fmt.Sprintf("%s:%s", baseImage, upgradeVersion)),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
 			// Step 3: idempotency after upgrade
 			{
-				Config:   testAccTalosMachineConfig(rName, upgradeVersion, baseVersion),
+				Config:   testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestAccTalosMachine_upgrade tests that changing image schematic triggers an OS upgrade.
+// It will use the same version v1.13.0 before and after upgrade.
+//
+//nolint:dupl
+func TestAccTalosMachine_upgradeSchematic(t *testing.T) {
+	const (
+		talosVersion = "v1.13.0"
+		baseImage    = "ghcr.io/siderolabs/installer"
+		upgradeImage = "factory.talos.dev/metal-installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
+	)
+
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: node at base version, cluster bootstrapped and healthy
+			{
+				Config: testAccTalosMachineConfig(rName, baseImage, talosVersion, talosVersion),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine.this", "image",
+						fmt.Sprintf("%s:%s", baseImage, talosVersion)),
+					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
+				),
+			},
+			// Step 2: change the image schematic, cluster still healthy afterwards
+			{
+				Config: testAccTalosMachineConfig(rName, upgradeImage, talosVersion, talosVersion),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine.this", "image",
+						fmt.Sprintf("%s:%s", upgradeImage, talosVersion)),
+					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
+				),
+			},
+			// Step 3: idempotency after upgrade
+			{
+				Config:   testAccTalosMachineConfig(rName, upgradeImage, talosVersion, talosVersion),
 				PlanOnly: true,
 			},
 		},
@@ -384,8 +441,11 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 
 // TestAccTalosMachine_upgradeLifecycle tests the LifecycleService upgrade path (Talos ≥ v1.13):
 // the node boots at v1.13.0-rc.0 and is upgraded to v1.13.0 via ImageClient.Pull + LifecycleService.Upgrade.
+//
+//nolint:dupl
 func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 	const (
+		baseImage      = "ghcr.io/siderolabs/installer"
 		baseVersion    = "v1.13.0-rc.0"
 		upgradeVersion = "v1.13.0"
 	)
@@ -403,26 +463,26 @@ func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Step 1: node at v1.13.0-rc.0, cluster bootstrapped and healthy
 			{
-				Config: testAccTalosMachineConfig(rName, baseVersion, baseVersion),
+				Config: testAccTalosMachineConfig(rName, baseImage, baseVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", baseVersion)),
+						fmt.Sprintf("%s:%s", baseImage, baseVersion)),
 					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
 			// Step 2: upgrade to v1.13.0 via LifecycleService (new path), cluster still healthy
 			{
-				Config: testAccTalosMachineConfig(rName, upgradeVersion, baseVersion),
+				Config: testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.this", "image",
-						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", upgradeVersion)),
+						fmt.Sprintf("%s:%s", baseImage, upgradeVersion)),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
 			// Step 3: idempotency after upgrade
 			{
-				Config:   testAccTalosMachineConfig(rName, upgradeVersion, baseVersion),
+				Config:   testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				PlanOnly: true,
 			},
 		},
@@ -436,6 +496,10 @@ func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 // "provider produced inconsistent result after apply" because the plan said
 // client_configuration = null but the provider returned a non-null value.
 func TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig(t *testing.T) {
+	const (
+		baseImage = "ghcr.io/siderolabs/installer"
+	)
+
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -451,7 +515,7 @@ func TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccTalosMachineConfigWithWriteOnlyAttrs(rName, gendata.VersionTag, gendata.VersionTag),
+				Config: testAccTalosMachineConfigWithWriteOnlyAttrs(rName, baseImage, gendata.VersionTag, gendata.VersionTag),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("talos_machine.this", "id"),
 					resource.TestCheckResourceAttrSet("talos_machine.this", "node"),
@@ -593,7 +657,7 @@ const (
 	cpuModeCI      = "host-model"
 )
 
-func testAccTalosMachineConfig(rName, imageTag, isoVersion string) string {
+func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
 		cpuMode = cpuModeCI
@@ -612,7 +676,7 @@ data "talos_machine_configuration" "this" {
   cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
   machine_type       = "controlplane"
   machine_secrets    = talos_machine_secrets.this.machine_secrets
-  talos_version      = %[4]q
+  talos_version      = %[5]q
   kubernetes_version = "v1.35.3"
   docs               = false
   examples           = false
@@ -621,7 +685,7 @@ data "talos_machine_configuration" "this" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[5]s"
+          image = "%[4]s:%[6]s"
         }
       }
     })
@@ -686,7 +750,7 @@ resource "talos_machine" "this" {
   endpoint              = libvirt_domain.cp.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.this.machine_configuration
-  image            = "ghcr.io/siderolabs/installer:%[4]s"
+  image            = "%[4]s:%[5]s"
   drain_on_upgrade = false
 
   timeouts = {
@@ -719,13 +783,13 @@ data "talos_cluster_health" "this" {
     read = "25m"
   }
 }
-`, rName, cpuMode, isoURL, imageTag, isoVersion)
+`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion)
 }
 
 // testAccTalosMachineConfigWithWriteOnlyAttrs uses ephemeral talos_machine_secrets and
 // talos_machine_configuration so that no credentials touch state, exercising the
 // client_configuration_wo / machine_configuration_wo code path end-to-end.
-func testAccTalosMachineConfigWithWriteOnlyAttrs(rName, imageTag, isoVersion string) string {
+func testAccTalosMachineConfigWithWriteOnlyAttrs(rName, imageUrl, imageTag, isoVersion string) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
 		cpuMode = cpuModeCI
@@ -744,7 +808,7 @@ ephemeral "talos_machine_configuration" "this" {
   cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
   machine_type       = "controlplane"
   machine_secrets    = ephemeral.talos_machine_secrets.this.machine_secrets
-  talos_version      = %[4]q
+  talos_version      = %[5]q
   kubernetes_version = "v1.35.3"
   docs               = false
   examples           = false
@@ -753,7 +817,7 @@ ephemeral "talos_machine_configuration" "this" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[5]s"
+          image = "%[4]s:%[6]s"
         }
       }
     })
@@ -818,7 +882,7 @@ resource "talos_machine" "this" {
   endpoint                 = libvirt_domain.cp.network_interface[0].addresses[0]
   client_configuration_wo  = ephemeral.talos_machine_secrets.this.client_configuration
   machine_configuration_wo = ephemeral.talos_machine_configuration.this.machine_configuration
-  image            = "ghcr.io/siderolabs/installer:%[4]s"
+  image            = "%[4]s:%[5]s"
   drain_on_upgrade = false
 
   timeouts = {
@@ -827,7 +891,7 @@ resource "talos_machine" "this" {
     delete = "5m"
   }
 }
-`, rName, cpuMode, isoURL, imageTag, isoVersion)
+`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion)
 }
 
 // TestValidateConfig_DrainKubeconfigRequirement verifies that ValidateConfig rejects
