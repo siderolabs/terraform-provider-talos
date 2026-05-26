@@ -64,4 +64,10 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Upgrading Kubernetes
+
+`talos_cluster` is responsible for upgrading Kubernetes via the `upgrade-k8s` procedure. Changing `kubernetes_version` in `talos_machine_configuration` updates the component image tags in the generated configuration but does **not** trigger an upgrade on its own.
+
+The recommended workflow is two separate applies: upgrade `talos_cluster.kubernetes_version` first, then update `kubernetes_version` in `talos_machine_configuration`. By the second apply, `upgrade-k8s` has already patched the image tags on each node, so `talos_machine` detects no configuration drift and skips re-applying. See [`talos_cluster`](cluster.md) for details.
+
 {{ .SchemaMarkdown | trimspace }}

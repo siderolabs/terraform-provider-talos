@@ -1,0 +1,29 @@
+---
+page_title: "{{.Name}} {{.Type}} - {{.RenderedProviderName}}"
+subcategory: ""
+description: |-
+{{ .Description | plainmarkdown | trimspace | prefixlines "  " }}
+---
+
+# {{.Name}} ({{.Type}})
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ tffile (printf .ExampleFile) }}
+{{- end }}
+
+## Upgrading Kubernetes
+
+When `kubernetes_version` changes, `talos_cluster` runs Talos's `upgrade-k8s` procedure: it pre-pulls images, upgrades static pods component-by-component with health gating, updates the kube-proxy DaemonSet, upgrades kubelet sequentially across nodes, and re-applies bootstrap manifests.
+
+The `kubernetes_version` argument in `talos_machine_configuration` controls the image tags embedded in the generated YAML, but does **not** trigger any upgrade on its own. The recommended workflow is to update them in two separate applies:
+
+1. Update `talos_cluster.kubernetes_version` and run `terraform apply`. Wait for `upgrade-k8s` to complete.
+2. Update `kubernetes_version` in `talos_machine_configuration` and run `terraform apply` again.
+
+At step 2, `upgrade-k8s` has already patched the component image tags on each node. The new `talos_machine_configuration` output matches what is already on the node, so `talos_machine` detects no configuration drift and skips re-applying — the apply is a no-op for configuration.
+
+{{ .SchemaMarkdown | trimspace }}
