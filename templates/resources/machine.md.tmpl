@@ -64,4 +64,24 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Kubernetes component image management
+
+`talos_machine` does **not** apply changes to the five Kubernetes component image fields:
+
+- `machine.kubelet.image`
+- `cluster.apiServer.image`
+- `cluster.controllerManager.image`
+- `cluster.scheduler.image`
+- `cluster.proxy.image`
+
+These fields are owned by [`talos_cluster`](cluster.md), which drives [Talos's `upgrade-k8s` procedure](https://docs.siderolabs.com/kubernetes-guides/advanced-guides/upgrading-kubernetes/). That procedure pre-pulls images, upgrades static pods component-by-component and node-by-node with health gating, updates the kube-proxy DaemonSet, upgrades kubelet sequentially, and re-applies bootstrap manifests. Applying these fields in parallel from `talos_machine` would bypass that safety procedure.
+
+Practical consequences:
+
+- Bumping `kubernetes_version` in `talos_machine_configuration` alone has no effect on running nodes. To upgrade Kubernetes, change `talos_cluster.kubernetes_version`.
+- Drift in these five fields (e.g. after `upgrade-k8s` has patched the on-disk config) is not detected by `talos_machine` and does not trigger a re-apply.
+- The `kubernetes_version` you set in `talos_machine_configuration` still matters at **bootstrap** — new nodes added later (scale-up) will come up at that version. Keep it in sync with `talos_cluster.kubernetes_version` so new nodes don't bootstrap at a stale version.
+
+If you use `talos_machine` without `talos_cluster`, run `talosctl upgrade-k8s` manually to upgrade Kubernetes.
+
 {{ .SchemaMarkdown | trimspace }}

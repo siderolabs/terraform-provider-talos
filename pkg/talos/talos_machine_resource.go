@@ -6,8 +6,6 @@ package talos
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -315,8 +313,7 @@ func (r *talosMachineResource) ModifyPlan(ctx context.Context, req resource.Modi
 		return
 	}
 
-	sum := sha256.Sum256(cfgBytes)
-	desiredHash := hex.EncodeToString(sum[:])
+	desiredHash := K8sManagedConfigHash(cfgBytes)
 
 	var state talosMachineResourceModel
 
@@ -400,8 +397,7 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	sum := sha256.Sum256(cfgBytes)
-	plan.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+	plan.MachineConfigurationHash = types.StringValue(K8sManagedConfigHash(cfgBytes))
 
 	if !plan.Image.IsNull() {
 		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
@@ -490,8 +486,7 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 			return err
 		}
 
-		sum := sha256.Sum256(yamlBytes)
-		state.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+		state.MachineConfigurationHash = types.StringValue(K8sManagedConfigHash(yamlBytes))
 
 		return nil
 	})
@@ -570,14 +565,27 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 			return
 		}
 
+		// Skip config apply if the normalized hash (K8s image fields excluded) is
+		// unchanged. This covers two cases: (1) write-only machine_configuration_wo,
+		// where ModifyPlan cannot read the config and always marks hash Unknown; and
+		// (2) a simultaneous Talos OS upgrade where kubernetes_version also changed —
+		// the OS upgrade already happened above; K8s images are owned by talos_cluster
+		// and must not be re-applied here, which would bypass upgrade-k8s's sequential
+		// safety procedure.
+		if K8sManagedConfigHash(cfgBytes) == state.MachineConfigurationHash.ValueString() {
+			plan.MachineConfigurationHash = state.MachineConfigurationHash
+			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+
+			return
+		}
+
 		if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes); err != nil {
 			resp.Diagnostics.AddError("error applying machine configuration", err.Error())
 
 			return
 		}
 
-		sum := sha256.Sum256(cfgBytes)
-		plan.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+		plan.MachineConfigurationHash = types.StringValue(K8sManagedConfigHash(cfgBytes))
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

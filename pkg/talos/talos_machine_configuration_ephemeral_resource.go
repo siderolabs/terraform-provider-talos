@@ -79,9 +79,14 @@ func (r *talosMachineConfigurationEphemeralResource) Schema(_ context.Context, _
 				ElementType: types.StringType,
 			},
 			"kubernetes_version": schema.StringAttribute{
-				Description: "The version of kubernetes to use",
-				Optional:    true,
-				Computed:    true,
+				Description: "Kubernetes version baked into the generated configuration. " +
+					"Used at bootstrap for new nodes. " +
+					"To upgrade Kubernetes on a running cluster, use `talos_cluster.kubernetes_version` — " +
+					"bumping this value alone has no effect on existing nodes because `talos_machine` " +
+					"delegates the five Kubernetes component image fields (kubelet, kube-apiserver, " +
+					"kube-controller-manager, kube-scheduler, kube-proxy) to `talos_cluster`'s upgrade-k8s flow.",
+				Optional: true,
+				Computed: true,
 			},
 			"talos_version": schema.StringAttribute{
 				Description: "The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`", // nolint:lll

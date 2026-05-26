@@ -55,7 +55,7 @@ data "talos_cluster_kubeconfig" "this" {
 
 ### Required
 
-- `kubernetes_version` (String) Desired Kubernetes version (e.g. `v1.32.0`). Changing this triggers a rolling upgrade.
+- `kubernetes_version` (String) Desired Kubernetes version (e.g. `v1.32.0`). This is the canonical driver for Kubernetes upgrades: changing it runs Talos's `upgrade-k8s` procedure, which sequentially upgrades kube-apiserver, kube-controller-manager, kube-scheduler, kube-proxy, and kubelet on each node with health gating. `talos_machine` deliberately does not apply changes to these five image fields — `talos_cluster` owns them.
 - `node` (String) The IP address or hostname of the control plane node to bootstrap etcd on.
 
 ### Optional
