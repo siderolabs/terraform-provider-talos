@@ -22,15 +22,15 @@ import (
 
 type talosClusterKubeConfigDataSource struct{}
 
-type talosClusterKubeConfigDataSourceModelV0 struct { //nolint:govet
+type talosClusterKubeConfigDataSourceModelV0 struct {
+	KubernetesClientConfiguration kubernetesClientConfiguration `tfsdk:"kubernetes_client_configuration"`
+	ClientConfiguration           clientConfiguration           `tfsdk:"client_configuration"`
 	ID                            types.String                  `tfsdk:"id"`
 	Node                          types.String                  `tfsdk:"node"`
 	Endpoint                      types.String                  `tfsdk:"endpoint"`
-	ClientConfiguration           clientConfiguration           `tfsdk:"client_configuration"`
 	KubeConfigRaw                 types.String                  `tfsdk:"kubeconfig_raw"`
-	KubernetesClientConfiguration kubernetesClientConfiguration `tfsdk:"kubernetes_client_configuration"`
-	Wait                          types.Bool                    `tfsdk:"wait"`
 	Timeouts                      timeouts.Value                `tfsdk:"timeouts"`
+	Wait                          types.Bool                    `tfsdk:"wait"`
 }
 
 var _ datasource.DataSource = &talosClusterKubeConfigDataSource{}

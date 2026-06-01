@@ -33,14 +33,14 @@ type nodiskFoundError struct{}
 
 type talosMachineDisksDataSource struct{}
 
-type talosMachineDisksDataSourceModelV1 struct { //nolint:govet
+type talosMachineDisksDataSourceModelV1 struct {
+	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
 	ID                  types.String        `tfsdk:"id"`
 	Node                types.String        `tfsdk:"node"`
 	Endpoint            types.String        `tfsdk:"endpoint"`
 	Selector            types.String        `tfsdk:"selector"`
-	ClientConfiguration clientConfiguration `tfsdk:"client_configuration"`
-	Disks               []diskspec          `tfsdk:"disks"`
 	Timeouts            timeouts.Value      `tfsdk:"timeouts"`
+	Disks               []diskspec          `tfsdk:"disks"`
 }
 
 var _ datasource.DataSource = &talosMachineDisksDataSource{}

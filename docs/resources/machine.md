@@ -63,6 +63,24 @@ resource "talos_machine" "this" {
 }
 ```
 
+## Draining nodes before upgrade
+
+When `drain_on_upgrade = true` (the default) and `image` is set, a kubeconfig must be supplied via `kubeconfig_wo` (or `kubeconfig`) so the provider can cordon and drain the node before rebooting:
+
+```terraform
+ephemeral "talos_cluster_kubeconfig" "this" {
+  machine_secrets = talos_machine_secrets.this.machine_secrets
+  cluster_name    = "mycluster"
+  endpoint        = "https://<cp-ip>:6443"
+}
+
+resource "talos_machine" "worker" {
+  # ...
+  drain_on_upgrade = true
+  kubeconfig_wo    = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+}
+```
+
 ## Upgrading multiple nodes safely
 
 When managing a multi-node cluster, upgrading all nodes in parallel risks losing etcd quorum. Use `depends_on` to chain upgrades sequentially, so each node is fully back before the next one starts:
@@ -116,6 +134,8 @@ The recommended workflow is two separate applies: upgrade `talos_cluster.kuberne
 - `drain_on_upgrade` (Boolean) Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.
 - `endpoint` (String) The endpoint to use when connecting to the node. Defaults to node.
 - `image` (String) Talos installer image (e.g. `ghcr.io/siderolabs/installer:v1.9.0`). When set, upgrades if running version differs. When omitted, OS version is not managed.
+- `kubeconfig` (String, Sensitive) Kubeconfig used to drain and uncordon the node during upgrades. Required when drain_on_upgrade = true and image is set. Provide talos_cluster_kubeconfig.this.kubeconfig_raw. Use kubeconfig_wo when using ephemeral resources.
+- `kubeconfig_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of kubeconfig. Requires Terraform 1.11+.
 - `machine_configuration` (String, Sensitive) The machine configuration YAML to apply. Use machine_configuration_wo when using ephemeral resources.
 - `machine_configuration_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of machine_configuration for use with ephemeral resources. Requires Terraform 1.11+.
 - `on_destroy` (Attributes) Actions to be taken on destroy, if *reset* is not set this is a no-op.

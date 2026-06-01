@@ -30,7 +30,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
-	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/kubeclient"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
 	commonapi "github.com/siderolabs/talos/pkg/machinery/api/common"
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
@@ -40,6 +39,8 @@ import (
 	talosreporter "github.com/siderolabs/talos/pkg/reporter"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // DefaultCreateTimeout and DefaultUpdateTimeout are the out-of-the-box defaults
@@ -65,6 +66,8 @@ var (
 type talosMachineResourceModel struct {
 	OnDestroy                *onDestroyOptions     `tfsdk:"on_destroy"`
 	MachineConfigurationWO   types.String          `tfsdk:"machine_configuration_wo"`
+	Kubeconfig               types.String          `tfsdk:"kubeconfig"`
+	KubeconfigWO             types.String          `tfsdk:"kubeconfig_wo"`
 	Endpoint                 types.String          `tfsdk:"endpoint"`
 	ClientConfiguration      basetypes.ObjectValue `tfsdk:"client_configuration"`
 	ClientConfigurationWO    basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
@@ -191,6 +194,20 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Default:     booldefault.StaticBool(true),
 				Description: "Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.",
 			},
+			"kubeconfig": schema.StringAttribute{
+				Optional:  true,
+				Sensitive: true,
+				Description: "Kubeconfig used to drain and uncordon the node during upgrades. " +
+					"Required when drain_on_upgrade = true and image is set. " +
+					"Provide talos_cluster_kubeconfig.this.kubeconfig_raw. " +
+					"Use kubeconfig_wo when using ephemeral resources.",
+			},
+			"kubeconfig_wo": schema.StringAttribute{
+				Optional:    true,
+				WriteOnly:   true,
+				Sensitive:   true,
+				Description: "Write-only variant of kubeconfig. Requires Terraform 1.11+.",
+			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
@@ -267,6 +284,39 @@ func (r *talosMachineResource) ValidateConfig(ctx context.Context, req resource.
 			"Only one of machine_configuration or machine_configuration_wo can be set, not both.",
 		)
 	}
+
+	if !cfg.Kubeconfig.IsNull() && !cfg.KubeconfigWO.IsNull() {
+		resp.Diagnostics.AddError(
+			"Conflicting kubeconfig",
+			"Only one of kubeconfig or kubeconfig_wo can be set, not both.",
+		)
+	}
+
+	// drain only runs during OS upgrades (when image is managed), so only require
+	// kubeconfig when image is also set. drain_on_upgrade defaults to true, so treat
+	// null the same as true. Skip unknown — can't evaluate references at validate time.
+	imageManaged := !cfg.Image.IsNull() && !cfg.Image.IsUnknown()
+	drainEnabled := cfg.DrainOnUpgrade.IsNull() || (!cfg.DrainOnUpgrade.IsUnknown() && cfg.DrainOnUpgrade.ValueBool())
+
+	if imageManaged && drainEnabled && kubeconfigMissing(&cfg) {
+		resp.Diagnostics.AddError(
+			"Missing kubeconfig for drain",
+			"drain_on_upgrade = true requires kubeconfig or kubeconfig_wo when image is set. "+
+				"Provide ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw via kubeconfig_wo.",
+		)
+	}
+}
+
+// kubeconfigMissing reports whether neither kubeconfig nor kubeconfig_wo carries a
+// usable value. Empty strings are treated the same as null — they would fail to parse
+// at runtime and produce a less clear error than the ValidateConfig message.
+func kubeconfigMissing(cfg *talosMachineResourceModel) bool {
+	// unknown = reference not yet resolved (e.g. ephemeral resource); skip validation.
+	absent := func(s types.String) bool {
+		return !s.IsUnknown() && (s.IsNull() || strings.TrimSpace(s.ValueString()) == "")
+	}
+
+	return absent(cfg.Kubeconfig) && absent(cfg.KubeconfigWO)
 }
 
 func (r *talosMachineResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
@@ -359,6 +409,10 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 
 	if !cfgModel.MachineConfigurationWO.IsNull() {
 		plan.MachineConfigurationWO = cfgModel.MachineConfigurationWO
+	}
+
+	if !cfgModel.KubeconfigWO.IsNull() {
+		plan.KubeconfigWO = cfgModel.KubeconfigWO
 	}
 
 	talosConfig, resolvedClientConfig, err := resolveTalosMachineClientConfig(ctx, &plan)
@@ -524,6 +578,10 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 
 	if !cfgModel.MachineConfigurationWO.IsNull() {
 		plan.MachineConfigurationWO = cfgModel.MachineConfigurationWO
+	}
+
+	if !cfgModel.KubeconfigWO.IsNull() {
+		plan.KubeconfigWO = cfgModel.KubeconfigWO
 	}
 
 	talosConfig, resolvedClientConfig, err := resolveTalosMachineClientConfig(ctx, &plan)
@@ -715,7 +773,12 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 		return fmt.Errorf("installing new OS image: %w", installErr)
 	}
 
-	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool())
+	rawKubeconfig := state.KubeconfigWO.ValueString()
+	if rawKubeconfig == "" {
+		rawKubeconfig = state.Kubeconfig.ValueString()
+	}
+
+	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig)
 	if err != nil {
 		return fmt.Errorf("draining node: %w", err)
 	}
@@ -726,7 +789,7 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 			return
 		}
 
-		if err := talosMachineUncordon(ctx, endpoint, node, talosConfig, k8sNodeName); err != nil {
+		if err := talosMachineUncordon(ctx, endpoint, node, talosConfig, k8sNodeName, rawKubeconfig); err != nil {
 			retErr = errors.Join(retErr, fmt.Errorf("uncordoning node: %w", err))
 		}
 	}()
@@ -825,7 +888,7 @@ func talosMachineInstallImage(ctx context.Context, endpoint, node string, talosC
 	})
 }
 
-func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, drain bool) (string, error) {
+func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, drain bool, rawKubeconfig string) (string, error) {
 	if !drain {
 		return "", nil
 	}
@@ -834,12 +897,12 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 
 	noopReport := func(talosreporter.Update) {}
 
-	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		cs, err := kubeclient.FromTalosClient(nodeCtx, c)
-		if err != nil {
-			return fmt.Errorf("building k8s client for drain: %w", err)
-		}
+	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
+	if err != nil {
+		return "", fmt.Errorf("building k8s client for drain: %w", err)
+	}
 
+	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
 		k8sName, err := nodedrain.GetKubernetesNodeName(nodeCtx, c)
 		if err != nil {
 			return fmt.Errorf("resolving k8s node name: %w", err)
@@ -855,21 +918,40 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 	return k8sNodeName, nil
 }
 
-func talosMachineUncordon(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, k8sNodeName string) error {
+func talosMachineUncordon(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, k8sNodeName, rawKubeconfig string) error {
+	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
+	if err != nil {
+		return fmt.Errorf("building k8s client for uncordon: %w", err)
+	}
+
 	noopReport := func(talosreporter.Update) {}
 
 	return talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		cs, err := kubeclient.FromTalosClient(nodeCtx, c)
-		if err != nil {
-			return fmt.Errorf("building k8s client for uncordon: %w", err)
-		}
-
 		if waitErr := nodedrain.WaitForNodeReady(ctx, cs, k8sNodeName, 5*time.Minute); waitErr != nil {
 			return fmt.Errorf("waiting for node ready: %w", waitErr)
 		}
 
 		return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
 	})
+}
+
+func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {
+	config, err := clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parsing kubeconfig: %w", err)
+	}
+
+	restConfig, err := config.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("building REST config: %w", err)
+	}
+
+	cs, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("creating k8s clientset: %w", err)
+	}
+
+	return cs, nil
 }
 
 func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, rebootModeStr string) error {

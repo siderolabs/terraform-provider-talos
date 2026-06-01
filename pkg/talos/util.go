@@ -40,16 +40,16 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
-type machineConfigGenerateOptions struct { //nolint:govet
-	machineType       machine.Type
+type machineConfigGenerateOptions struct {
+	machineSecrets    *secrets.Bundle
 	clusterName       string
 	clusterEndpoint   string
-	machineSecrets    *secrets.Bundle
 	kubernetesVersion string
 	talosVersion      string
+	configPatches     []string
+	machineType       machine.Type
 	docsEnabled       bool
 	examplesEnabled   bool
-	configPatches     []string
 }
 
 func (m *machineConfigGenerateOptions) generate() (string, error) {

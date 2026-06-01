@@ -33,6 +33,24 @@ resource "talos_machine" "this" {
 }
 ```
 
+## Draining nodes before upgrade
+
+When `drain_on_upgrade = true` (the default) and `image` is set, a kubeconfig must be supplied via `kubeconfig_wo` (or `kubeconfig`) so the provider can cordon and drain the node before rebooting:
+
+```terraform
+ephemeral "talos_cluster_kubeconfig" "this" {
+  machine_secrets = talos_machine_secrets.this.machine_secrets
+  cluster_name    = "mycluster"
+  endpoint        = "https://<cp-ip>:6443"
+}
+
+resource "talos_machine" "worker" {
+  # ...
+  drain_on_upgrade = true
+  kubeconfig_wo    = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+}
+```
+
 ## Upgrading multiple nodes safely
 
 When managing a multi-node cluster, upgrading all nodes in parallel risks losing etcd quorum. Use `depends_on` to chain upgrades sequentially, so each node is fully back before the next one starts:
