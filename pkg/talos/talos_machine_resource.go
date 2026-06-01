@@ -591,7 +591,9 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	plan.ClientConfiguration = resolvedClientConfig
+	if cfgModel.ClientConfigurationWO.IsNull() {
+		plan.ClientConfiguration = resolvedClientConfig
+	}
 
 	timeout, diags := plan.Timeouts.Update(ctx, DefaultUpdateTimeout)
 	resp.Diagnostics.Append(diags...)

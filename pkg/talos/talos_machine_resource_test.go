@@ -7,6 +7,7 @@ package talos_test
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -467,6 +469,119 @@ func TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig(t *testing.T) {
 			},
 		},
 	})
+}
+
+// TestUpdate_ClientConfigWO_RemainsNullInState is a red-phase test for issue #355.
+// It proves that Update() unconditionally sets plan.ClientConfiguration (the non-write-only
+// variant) even when client_configuration_wo was used, causing Terraform to reject the
+// apply with "inconsistent values for sensitive attribute".
+//
+// The test bypasses network calls by setting image and machine_configuration_hash to the
+// same values in plan and state — both imageChanged and configChanged are false, so the
+// provider writes state directly without any RPC. After the fix the test passes; without
+// the fix it fails because client_configuration is non-null in the returned state.
+func TestUpdate_ClientConfigWO_RemainsNullInState(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	r := talos.NewTalosMachineResource()
+
+	var schemaResp frameworkresource.SchemaResponse
+
+	r.Schema(ctx, frameworkresource.SchemaRequest{}, &schemaResp)
+
+	sch := schemaResp.Schema
+
+	schTFType, ok := sch.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema TerraformType is not tftypes.Object")
+	}
+
+	nullVals := func() map[string]tftypes.Value {
+		m := make(map[string]tftypes.Value, len(schTFType.AttributeTypes))
+		for name, typ := range schTFType.AttributeTypes {
+			m[name] = tftypes.NewValue(typ, nil)
+		}
+
+		return m
+	}
+
+	// talosClientTFConfigToTalosClientConfig only base64-decodes and stores bytes;
+	// any valid base64 string is accepted without certificate validation.
+	fakeB64 := base64.StdEncoding.EncodeToString([]byte("fake-cred"))
+
+	ccWOTFType, ok := schTFType.AttributeTypes["client_configuration_wo"].(tftypes.Object)
+	if !ok {
+		t.Fatal("client_configuration_wo is not tftypes.Object in schema")
+	}
+
+	ccWOVal := tftypes.NewValue(ccWOTFType, map[string]tftypes.Value{
+		"ca_certificate":     tftypes.NewValue(tftypes.String, fakeB64),
+		"client_certificate": tftypes.NewValue(tftypes.String, fakeB64),
+		"client_key":         tftypes.NewValue(tftypes.String, fakeB64),
+	})
+
+	const image = "ghcr.io/siderolabs/installer:v1.12.0"
+
+	sum := sha256.Sum256([]byte("machine: {}"))
+	hash := hex.EncodeToString(sum[:])
+
+	// State from a previous Create that used client_configuration_wo:
+	// client_configuration is null, image and hash are known.
+	sv := nullVals()
+	sv["id"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	sv["node"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	sv["endpoint"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	sv["image"] = tftypes.NewValue(tftypes.String, image)
+	sv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, hash)
+	stateRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, sv)
+
+	// Plan: identical image and hash so imageChanged=false and configChanged=false,
+	// meaning Update() makes no network calls and proceeds directly to state.Set.
+	// Write-only attrs are null in the plan — Terraform passes them via Config only.
+	pv := nullVals()
+	pv["id"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	pv["node"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	pv["endpoint"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	pv["image"] = tftypes.NewValue(tftypes.String, image)
+	pv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, hash)
+	planRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, pv)
+
+	// Config carries the write-only credentials that the plan does not expose.
+	cv := nullVals()
+	cv["id"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	cv["node"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	cv["endpoint"] = tftypes.NewValue(tftypes.String, "10.0.0.1")
+	cv["image"] = tftypes.NewValue(tftypes.String, image)
+	cv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, hash)
+	cv["client_configuration_wo"] = ccWOVal
+	configRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, cv)
+
+	planObj := tfsdk.Plan{Schema: sch, Raw: planRaw}
+	stateObj := tfsdk.State{Schema: sch, Raw: stateRaw}
+	configObj := tfsdk.Config{Schema: sch, Raw: configRaw}
+
+	req := frameworkresource.UpdateRequest{
+		Plan:   planObj,
+		State:  stateObj,
+		Config: configObj,
+	}
+	resp := frameworkresource.UpdateResponse{State: tfsdk.State{Schema: sch, Raw: stateRaw}}
+
+	r.Update(ctx, req, &resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("Update() returned unexpected diagnostics: %v", resp.Diagnostics)
+	}
+
+	var cc basetypes.ObjectValue
+	if diags := resp.State.GetAttribute(ctx, frameworkpath.Root("client_configuration"), &cc); diags.HasError() {
+		t.Fatalf("GetAttribute(client_configuration): %v", diags)
+	}
+
+	if !cc.IsNull() {
+		t.Error("client_configuration must remain null in state when client_configuration_wo is used; Update leaked credentials into state (issue #355)")
+	}
 }
 
 // testAccTalosMachineConfig generates HCL for a talos_machine resource backed by a
