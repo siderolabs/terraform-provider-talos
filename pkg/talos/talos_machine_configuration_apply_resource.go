@@ -1071,16 +1071,19 @@ func (p *talosMachineConfigurationApplyResource) ModifyPlan(ctx context.Context,
 
 	machineConfigInput := getMachineConfigurationInput(&planState)
 
-	// Only compute machine_configuration if inputs are available
-	// If inputs are unknown (e.g., ephemeral values not yet resolved), the UseStateForUnknown
-	// plan modifier will preserve the prior state value to prevent drift
-	if !machineConfigInput.IsUnknown() && !machineConfigInput.IsNull() {
-		// If the whole config_patches list is unknown (e.g. `[for x in <unknown> : ...]`)
-		// or any element is unknown, we can't render — return so UseStateForUnknown wins.
-		if planState.ConfigPatches.IsUnknown() {
-			return
-		}
+	// When inputs are unknown (e.g. data source not yet resolved during plan), we cannot
+	// compute the hash. Explicitly mark the computed attributes as unknown so that OpenTofu
+	// accepts the changed value during plan expansion. Leaving them at the old state value
+	// (via UseStateForUnknown) would cause an "inconsistent final plan" error when the hash
+	// is recomputed with the real input during apply. See issue #352.
+	if machineConfigInput.IsUnknown() || planState.ConfigPatches.IsUnknown() {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration_hash"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("machine_configuration"), types.StringUnknown())...)
 
+		return
+	}
+
+	if !machineConfigInput.IsNull() {
 		configPatches, err := configPatchesAsStrings(planState.ConfigPatches)
 		if err != nil {
 			// err is only returned when an element is Unknown — bail out like before.

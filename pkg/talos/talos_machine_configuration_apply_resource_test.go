@@ -11,7 +11,9 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
@@ -48,6 +50,59 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 			{
 				Config:   testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
 				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestAccTalosMachineConfigurationApplyUnknownInputHashIssue352 is a regression test for
+// issue #352. When machine_configuration_input is unknown during planning (because it
+// references a resource whose output is not yet resolved), the provider must mark
+// machine_configuration_hash as unknown in the plan too. If it leaves the hash at the
+// old state value (via UseStateForUnknown), OpenTofu rejects the changed hash as an
+// "inconsistent final plan" error during apply.
+//
+// The test simulates this by introducing a new terraform_data resource (unknown output
+// during plan) whose input holds a machine configuration rendered with a different
+// cluster_name. Because terraform_data.trigger is new (not in prior state), its output
+// is unknown during planning — exactly like a data source that is read during apply.
+func TestAccTalosMachineConfigurationApplyUnknownInputHashIssue352(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: initial apply — establishes state with machine_configuration_hash = H1.
+			{
+				Config: testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
+				),
+			},
+			// Step 2: machine_configuration_input is unknown during planning.
+			// Before the fix: machine_configuration_hash stays at H1 (UseStateForUnknown),
+			// but is recomputed to H2 during apply — OpenTofu errors "inconsistent final plan".
+			// After the fix: machine_configuration_hash is marked unknown in the plan,
+			// apply resolves it to H2, and state is updated.
+			{
+				Config: testAccTalosMachineConfigurationApplyResourceConfigWithUnknownInput("talos", rName),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectUnknownValue(
+							"talos_machine_configuration_apply.this",
+							tfjsonpath.New("machine_configuration_hash"),
+						),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
+				),
 			},
 		},
 	})
@@ -289,6 +344,50 @@ func testAccTalosMachineConfigurationApplyResourceConfig(providerName, rName str
 	}
 
 	return config.render()
+}
+
+// testAccTalosMachineConfigurationApplyResourceConfigWithUnknownInput returns a config
+// where machine_configuration_input is unknown during planning. terraform_data.trigger
+// is a new resource (not in state), so its output is unknown until applied. Its input
+// holds a v2 machine configuration (different cluster_name) so the resolved hash H2
+// differs from the H1 stored in state, ensuring the inconsistency would be observable.
+func testAccTalosMachineConfigurationApplyResourceConfigWithUnknownInput(providerName, rName string) string {
+	config := dynamicConfig{
+		Provider:        providerName,
+		ResourceName:    rName,
+		WithApplyConfig: false,
+		WithBootstrap:   false,
+	}
+
+	return config.render() + `
+data "talos_machine_configuration" "v2" {
+  cluster_name     = "example-cluster-v2"
+  cluster_endpoint = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type     = "controlplane"
+  machine_secrets  = talos_machine_secrets.this.machine_secrets
+  docs             = false
+  examples         = false
+}
+
+resource "terraform_data" "trigger" {
+  input = data.talos_machine_configuration.v2.machine_configuration
+}
+
+resource "talos_machine_configuration_apply" "this" {
+  client_configuration        = talos_machine_secrets.this.client_configuration
+  machine_configuration_input = terraform_data.trigger.output
+  node                        = libvirt_domain.cp.network_interface[0].addresses[0]
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk = data.talos_machine_disks.this.disks[0].dev_path
+        }
+      }
+    }),
+  ]
+}
+`
 }
 
 func testAccTalosMachineConfigurationApplyResourceConfigV0(providerName, rName string) string {
