@@ -1,3 +1,46 @@
+## [terraform-provider-talos 0.12.0-alpha.2](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.2) (2026-06-05)
+
+Welcome to the v0.12.0-alpha.2 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### new resources
+
+New `talos_machine` and `talos_cluster` resources are added, please see docs.
+
+
+### Component Updates
+
+Talos sdk: v1.14.0-alpha.0
+
+
+### Contributors
+
+* Mickaël Canévet
+
+### Changes
+<details><summary>6 commits</summary>
+<p>
+
+* [`024ce5a`](https://github.com/siderolabs/terraform-provider-talos/commit/024ce5af35231d26d9342efb98f7b5d9c34798e8) fix(machine_configuration_apply): mark hash unknown when input is unknown during plan
+* [`76bd86c`](https://github.com/siderolabs/terraform-provider-talos/commit/76bd86c886c414e982f636ddd3c758447bbe39a8) fix(deps): upgrade Go to 1.26.4 to fix crypto/x509 vulnerabilities
+* [`0e717e3`](https://github.com/siderolabs/terraform-provider-talos/commit/0e717e311ef398724ef590d0fca66023df1ef3b0) fix(talos_machine): guard client_configuration in Update when WO variant is used
+* [`5292cff`](https://github.com/siderolabs/terraform-provider-talos/commit/5292cffecb3318dedc1e3e64626ada05ffad1f04) fix(talos_machine): support drain_on_upgrade on worker nodes via kubeconfig(_wo)
+* [`d3ad8c5`](https://github.com/siderolabs/terraform-provider-talos/commit/d3ad8c5ce5f46f6c8c8177b5c08813502aa109d9) docs: add Kubernetes upgrade workflow to resource documentation
+* [`4ca3e23`](https://github.com/siderolabs/terraform-provider-talos/commit/4ca3e2314b84346f400788f606d6ffc4814f3e88) fix(deps): upgrade golang.org/x/net to v0.55.0 to fix GO-2026-5026
+</p>
+</details>
+
+### Dependency Changes
+
+This release has no dependency changes
+
+Previous release can be found at [v0.12.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.1)
+
 ## [terraform-provider-talos 0.12.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.1) (2026-05-19)
 
 Welcome to the v0.12.0-alpha.1 release of terraform-provider-talos!  
