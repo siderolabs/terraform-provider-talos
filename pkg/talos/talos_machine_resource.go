@@ -901,29 +901,29 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 		return "", nil
 	}
 
-	var k8sNodeName string
-
-	noopReport := func(talosreporter.Update) {}
-
 	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
 	if err != nil {
 		return "", fmt.Errorf("building k8s client for drain: %w", err)
 	}
 
+	var k8sNodeName string
+
 	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		k8sName, err := nodedrain.GetKubernetesNodeName(nodeCtx, c)
+		name, err := nodedrain.GetKubernetesNodeName(nodeCtx, c)
 		if err != nil {
 			return fmt.Errorf("resolving k8s node name: %w", err)
 		}
 
-		k8sNodeName = k8sName
+		k8sNodeName = name
 
-		return nodedrain.CordonAndDrain(ctx, cs, k8sNodeName, nodedrain.Options{}, noopReport)
+		return nil
 	}); err != nil {
 		return "", err
 	}
 
-	return k8sNodeName, nil
+	noopReport := func(talosreporter.Update) {}
+
+	return k8sNodeName, nodedrain.CordonAndDrain(ctx, cs, k8sNodeName, nodedrain.Options{}, noopReport)
 }
 
 func talosMachineUncordon(ctx context.Context, k8sNodeName, rawKubeconfig string) error {
