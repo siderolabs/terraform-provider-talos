@@ -782,7 +782,7 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 			return
 		}
 
-		if err := talosMachineUncordon(ctx, endpoint, node, talosConfig, k8sNodeName, rawKubeconfig); err != nil {
+		if err := talosMachineUncordon(ctx, k8sNodeName, rawKubeconfig); err != nil {
 			retErr = errors.Join(retErr, fmt.Errorf("uncordoning node: %w", err))
 		}
 	}()
@@ -926,7 +926,7 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 	return k8sNodeName, nil
 }
 
-func talosMachineUncordon(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, k8sNodeName, rawKubeconfig string) error {
+func talosMachineUncordon(ctx context.Context, k8sNodeName, rawKubeconfig string) error {
 	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
 	if err != nil {
 		return fmt.Errorf("building k8s client for uncordon: %w", err)
@@ -934,13 +934,11 @@ func talosMachineUncordon(ctx context.Context, endpoint, node string, talosConfi
 
 	noopReport := func(talosreporter.Update) {}
 
-	return talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		if waitErr := nodedrain.WaitForNodeReady(ctx, cs, k8sNodeName, 5*time.Minute); waitErr != nil {
-			return fmt.Errorf("waiting for node ready: %w", waitErr)
-		}
+	if waitErr := nodedrain.WaitForNodeReady(ctx, cs, k8sNodeName, 5*time.Minute); waitErr != nil {
+		return fmt.Errorf("waiting for node ready: %w", waitErr)
+	}
 
-		return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
-	})
+	return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
 }
 
 func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {
