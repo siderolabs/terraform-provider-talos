@@ -1,3 +1,81 @@
+## [terraform-provider-talos 0.12.0-alpha.4](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.4) (2026-06-12)
+
+Welcome to the v0.12.0-alpha.4 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### new resources
+
+New `talos_machine` and `talos_cluster` resources are added, please see docs.
+
+
+### Component Updates
+
+Talos sdk: v1.14.0-alpha.0
+
+
+### Contributors
+
+* Mickaël Canévet
+* Noel Georgi
+* ludwighansson
+
+### Changes
+<details><summary>21 commits</summary>
+<p>
+
+* [`c641631`](https://github.com/siderolabs/terraform-provider-talos/commit/c6416315e149fa8d14c46c766492fda0541afb80) fix(talos_machine): recover from half-open connection after reboot
+* [`1eb88f5`](https://github.com/siderolabs/terraform-provider-talos/commit/1eb88f558dc0b9d7167dc8180b3b7c29166a567b) release(v0.12.0-alpha.3): prepare release
+* [`6ba92c7`](https://github.com/siderolabs/terraform-provider-talos/commit/6ba92c762fa7d83dbdc592f5ef3a3686e1b881db) perf(talos_machine): decouple CordonAndDrain from Talos API
+* [`1a4f282`](https://github.com/siderolabs/terraform-provider-talos/commit/1a4f2824576ee62cce0b635174d057c74b11b912) perf(talos_machine): decouple talosMachineUncordon from Talos API
+* [`b812b76`](https://github.com/siderolabs/terraform-provider-talos/commit/b812b767eb764a9ee5a55de778e76c1468a6ea52) fix(talos_machine): trigger image updates when schematic changes
+* [`82c71d3`](https://github.com/siderolabs/terraform-provider-talos/commit/82c71d32532e4b7f07e8d5f584d62a797062988c) release(v0.12.0-alpha.2): prepare release
+* [`024ce5a`](https://github.com/siderolabs/terraform-provider-talos/commit/024ce5af35231d26d9342efb98f7b5d9c34798e8) fix(machine_configuration_apply): mark hash unknown when input is unknown during plan
+* [`76bd86c`](https://github.com/siderolabs/terraform-provider-talos/commit/76bd86c886c414e982f636ddd3c758447bbe39a8) fix(deps): upgrade Go to 1.26.4 to fix crypto/x509 vulnerabilities
+* [`0e717e3`](https://github.com/siderolabs/terraform-provider-talos/commit/0e717e311ef398724ef590d0fca66023df1ef3b0) fix(talos_machine): guard client_configuration in Update when WO variant is used
+* [`5292cff`](https://github.com/siderolabs/terraform-provider-talos/commit/5292cffecb3318dedc1e3e64626ada05ffad1f04) fix(talos_machine): support drain_on_upgrade on worker nodes via kubeconfig(_wo)
+* [`d3ad8c5`](https://github.com/siderolabs/terraform-provider-talos/commit/d3ad8c5ce5f46f6c8c8177b5c08813502aa109d9) docs: add Kubernetes upgrade workflow to resource documentation
+* [`4ca3e23`](https://github.com/siderolabs/terraform-provider-talos/commit/4ca3e2314b84346f400788f606d6ffc4814f3e88) fix(deps): upgrade golang.org/x/net to v0.55.0 to fix GO-2026-5026
+* [`d7c7739`](https://github.com/siderolabs/terraform-provider-talos/commit/d7c77397ba4efdf5ec2203aa8a1847473d0c56c1) release(v0.12.0-alpha.1): prepare release
+* [`7c725d5`](https://github.com/siderolabs/terraform-provider-talos/commit/7c725d51ce3e6992b57fe50b74e65789fcda8c8b) fix(on_destroy): use types.Bool to handle unknown values in on_destroy block
+* [`c2530a7`](https://github.com/siderolabs/terraform-provider-talos/commit/c2530a7643b20391d4026d5cb07776a19e4d5fe2) fix(talos_cluster): add control_plane_nodes to fix HA bootstrap
+* [`3c258d9`](https://github.com/siderolabs/terraform-provider-talos/commit/3c258d94014abd494a058b079c191e7a615d24d7) fix(talos_machine): fix client_configuration_wo support
+* [`01464b4`](https://github.com/siderolabs/terraform-provider-talos/commit/01464b4bed82d8f1aae944cbb3df267b2c961b02) release(v0.12.0-alpha.0): prepare release
+* [`fbf12d5`](https://github.com/siderolabs/terraform-provider-talos/commit/fbf12d56acc36e1d1e0e51011cba77f25c2a645a) feat: bump deps
+* [`23a9efc`](https://github.com/siderolabs/terraform-provider-talos/commit/23a9efc65d2192655c6fc5b190f73737a5b627a6) feat(talos_cluster): add talos_cluster resource
+* [`6c38092`](https://github.com/siderolabs/terraform-provider-talos/commit/6c38092cce102dce15149385d919a4483237b654) feat: add talos_machine resource
+* [`5e7b893`](https://github.com/siderolabs/terraform-provider-talos/commit/5e7b893add9448b48bcc56b64858fdf16c935ba4) chore: disable goconst
+</p>
+</details>
+
+### Changes since v0.12.0-alpha.3
+<details><summary>1 commit</summary>
+<p>
+
+* [`c641631`](https://github.com/siderolabs/terraform-provider-talos/commit/c6416315e149fa8d14c46c766492fda0541afb80) fix(talos_machine): recover from half-open connection after reboot
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/cosi-project/runtime**                v1.16.0 **_new_**
+* **github.com/hashicorp/terraform-plugin-docs**     v0.24.0 -> v0.25.0
+* **github.com/hashicorp/terraform-plugin-sdk/v2**   v2.40.0 -> v2.40.1
+* **github.com/hashicorp/terraform-plugin-testing**  v1.15.0 -> v1.16.0
+* **github.com/siderolabs/go-kubernetes**            v0.2.37 **_new_**
+* **github.com/siderolabs/image-factory**            v1.1.0 -> v1.3.1
+* **github.com/siderolabs/talos**                    v1.13.0 -> v1.14.0-alpha.0
+* **github.com/siderolabs/talos/pkg/machinery**      v1.13.0 -> v1.14.0-alpha.0
+* **golang.org/x/crypto**                            v0.50.0 -> v0.51.0
+* **golang.org/x/mod**                               v0.35.0 -> v0.36.0
+* **k8s.io/client-go**                               v0.35.4 -> v0.36.1
+
+Previous release can be found at [v0.11.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.11.0)
+
 ## [terraform-provider-talos 0.12.0-alpha.3](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0-alpha.3) (2026-06-11)
 
 Welcome to the v0.12.0-alpha.3 release of terraform-provider-talos!  
