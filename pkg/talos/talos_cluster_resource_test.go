@@ -14,38 +14,10 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
 
-// TestAccTalosCluster_bootstrap bootstraps etcd via talos_cluster, checks health, and
-// verifies idempotency.
-func TestAccTalosCluster_bootstrap(t *testing.T) {
-	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
-	resource.ParallelTest(t, resource.TestCase{
-		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
-			},
-		},
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccTalosClusterConfig(rName, gendata.VersionTag, "v1.35.4"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("talos_cluster.this", "id"),
-				),
-			},
-			// second apply must produce an empty plan
-			{
-				Config:   testAccTalosClusterConfig(rName, gendata.VersionTag, "v1.35.4"),
-				PlanOnly: true,
-			},
-		},
-	})
-}
-
-// TestAccTalosCluster_upgrade tests that changing kubernetes_version triggers a
-// rolling Kubernetes upgrade from v1.35.4 to v1.36.0.
-func TestAccTalosCluster_upgrade(t *testing.T) {
+// TestAccTalosCluster_bootstrapAndUpgrade bootstraps etcd via talos_cluster, verifies
+// idempotency, then upgrades Kubernetes from v1.35.4 to v1.36.0 on the same cluster
+// and verifies idempotency again.
+func TestAccTalosCluster_bootstrapAndUpgrade(t *testing.T) {
 	const (
 		baseK8sVersion    = "v1.35.4"
 		upgradeK8sVersion = "v1.36.0"
@@ -62,21 +34,27 @@ func TestAccTalosCluster_upgrade(t *testing.T) {
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Step 1: cluster bootstrapped at base k8s version
+			// Step 1: bootstrap cluster at base k8s version, check health
 			{
 				Config: testAccTalosClusterConfig(rName, gendata.VersionTag, baseK8sVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_cluster.this", "id"),
 					resource.TestCheckResourceAttr("talos_cluster.this", "kubernetes_version", baseK8sVersion),
 				),
 			},
-			// Step 2: upgrade to v1.36.0
+			// Step 2: idempotency at base version
+			{
+				Config:   testAccTalosClusterConfig(rName, gendata.VersionTag, baseK8sVersion),
+				PlanOnly: true,
+			},
+			// Step 3: upgrade Kubernetes to v1.36.0 on the same cluster
 			{
 				Config: testAccTalosClusterConfig(rName, gendata.VersionTag, upgradeK8sVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_cluster.this", "kubernetes_version", upgradeK8sVersion),
 				),
 			},
-			// Step 3: idempotency after upgrade
+			// Step 4: idempotency after upgrade
 			{
 				Config:   testAccTalosClusterConfig(rName, gendata.VersionTag, upgradeK8sVersion),
 				PlanOnly: true,

@@ -6,7 +6,7 @@ ifneq ($(origin TESTS), undefined)
 endif
 
 ifneq ($(origin CI), undefined)
-	RUNARGS += -parallel=3
+	RUNARGS += -parallel=8
 	RUNARGS += -timeout=60m
 	RUNARGS += -exec="sudo -E"
 endif

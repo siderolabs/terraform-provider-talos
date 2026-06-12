@@ -68,6 +68,8 @@ jobs:
           sudo virsh net-destroy default
           sudo virsh net-undefine default
           sudo virsh net-create net.xml
+      - name: Runner info
+        run: nproc && free -h
       - name: acceptance-test
         env:
           TERRAFORM_LIBVIRT_TEST_DOMAIN_TYPE: qemu

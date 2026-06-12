@@ -18,6 +18,10 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
 
+// TestAccTalosMachineConfigurationApplyResource applies machine configuration, checks all
+// attributes (including the disk data source that is always part of the config), verifies
+// idempotency, then exercises the regression for issue #352 (unknown machine_configuration_hash
+// in plan when machine_configuration_input is unknown) on the same cluster.
 func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -30,6 +34,7 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
+			// Step 1: initial apply — check config apply attributes and disk data source.
 			{
 				Config: testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -44,52 +49,30 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.#", "1"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
+					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
+					// disk data source assertions (always rendered by dynamicConfig)
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
+					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "node"),
+					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "endpoint"),
+					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.ca_certificate"),
+					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_certificate"),
+					resource.TestCheckResourceAttrSet("data.talos_machine_disks.this", "client_configuration.client_key"),
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "selector", "disk.size > 6u * GB"),
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.#", "1"),
+					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "disks.0.dev_path", "/dev/vda"),
 				),
 			},
-			// ensure there is no diff
+			// Step 2: ensure there is no diff.
 			{
 				Config:   testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
 				PlanOnly: true,
 			},
-		},
-	})
-}
-
-// TestAccTalosMachineConfigurationApplyUnknownInputHashIssue352 is a regression test for
-// issue #352. When machine_configuration_input is unknown during planning (because it
-// references a resource whose output is not yet resolved), the provider must mark
-// machine_configuration_hash as unknown in the plan too. If it leaves the hash at the
-// old state value (via UseStateForUnknown), OpenTofu rejects the changed hash as an
-// "inconsistent final plan" error during apply.
-//
-// The test simulates this by introducing a new terraform_data resource (unknown output
-// during plan) whose input holds a machine configuration rendered with a different
-// cluster_name. Because terraform_data.trigger is new (not in prior state), its output
-// is unknown during planning — exactly like a data source that is read during apply.
-func TestAccTalosMachineConfigurationApplyUnknownInputHashIssue352(t *testing.T) {
-	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
-	resource.ParallelTest(t, resource.TestCase{
-		ExternalProviders: map[string]resource.ExternalProvider{
-			"libvirt": {
-				Source:            "dmacvicar/libvirt",
-				VersionConstraint: "= 0.8.3",
-			},
-		},
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{
-			// Step 1: initial apply — establishes state with machine_configuration_hash = H1.
-			{
-				Config: testAccTalosMachineConfigurationApplyResourceConfig("talos", rName),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
-				),
-			},
-			// Step 2: machine_configuration_input is unknown during planning.
-			// Before the fix: machine_configuration_hash stays at H1 (UseStateForUnknown),
-			// but is recomputed to H2 during apply — OpenTofu errors "inconsistent final plan".
-			// After the fix: machine_configuration_hash is marked unknown in the plan,
-			// apply resolves it to H2, and state is updated.
+			// Step 3: regression for issue #352 — machine_configuration_input is unknown during
+			// planning (terraform_data.trigger is new, so its output is unknown until applied).
+			// Before the fix: machine_configuration_hash stays at H1 (UseStateForUnknown) but
+			// is recomputed to H2 during apply — OpenTofu rejects with "inconsistent final plan".
+			// After the fix: machine_configuration_hash is marked unknown in the plan and
+			// resolves to H2 after apply.
 			{
 				Config: testAccTalosMachineConfigurationApplyResourceConfigWithUnknownInput("talos", rName),
 				ConfigPlanChecks: resource.ConfigPlanChecks{
@@ -173,12 +156,19 @@ func logApplyModeState(t *testing.T, stepName string) resource.TestCheckFunc {
 // Bug scenario: v0.10.0 → v0.10.1
 //   - v0.10.0: staged_if_needing_reboot and resolved_apply_mode don't exist.
 //   - v0.10.1: add staged_if_needing_reboot, resolved_apply_mode appears but is EMPTY (this is the bug).
-func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBug(t *testing.T) {
+//
+// TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyMode exercises
+// the full upgrade path for resolved_apply_mode on a single cluster:
+//
+//   - v0.10.0: staged_if_needing_reboot and resolved_apply_mode don't exist (baseline).
+//   - v0.10.1: resolved_apply_mode is introduced but EMPTY when config didn't change (bug).
+//   - current: resolved_apply_mode is correctly computed after upgrade (fix).
+func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyMode(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	resource.ParallelTest(t, resource.TestCase{
 		Steps: []resource.TestStep{
-			// Step 1: v0.10.0 - staged_if_needing_reboot doesn't exist, use default apply_mode
+			// Step 1: v0.10.0 baseline — staged_if_needing_reboot doesn't exist, use default apply_mode.
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
 					"talos": {
@@ -196,7 +186,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBu
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "auto"),
 				),
 			},
-			// Step 2: v0.10.1 - switch to staged_if_needing_reboot, resolved_apply_mode is EMPTY (bug)
+			// Step 2: v0.10.1 — resolved_apply_mode introduced but EMPTY (bug: config didn't change).
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
 					"talos": {
@@ -212,43 +202,11 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeBu
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.1 - BUG: resolved_apply_mode is empty"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
-					// Bug: resolved_apply_mode is empty here because config didn't change
+					// Bug: resolved_apply_mode is empty here because config didn't change.
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode", ""),
 				),
 			},
-		},
-	})
-}
-
-// TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFix tests the fix for empty resolved_apply_mode.
-//
-// Fix scenario: v0.10.0 → current version
-//   - v0.10.0: staged_if_needing_reboot and resolved_apply_mode don't exist.
-//   - Current version: resolved_apply_mode is correctly computed (not empty).
-func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFix(t *testing.T) {
-	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
-
-	resource.ParallelTest(t, resource.TestCase{
-		Steps: []resource.TestStep{
-			// Step 1: v0.10.0 - staged_if_needing_reboot doesn't exist, use default apply_mode
-			{
-				ExternalProviders: map[string]resource.ExternalProvider{
-					"talos": {
-						VersionConstraint: "=0.10.0",
-						Source:            "siderolabs/talos",
-					},
-					"libvirt": {
-						Source:            "dmacvicar/libvirt",
-						VersionConstraint: "= 0.8.3",
-					},
-				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "auto"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					logApplyModeState(t, "v0.10.0 - baseline"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "auto"),
-				),
-			},
-			// Step 2: Current version - switch to staged_if_needing_reboot, resolved_apply_mode is correctly computed
+			// Step 3: current version — resolved_apply_mode is correctly computed (fix).
 			{
 				ExternalProviders: map[string]resource.ExternalProvider{
 					"libvirt": {
@@ -261,7 +219,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyModeFi
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "current version - FIX: resolved_apply_mode is computed"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
-					// Fix: resolved_apply_mode should now be computed (not empty)
+					// Fix: resolved_apply_mode is now correctly computed (not empty).
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.staged_if_needing_reboot", "resolved_apply_mode"),
 				),
 			},
