@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/crypto/x509"
 	sideronet "github.com/siderolabs/net"
+	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/config"
@@ -35,7 +36,6 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
-	"github.com/siderolabs/talos/pkg/machinery/gendata"
 	"github.com/siderolabs/talos/pkg/machinery/role"
 	"golang.org/x/crypto/hkdf"
 )
@@ -131,8 +131,13 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 }
 
 // GenerateInstallerImage generates the installer image name.
+//
+// Since Talos v1.14 the monolithic ghcr.io/siderolabs/installer image is no
+// longer published with releases; the default installer is served by the Image
+// Factory as <factory>/<platform>-installer/<schematic>:<version>. Mirror the
+// upstream `talosctl gen config` default (metal platform, empty schematic).
 func GenerateInstallerImage() string {
-	return fmt.Sprintf("%s/%s/installer:%s", gendata.ImagesRegistry, gendata.ImagesUsername, gendata.VersionTag)
+	return images.InstallerImage("metal")
 }
 
 func secretsBundleTomachineSecrets(secretsBundle *secrets.Bundle) (talosMachineSecretsResourceModelV1, error) {

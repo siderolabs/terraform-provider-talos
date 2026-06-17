@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
 
@@ -106,6 +107,8 @@ func testAccTalosClusterConfig(rName, talosVersion, k8sVersion string) string {
 		talosVersion,
 	)
 
+	installerBase := images.InstallerImageRepository("metal")
+
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
 
@@ -123,7 +126,7 @@ data "talos_machine_configuration" "this" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[4]s"
+          image = "%[6]s:%[4]s"
         }
       }
     })
@@ -215,7 +218,7 @@ data "talos_cluster_health" "this" {
     read = "20m"
   }
 }
-`, rName, cpuMode, isoURL, talosVersion, k8sVersion)
+`, rName, cpuMode, isoURL, talosVersion, k8sVersion, installerBase)
 }
 
 func testAccTalosClusterHAConfig(rName, talosVersion, k8sVersion string) string {
@@ -228,6 +231,8 @@ func testAccTalosClusterHAConfig(rName, talosVersion, k8sVersion string) string 
 		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
 		talosVersion,
 	)
+
+	installerBase := images.InstallerImageRepository("metal")
 
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
@@ -246,7 +251,7 @@ data "talos_machine_configuration" "cp" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[4]s"
+          image = "%[6]s:%[4]s"
         }
       }
     })
@@ -417,7 +422,7 @@ resource "talos_machine" "cp_01" {
   endpoint              = libvirt_domain.cp_01.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.cp.machine_configuration
-  image                 = "ghcr.io/siderolabs/installer:%[4]s"
+  image                 = "%[6]s:%[4]s"
   drain_on_upgrade      = false
 
   timeouts = {
@@ -432,7 +437,7 @@ resource "talos_machine" "cp_02" {
   endpoint              = libvirt_domain.cp_02.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.cp.machine_configuration
-  image                 = "ghcr.io/siderolabs/installer:%[4]s"
+  image                 = "%[6]s:%[4]s"
   drain_on_upgrade      = false
 
   timeouts = {
@@ -447,7 +452,7 @@ resource "talos_machine" "cp_03" {
   endpoint              = libvirt_domain.cp_03.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.cp.machine_configuration
-  image                 = "ghcr.io/siderolabs/installer:%[4]s"
+  image                 = "%[6]s:%[4]s"
   drain_on_upgrade      = false
 
   timeouts = {
@@ -468,5 +473,5 @@ resource "talos_cluster" "this" {
     update = "30m"
   }
 }
-`, rName, cpuMode, isoURL, talosVersion, k8sVersion)
+`, rName, cpuMode, isoURL, talosVersion, k8sVersion, installerBase)
 }

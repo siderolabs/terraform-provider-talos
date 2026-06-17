@@ -867,7 +867,7 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 				action.WithPostCheck(postCheckFn),
 				action.WithDebug(false),
 				action.WithTimeout(deleteTimeout),
-			).Run()
+			).Run(ctx)
 		}); err != nil {
 			resp.Diagnostics.AddError("Error resetting machine", err.Error())
 
@@ -1273,8 +1273,8 @@ func newClientExecutor(c *client.Client, nodes []string) *clientExecutor {
 	}
 }
 
-func (c *clientExecutor) WithClient(action func(context.Context, *client.Client) error, _ ...grpc.DialOption) error {
-	ctx := client.WithNodes(context.Background(), c.nodes...)
+func (c *clientExecutor) WithClient(ctx context.Context, action func(context.Context, *client.Client) error, _ ...grpc.DialOption) error {
+	ctx = client.WithNodes(ctx, c.nodes...)
 
 	return action(ctx, c.c)
 }

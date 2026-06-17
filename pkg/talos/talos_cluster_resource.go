@@ -369,9 +369,14 @@ func talosClusterBootstrap(ctx context.Context, endpoint, node string, talosConf
 	}
 
 	return retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-			return c.Bootstrap(nodeCtx, nil)
-		}); err != nil {
+		c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(endpoint))
+		if err != nil {
+			return retry.RetryableError(err)
+		}
+
+		defer c.Close() //nolint:errcheck
+
+		if err := c.Bootstrap(client.WithNode(ctx, node), nil); err != nil {
 			if s := status.Code(err); s == codes.AlreadyExists {
 				return nil
 			} else if s == codes.InvalidArgument {

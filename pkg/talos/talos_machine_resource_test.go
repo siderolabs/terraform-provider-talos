@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
+	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
@@ -32,9 +33,7 @@ import (
 // TestAccTalosMachine_bootstrap applies machine configuration via talos_machine,
 // bootstraps etcd, waits for cluster health, and confirms idempotency.
 func TestAccTalosMachine_bootstrap(t *testing.T) {
-	const (
-		baseImage = "ghcr.io/siderolabs/installer"
-	)
+	baseImage := images.InstallerImageRepository("metal")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -109,7 +108,7 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, upgradeVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.worker", "image",
-						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", upgradeVersion)),
+						images.InstallerImageRepository("metal")+":"+upgradeVersion),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
@@ -133,6 +132,8 @@ func testAccTalosMachineWorkerDrainConfig(rName, cpImageTag, workerImageTag stri
 		cpImageTag,
 	)
 
+	installerBase := images.InstallerImageRepository("metal")
+
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
 
@@ -150,7 +151,7 @@ data "talos_machine_configuration" "cp" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[4]s"
+          image = "%[6]s:%[4]s"
         }
       }
     })
@@ -171,7 +172,7 @@ data "talos_machine_configuration" "worker" {
       machine = {
         install = {
           disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[4]s"
+          image = "%[6]s:%[4]s"
         }
       }
     })
@@ -287,7 +288,7 @@ resource "talos_machine" "cp" {
   endpoint              = libvirt_domain.cp.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.cp.machine_configuration
-  image                 = "ghcr.io/siderolabs/installer:%[4]s"
+  image                 = "%[6]s:%[4]s"
   drain_on_upgrade      = false
 
   timeouts = {
@@ -315,7 +316,7 @@ resource "talos_machine" "worker" {
   endpoint              = libvirt_domain.worker.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.worker.machine_configuration
-  image                 = "ghcr.io/siderolabs/installer:%[5]s"
+  image                 = "%[6]s:%[5]s"
   drain_on_upgrade      = true
   kubeconfig_wo         = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
 
@@ -336,7 +337,7 @@ data "talos_cluster_health" "this" {
 
   timeouts = { read = "25m" }
 }
-`, rName, cpuMode, isoURL, cpImageTag, workerImageTag)
+`, rName, cpuMode, isoURL, cpImageTag, workerImageTag, installerBase)
 }
 
 // TestAccTalosMachine_upgrade tests that changing `image` triggers an OS upgrade:
@@ -345,10 +346,11 @@ data "talos_cluster_health" "this" {
 //nolint:dupl
 func TestAccTalosMachine_upgrade(t *testing.T) {
 	const (
-		baseImage      = "ghcr.io/siderolabs/installer"
 		baseVersion    = "v1.12.7"
 		upgradeVersion = "v1.13.0"
 	)
+
+	baseImage := images.InstallerImageRepository("metal")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -396,9 +398,10 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 func TestAccTalosMachine_upgradeSchematic(t *testing.T) {
 	const (
 		talosVersion = "v1.13.0"
-		baseImage    = "ghcr.io/siderolabs/installer"
 		upgradeImage = "factory.talos.dev/metal-installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
 	)
+
+	baseImage := images.InstallerImageRepository("metal")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -445,10 +448,11 @@ func TestAccTalosMachine_upgradeSchematic(t *testing.T) {
 //nolint:dupl
 func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 	const (
-		baseImage      = "ghcr.io/siderolabs/installer"
 		baseVersion    = "v1.13.0-rc.0"
 		upgradeVersion = "v1.13.0"
 	)
+
+	baseImage := images.InstallerImageRepository("metal")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
@@ -496,9 +500,7 @@ func TestAccTalosMachine_upgradeLifecycle(t *testing.T) {
 // "provider produced inconsistent result after apply" because the plan said
 // client_configuration = null but the provider returned a non-null value.
 func TestAccTalosMachine_bootstrapWithWriteOnlyClientConfig(t *testing.T) {
-	const (
-		baseImage = "ghcr.io/siderolabs/installer"
-	)
+	baseImage := images.InstallerImageRepository("metal")
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 

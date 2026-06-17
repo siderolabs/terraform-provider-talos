@@ -32,6 +32,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
+	"github.com/siderolabs/talos/pkg/images"
 	commonapi "github.com/siderolabs/talos/pkg/machinery/api/common"
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/client"
@@ -508,7 +509,7 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 		if len(versionResp.Messages) > 0 {
 			base := state.Image.ValueString()
 			if base == "" {
-				base = "ghcr.io/siderolabs/installer"
+				base = images.InstallerImageRepository("metal")
 			}
 
 			runningImage = replaceImageTag(base, versionResp.Messages[0].Version.Tag)
@@ -697,7 +698,7 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 			actionFn,
 			action.WithDebug(false),
 			action.WithTimeout(deleteTimeout),
-		).Run()
+		).Run(ctx)
 	}); err != nil {
 		resp.Diagnostics.AddError("error resetting machine", err.Error())
 	}
@@ -971,13 +972,12 @@ func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {
 // through the default 120s exponential backoff before reconnecting.
 type rebootExecutor struct {
 	talosConfig *clientconfig.Config
-	setupCtx    context.Context //nolint:containedctx
 	endpoint    string
 	node        string
 }
 
-func (r *rebootExecutor) WithClient(fn func(context.Context, *client.Client) error, dialOpts ...grpc.DialOption) error {
-	c, err := client.New(r.setupCtx,
+func (r *rebootExecutor) WithClient(ctx context.Context, fn func(context.Context, *client.Client) error, dialOpts ...grpc.DialOption) error {
+	c, err := client.New(ctx,
 		client.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}), //nolint:gosec
 		client.WithEndpoints(r.endpoint),
 		client.WithGRPCDialOptions(dialOpts...),
@@ -986,12 +986,12 @@ func (r *rebootExecutor) WithClient(fn func(context.Context, *client.Client) err
 		return err
 	}
 
-	nodeCtx := client.WithNode(r.setupCtx, r.node)
+	nodeCtx := client.WithNode(ctx, r.node)
 
 	if _, testErr := c.Disks(nodeCtx); testErr != nil {
 		c.Close() //nolint:errcheck
 
-		c, err = client.New(r.setupCtx,
+		c, err = client.New(ctx,
 			client.WithConfig(r.talosConfig),
 			client.WithEndpoints(r.endpoint),
 			client.WithGRPCDialOptions(dialOpts...),
@@ -1003,7 +1003,7 @@ func (r *rebootExecutor) WithClient(fn func(context.Context, *client.Client) err
 
 	defer c.Close() //nolint:errcheck
 
-	ctx := client.WithNode(context.Background(), r.node)
+	ctx = client.WithNode(ctx, r.node)
 
 	return fn(ctx, c)
 }
@@ -1019,7 +1019,7 @@ func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig 
 	}
 
 	rebootMode := machineapi.RebootRequest_Mode(rebootModeVal)
-	executor := &rebootExecutor{talosConfig: talosConfig, setupCtx: ctx, endpoint: endpoint, node: node}
+	executor := &rebootExecutor{talosConfig: talosConfig, endpoint: endpoint, node: node}
 
 	return action.NewTracker(
 		executor,
@@ -1038,7 +1038,7 @@ func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig 
 		},
 		action.WithPostCheck(action.BootIDChangedPostCheckFn),
 		action.WithTimeout(15*time.Minute),
-	).Run()
+	).Run(ctx)
 }
 
 // talosMachineUpgradeLegacy handles Talos < 1.13 nodes where LifecycleService is not available.
