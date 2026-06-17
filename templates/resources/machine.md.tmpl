@@ -82,10 +82,26 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
-## Upgrading Kubernetes
+## Kubernetes component image management
 
-`talos_cluster` is responsible for upgrading Kubernetes via the `upgrade-k8s` procedure. Changing `kubernetes_version` in `talos_machine_configuration` updates the component image tags in the generated configuration but does **not** trigger an upgrade on its own.
+When used together with [`talos_cluster`](cluster.md), set `ignore_kubernetes_upgrade_drift = true` on `talos_machine`. This prevents `talos_machine` from re-applying the five Kubernetes component image fields managed by `upgrade-k8s`:
 
-The recommended workflow is two separate applies: upgrade `talos_cluster.kubernetes_version` first, then update `kubernetes_version` in `talos_machine_configuration`. By the second apply, `upgrade-k8s` has already patched the image tags on each node, so `talos_machine` detects no configuration drift and skips re-applying. See [`talos_cluster`](cluster.md) for details.
+- `machine.kubelet.image`
+- `cluster.apiServer.image`
+- `cluster.controllerManager.image`
+- `cluster.scheduler.image`
+- `cluster.proxy.image`
+
+[Talos's `upgrade-k8s` procedure](https://docs.siderolabs.com/kubernetes-guides/advanced-guides/upgrading-kubernetes/) upgrades these component-by-component and node-by-node with health gating. Applying them in parallel from `talos_machine` would bypass that safety procedure.
+
+With `ignore_kubernetes_upgrade_drift = true`:
+
+- `kubernetes_version` in `talos_machine_configuration` and `talos_cluster.kubernetes_version` can be bumped in the same `terraform apply` without conflict.
+- Drift in these five fields is not detected by `talos_machine`. Only the version tag is stripped from the hash — a registry change (e.g. switching to a private mirror) is still detected as drift.
+- `kubernetes_version` in `talos_machine_configuration` still matters at **bootstrap** — new nodes added later (scale-up) come up at that version. Keep it in sync with `talos_cluster.kubernetes_version`.
+
+> **Experimental**: `ignore_kubernetes_upgrade_drift` is safe to use but cannot be guaranteed to work with all future versions of Talos. The list of image fields managed by `upgrade-k8s` may grow, and we cannot predict in advance which new fields will need to be added. That said, adding a new field is a trivial change, and enabling or disabling this attribute at any time is safe — the only consequence is a one-time apply to refresh the machine configuration hash in state.
+
+If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upgrade_drift` unset and run `talosctl upgrade-k8s` manually to upgrade Kubernetes.
 
 {{ .SchemaMarkdown | trimspace }}

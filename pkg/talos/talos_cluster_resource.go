@@ -140,8 +140,15 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				},
 			},
 			"kubernetes_version": schema.StringAttribute{
-				Required:    true,
-				Description: "Desired Kubernetes version (e.g. `v1.32.0`). Changing this triggers a rolling upgrade.",
+				Required: true,
+				Description: "Desired Kubernetes version (e.g. `v1.32.0`). " +
+					"This is the canonical driver for Kubernetes upgrades: changing it runs Talos's " +
+					"`upgrade-k8s` procedure, which sequentially upgrades kube-apiserver, " +
+					"kube-controller-manager, kube-scheduler, kube-proxy, and kubelet on each node " +
+					"with health gating. " +
+					"Set `ignore_kubernetes_upgrade_drift = true` on `talos_machine` so that image tag " +
+					"changes owned by `upgrade-k8s` are excluded from drift detection and `talos_cluster` " +
+					"fully owns the upgrade sequencing.",
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,

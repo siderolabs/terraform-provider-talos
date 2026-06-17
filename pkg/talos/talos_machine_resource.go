@@ -6,9 +6,7 @@ package talos
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +27,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
@@ -67,21 +66,22 @@ var (
 )
 
 type talosMachineResourceModel struct {
-	OnDestroy                *onDestroyOptions     `tfsdk:"on_destroy"`
-	MachineConfigurationWO   types.String          `tfsdk:"machine_configuration_wo"`
-	Kubeconfig               types.String          `tfsdk:"kubeconfig"`
-	KubeconfigWO             types.String          `tfsdk:"kubeconfig_wo"`
-	Endpoint                 types.String          `tfsdk:"endpoint"`
-	ClientConfiguration      basetypes.ObjectValue `tfsdk:"client_configuration"`
-	ClientConfigurationWO    basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
-	MachineConfiguration     types.String          `tfsdk:"machine_configuration"`
-	ID                       types.String          `tfsdk:"id"`
-	Image                    types.String          `tfsdk:"image"`
-	MachineConfigurationHash types.String          `tfsdk:"machine_configuration_hash"`
-	RebootMode               types.String          `tfsdk:"reboot_mode"`
-	Timeouts                 timeouts.Value        `tfsdk:"timeouts"`
-	Node                     types.String          `tfsdk:"node"`
-	DrainOnUpgrade           types.Bool            `tfsdk:"drain_on_upgrade"`
+	OnDestroy                    *onDestroyOptions     `tfsdk:"on_destroy"`
+	MachineConfigurationWO       types.String          `tfsdk:"machine_configuration_wo"`
+	Kubeconfig                   types.String          `tfsdk:"kubeconfig"`
+	KubeconfigWO                 types.String          `tfsdk:"kubeconfig_wo"`
+	Endpoint                     types.String          `tfsdk:"endpoint"`
+	ClientConfiguration          basetypes.ObjectValue `tfsdk:"client_configuration"`
+	ClientConfigurationWO        basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
+	MachineConfiguration         types.String          `tfsdk:"machine_configuration"`
+	ID                           types.String          `tfsdk:"id"`
+	Image                        types.String          `tfsdk:"image"`
+	MachineConfigurationHash     types.String          `tfsdk:"machine_configuration_hash"`
+	RebootMode                   types.String          `tfsdk:"reboot_mode"`
+	Timeouts                     timeouts.Value        `tfsdk:"timeouts"`
+	Node                         types.String          `tfsdk:"node"`
+	DrainOnUpgrade               types.Bool            `tfsdk:"drain_on_upgrade"`
+	IgnoreKubernetesUpgradeDrift types.Bool            `tfsdk:"ignore_kubernetes_upgrade_drift"`
 }
 
 // NewTalosMachineResource implements the resource.Resource interface.
@@ -196,6 +196,17 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 				Description: "Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.",
+			},
+			"ignore_kubernetes_upgrade_drift": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				Description: "Experimental: when true, talos_machine ignores Kubernetes component image " +
+					"tag changes owned by talos_cluster/upgrade-k8s, preventing drift detection from " +
+					"interfering with graceful Kubernetes upgrades. Safe to use — enabling or disabling " +
+					"causes at most a one-time apply to refresh the config hash. Cannot be guaranteed " +
+					"to work with all future Talos versions: if upgrade-k8s manages additional image " +
+					"fields in a future release, this attribute must be updated to match.",
 			},
 			"kubeconfig": schema.StringAttribute{
 				Optional:  true,
@@ -368,8 +379,10 @@ func (r *talosMachineResource) ModifyPlan(ctx context.Context, req resource.Modi
 		return
 	}
 
-	sum := sha256.Sum256(cfgBytes)
-	desiredHash := hex.EncodeToString(sum[:])
+	desiredHash, stripped := computeConfigHash(cfgBytes, plan.IgnoreKubernetesUpgradeDrift.ValueBool())
+	if !stripped {
+		tflog.Warn(ctx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
+	}
 
 	var state talosMachineResourceModel
 
@@ -457,8 +470,12 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	sum := sha256.Sum256(cfgBytes)
-	plan.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+	cfgHash, stripped := computeConfigHash(cfgBytes, plan.IgnoreKubernetesUpgradeDrift.ValueBool())
+	if !stripped {
+		tflog.Warn(ctx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
+	}
+
+	plan.MachineConfigurationHash = types.StringValue(cfgHash)
 
 	if !plan.Image.IsNull() {
 		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
@@ -527,6 +544,14 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 
 	// Fetch the applied config hash from COSI to detect out-of-band drift.
 	// Non-fatal: leave hash stale if COSI is unavailable.
+	//
+	// Note: the hash format changed from raw sha256(bytes) to
+	// NormalizedConfigHash (sha256 of YAML-normalized config) in
+	// v0.12.0-alpha.5. Existing state from earlier alphas holds the old format.
+	// On the first plan after upgrade the hashes will not match, triggering a
+	// one-time config re-apply. The re-apply is safe: the config is unchanged
+	// and Talos will not reboot for a no-op. No StateUpgraders migration is
+	// provided since only alpha versions are affected.
 	_ = talosClientOp(ctx, endpoint, state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error { //nolint:errcheck
 		cfg, err := safe.StateGet[*configresource.MachineConfig](
 			nodeCtx,
@@ -547,8 +572,18 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 			return err
 		}
 
-		sum := sha256.Sum256(yamlBytes)
-		state.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+		// Both Read (COSI bytes) and ModifyPlan (provider-rendered bytes) go
+		// through computeConfigHash's yaml.Marshal normalization, so key
+		// ordering is consistent on both sides. The two byte sources are
+		// semantically identical as long as Talos does not inject extra default
+		// fields when serializing — which is the case for configs written by
+		// this provider.
+		cfgHash, stripped := computeConfigHash(yamlBytes, state.IgnoreKubernetesUpgradeDrift.ValueBool())
+		if !stripped {
+			tflog.Warn(nodeCtx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
+		}
+
+		state.MachineConfigurationHash = types.StringValue(cfgHash)
 
 		return nil
 	})
@@ -633,14 +668,32 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 			return
 		}
 
+		// Skip config apply if the normalized hash is unchanged. This covers two
+		// cases: (1) write-only machine_configuration_wo, where ModifyPlan cannot
+		// read the config and always marks hash Unknown; and (2) a simultaneous
+		// Talos OS upgrade where kubernetes_version also changed — the OS upgrade
+		// already happened above; with ignore_kubernetes_upgrade_drift=true, K8s
+		// images are excluded from the hash and must not be re-applied here, which
+		// would bypass upgrade-k8s's sequential safety procedure.
+		configHash, stripped := computeConfigHash(cfgBytes, plan.IgnoreKubernetesUpgradeDrift.ValueBool())
+		if !stripped {
+			tflog.Warn(ctx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
+		}
+
+		if configHash == state.MachineConfigurationHash.ValueString() {
+			plan.MachineConfigurationHash = state.MachineConfigurationHash
+			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+
+			return
+		}
+
 		if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes); err != nil {
 			resp.Diagnostics.AddError("error applying machine configuration", err.Error())
 
 			return
 		}
 
-		sum := sha256.Sum256(cfgBytes)
-		plan.MachineConfigurationHash = types.StringValue(hex.EncodeToString(sum[:]))
+		plan.MachineConfigurationHash = types.StringValue(configHash)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -1003,9 +1056,7 @@ func (r *rebootExecutor) WithClient(ctx context.Context, fn func(context.Context
 
 	defer c.Close() //nolint:errcheck
 
-	ctx = client.WithNode(ctx, r.node)
-
-	return fn(ctx, c)
+	return fn(client.WithNode(ctx, r.node), c)
 }
 
 func (r *rebootExecutor) NodeList() []string {
@@ -1172,4 +1223,16 @@ func talosMachineEffectiveEndpoint(state *talosMachineResourceModel) string {
 	}
 
 	return state.Node.ValueString()
+}
+
+// computeConfigHash returns the drift-detection hash for cfgBytes.
+// When suppressK8sDrift is true (ignore_kubernetes_upgrade_drift), the
+// upgrade-k8s-managed image tags are stripped before hashing so that a
+// kubernetes_version bump does not trigger a machine-config re-apply.
+func computeConfigHash(cfgBytes []byte, suppressK8sDrift bool) (string, bool) {
+	if suppressK8sDrift {
+		return K8sManagedConfigHash(cfgBytes)
+	}
+
+	return NormalizedConfigHash(cfgBytes)
 }

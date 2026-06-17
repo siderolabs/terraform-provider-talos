@@ -442,6 +442,171 @@ func TestAccTalosMachine_upgradeSchematic(t *testing.T) {
 	})
 }
 
+// TestAccTalosMachine_upgradeDoesNotApplyK8sImages proves that talos_machine never
+// applies the five K8s component image fields in two distinct scenarios:
+//
+//   - Step 2: Talos image and kubernetes_version both change simultaneously
+//     (imageChanged path). The OS upgrade proceeds; K8s image fields are not applied.
+//   - Step 3: Only kubernetes_version changes (no OS upgrade). K8s image fields are
+//     not applied.
+//
+// talos_version and machine.install.image stay constant throughout so the only diffs
+// in the generated machine configuration are the five K8s image fields.
+// machine_configuration_hash must equal the step-1 value in both steps.
+func TestAccTalosMachine_upgradeDoesNotApplyK8sImages(t *testing.T) {
+	const (
+		// isoVersion is the ISO used to boot the VM and the talos_version contract
+		// baked into the machine configuration. It stays constant across all steps
+		// so only the Talos installer image (talos_machine.image) and kubernetes_version
+		// change — isolating the K8s image ownership boundary.
+		isoVersion     = "v1.12.7"
+		upgradeVersion = "v1.13.0"
+		baseK8s        = "v1.35.3"
+		step2K8s       = "v1.35.4" // bumped simultaneously with OS upgrade in step 2
+		step3K8s       = "v1.36.0" // bumped alone (no OS change) in step 3
+	)
+
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	var step1Hash string
+
+	hashUnchanged := func(v string) error {
+		if v != step1Hash {
+			return fmt.Errorf(
+				"machine_configuration_hash changed from %q to %q: talos_machine applied K8s image fields that should be owned by talos_cluster/upgrade-k8s",
+				step1Hash, v,
+			)
+		}
+
+		return nil
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: bootstrap at isoVersion with baseK8s; capture hash.
+			{
+				Config: testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, isoVersion, baseK8s, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+					resource.TestCheckResourceAttrWith("talos_machine.this", "machine_configuration_hash", func(v string) error {
+						step1Hash = v
+
+						return nil
+					}),
+				),
+			},
+			// Step 2: upgrade Talos image to upgradeVersion AND bump kubernetes_version
+			// simultaneously (imageChanged path). talos_version and machine.install.image
+			// stay constant, so the config diff is only the five K8s image fields.
+			// The OS upgrade must proceed; K8s image fields must NOT be applied.
+			{
+				Config: testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, upgradeVersion, step2K8s, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine.this", "image",
+						fmt.Sprintf("ghcr.io/siderolabs/installer:%s", upgradeVersion)),
+					resource.TestCheckResourceAttrWith("talos_machine.this", "machine_configuration_hash", hashUnchanged),
+				),
+			},
+			// Step 3: bump kubernetes_version only (OS stays at upgradeVersion).
+			// K8s image fields must NOT be applied — hash must remain step-1 value.
+			{
+				Config: testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, upgradeVersion, step3K8s, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith("talos_machine.this", "machine_configuration_hash", hashUnchanged),
+				),
+			},
+		},
+	})
+}
+
+// TestAccTalosMachine_multidocK8sImagesOwned verifies that bumping kubernetes_version
+// does NOT change machine_configuration_hash when Talos 1.14+ emits multi-document YAML
+// (KubeControllerManagerConfig and KubeSchedulerConfig as separate documents). The image
+// fields in those documents are upgrade-k8s-managed and must be stripped before hashing,
+// just like the five v1alpha1 image paths on older Talos versions.
+func TestAccTalosMachine_multidocK8sImagesOwned(t *testing.T) {
+	const (
+		// talosVersion is the first release where talos_machine_configuration generates
+		// multi-doc YAML when talos_version_contract >= "v1.14.0".
+		talosVersion = "v1.14.0-alpha.1"
+		baseK8s      = "v1.36.0"
+		bumpedK8s    = "v1.36.1"
+	)
+
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	var step1Hash string
+
+	hashUnchanged := func(v string) error {
+		if v != step1Hash {
+			return fmt.Errorf(
+				"machine_configuration_hash changed from %q to %q: talos_machine applied multi-doc K8s image fields that should be owned by talos_cluster/upgrade-k8s",
+				step1Hash, v,
+			)
+		}
+
+		return nil
+	}
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Step 1: boot at alpha.1 with k8s 1.36.0; apply multi-doc config.
+			// talos_version_contract="v1.14.0-alpha.1" causes talos_machine_configuration
+			// to emit multi-doc YAML (KubeControllerManagerConfig and KubeSchedulerConfig
+			// as separate documents). Capture the stripped hash.
+			// Bootstrap is intentionally omitted: we only need the machine config applied
+			// (not a running cluster) to verify hash stability.
+			{
+				Config: testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, baseK8s, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+					resource.TestCheckResourceAttrWith("talos_machine.this", "machine_configuration_hash", func(v string) error {
+						step1Hash = v
+
+						return nil
+					}),
+				),
+			},
+			// Step 2: bump kubernetes_version from 1.36.0 to 1.36.1 (Talos stays at alpha.1).
+			// In multi-doc format the controller-manager and scheduler image fields live in
+			// KubeControllerManagerConfig / KubeSchedulerConfig documents; stripK8sImages
+			// strips the image tag from those documents via k8sDocImageKinds, so the hash
+			// must remain equal to the step-1 value.
+			{
+				Config: testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, bumpedK8s, true),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith("talos_machine.this", "machine_configuration_hash", hashUnchanged),
+				),
+			},
+			// Step 3: idempotency — plan must be empty after the k8s bump.
+			{
+				Config:   testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, bumpedK8s, true),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
 // TestAccTalosMachine_upgradeLifecycle tests the LifecycleService upgrade path (Talos ≥ v1.13):
 // the node boots at v1.13.0-rc.0 and is upgraded to v1.13.0 via ImageClient.Pull + LifecycleService.Upgrade.
 //
@@ -1116,8 +1281,7 @@ func TestModifyPlan_UnchangedConfig_HashIsKnown(t *testing.T) {
 
 	cfgContent := "machine: {}"
 	cfgBytes := []byte(cfgContent)
-	sum := sha256.Sum256(cfgBytes)
-	expectedHash := hex.EncodeToString(sum[:])
+	expectedHash, _ := talos.K8sManagedConfigHash(cfgBytes)
 
 	// Build tftypes.Value with null for every attribute, then override the ones
 	// ModifyPlan actually reads.
@@ -1178,6 +1342,506 @@ func TestModifyPlan_UnchangedConfig_HashIsKnown(t *testing.T) {
 
 	if plannedHash.ValueString() != expectedHash {
 		t.Fatalf("planned hash %q != expected %q", plannedHash.ValueString(), expectedHash)
+	}
+}
+
+// testAccTalosMachineConfigUpgradeAndK8sBump separates talos_machine.image (the
+// upgrade target) from the talos_version contract and machine.install.image used in
+// the machine configuration. isoVersion stays constant
+// across steps so the only config diff between steps is kubernetes_version (K8s images).
+func testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, imageTag, k8sVersion string, ignoreK8sDrift bool) string {
+	cpuMode := cpuModeDefault
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeCI
+	}
+
+	isoURL := fmt.Sprintf(
+		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
+		isoVersion,
+	)
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+ephemeral "talos_machine_configuration" "this" {
+  cluster_name       = "test"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
+  talos_version      = %[4]q
+  kubernetes_version = %[5]q
+  docs               = false
+  examples           = false
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk  = "/dev/vda"
+          image = "ghcr.io/siderolabs/installer:%[4]s"
+        }
+      }
+    })
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = %[1]q
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = %[1]q
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [cpu, nvram, disk["url"]]
+  }
+
+  cpu {
+    mode = %[2]q
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = %[3]q
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+resource "talos_machine" "this" {
+  node                                   = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint                               = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration                   = talos_machine_secrets.this.client_configuration
+  machine_configuration_wo               = ephemeral.talos_machine_configuration.this.machine_configuration
+  image                                  = "ghcr.io/siderolabs/installer:%[6]s"
+  drain_on_upgrade                       = false
+  ignore_kubernetes_upgrade_drift  = %[7]t
+
+  timeouts = {
+    create = "20m"
+    update = "60m"
+    delete = "5m"
+  }
+}
+
+resource "talos_machine_bootstrap" "this" {
+  depends_on           = [talos_machine.this]
+  node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration = talos_machine_secrets.this.client_configuration
+}
+`, rName, cpuMode, isoURL, isoVersion, k8sVersion, imageTag, ignoreK8sDrift)
+}
+
+// testAccTalosMachineConfigK8sBumpNoBootstrap is like
+// testAccTalosMachineConfigUpgradeAndK8sBump but without talos_machine_bootstrap.
+// It is used by tests that only need to verify machine_configuration_hash stability
+// and do not need a running Kubernetes cluster (which requires bootstrap + etcd).
+func testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, k8sVersion string, ignoreK8sDrift bool) string {
+	cpuMode := cpuModeDefault
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeCI
+	}
+
+	isoURL := fmt.Sprintf(
+		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
+		talosVersion,
+	)
+
+	installerBase := images.InstallerImageRepository("metal")
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+ephemeral "talos_machine_configuration" "this" {
+  cluster_name       = "test"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
+  talos_version      = %[4]q
+  kubernetes_version = %[5]q
+  docs               = false
+  examples           = false
+  config_patches = [
+    yamlencode({
+      machine = {
+        install = {
+          disk  = "/dev/vda"
+          image = "%[6]s:%[4]s"
+        }
+      }
+    })
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = %[1]q
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = %[1]q
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [cpu, nvram, disk["url"]]
+  }
+
+  cpu {
+    mode = %[2]q
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = %[3]q
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+resource "talos_machine" "this" {
+  node                                   = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint                               = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration                   = talos_machine_secrets.this.client_configuration
+  machine_configuration_wo               = ephemeral.talos_machine_configuration.this.machine_configuration
+  image                                  = "%[6]s:%[4]s"
+  drain_on_upgrade                       = false
+  ignore_kubernetes_upgrade_drift  = %[7]t
+
+  timeouts = {
+    create = "20m"
+    update = "60m"
+    delete = "5m"
+  }
+}
+`, rName, cpuMode, isoURL, talosVersion, k8sVersion, installerBase, ignoreK8sDrift)
+}
+
+// TestModifyPlan_OnlyK8sImagesChanged_HashIsKnown verifies the core ownership
+// boundary: when the user bumps kubernetes_version in talos_machine_configuration,
+// the only fields that differ between the new and the stored configs are the five
+// upgrade-k8s-managed image fields. ModifyPlan must NOT mark the hash as Unknown
+// in that case — that would force a re-apply, bypassing talos_cluster's sequential
+// upgrade procedure and restarting all kubelets in parallel.
+func TestModifyPlan_OnlyK8sImagesChanged_HashIsKnown(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	r := talos.NewTalosMachineResource()
+
+	var schemaResp frameworkresource.SchemaResponse
+
+	r.Schema(ctx, frameworkresource.SchemaRequest{}, &schemaResp)
+
+	sch := schemaResp.Schema
+
+	storedConfig := `version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.4
+cluster:
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:v1.35.4
+`
+	bumpedConfig := `version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.36.0
+cluster:
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:v1.36.0
+`
+	storedHash, _ := talos.K8sManagedConfigHash([]byte(storedConfig))
+
+	schTFType, ok := sch.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema TerraformType is not tftypes.Object")
+	}
+
+	nullVals := func() map[string]tftypes.Value {
+		m := make(map[string]tftypes.Value, len(schTFType.AttributeTypes))
+		for name, typ := range schTFType.AttributeTypes {
+			m[name] = tftypes.NewValue(typ, nil)
+		}
+
+		return m
+	}
+
+	// State holds the previous applied config and its (normalized) hash.
+	sv := nullVals()
+	sv["machine_configuration"] = tftypes.NewValue(tftypes.String, storedConfig)
+	sv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, storedHash)
+	sv["ignore_kubernetes_upgrade_drift"] = tftypes.NewValue(tftypes.Bool, true)
+	stateRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, sv)
+
+	// Plan has the bumped K8s image fields — but no structural change.
+	pv := nullVals()
+	pv["machine_configuration"] = tftypes.NewValue(tftypes.String, bumpedConfig)
+	pv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+	pv["ignore_kubernetes_upgrade_drift"] = tftypes.NewValue(tftypes.Bool, true)
+	planRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, pv)
+
+	planObj := tfsdk.Plan{Schema: sch, Raw: planRaw}
+	req := frameworkresource.ModifyPlanRequest{
+		Config: tfsdk.Config{Schema: sch, Raw: planRaw},
+		Plan:   planObj,
+		State:  tfsdk.State{Schema: sch, Raw: stateRaw},
+	}
+	resp := frameworkresource.ModifyPlanResponse{Plan: planObj}
+
+	rmp, ok := r.(frameworkresource.ResourceWithModifyPlan)
+	if !ok {
+		t.Fatal("resource does not implement ResourceWithModifyPlan")
+	}
+
+	rmp.ModifyPlan(ctx, req, &resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("ModifyPlan returned errors: %v", resp.Diagnostics)
+	}
+
+	var plannedHash types.String
+
+	if diags := resp.Plan.GetAttribute(ctx, frameworkpath.Root("machine_configuration_hash"), &plannedHash); diags.HasError() {
+		t.Fatalf("GetAttribute returned errors: %v", diags)
+	}
+
+	if plannedHash.IsUnknown() {
+		t.Fatal("planned hash is Unknown when only K8s image fields changed with experimental flag — talos_machine would re-apply config and bypass upgrade-k8s")
+	}
+
+	if plannedHash.ValueString() != storedHash {
+		t.Fatalf("planned hash %q != stored %q — hash should be unchanged when only K8s images differ", plannedHash.ValueString(), storedHash)
+	}
+}
+
+// TestModifyPlan_WithoutFlag_K8sImageChangeTriggersUpdate verifies that when
+// ignore_kubernetes_upgrade_drift is false (the default), a kubernetes_version
+// bump DOES mark the hash Unknown and trigger a re-apply. This is the standard
+// Terraform drift-detection behavior.
+func TestModifyPlan_WithoutFlag_K8sImageChangeTriggersUpdate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	r := talos.NewTalosMachineResource()
+
+	var schemaResp frameworkresource.SchemaResponse
+
+	r.Schema(ctx, frameworkresource.SchemaRequest{}, &schemaResp)
+
+	sch := schemaResp.Schema
+
+	storedConfig := `version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.4
+cluster:
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:v1.35.4
+`
+	bumpedConfig := `version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.36.0
+cluster:
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:v1.36.0
+`
+	// storedHash computed with NormalizedConfigHash (flag=false, the default).
+	storedHash, _ := talos.NormalizedConfigHash([]byte(storedConfig))
+
+	schTFType, ok := sch.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema TerraformType is not tftypes.Object")
+	}
+
+	nullVals := func() map[string]tftypes.Value {
+		m := make(map[string]tftypes.Value, len(schTFType.AttributeTypes))
+		for name, typ := range schTFType.AttributeTypes {
+			m[name] = tftypes.NewValue(typ, nil)
+		}
+
+		return m
+	}
+
+	// ignore_kubernetes_upgrade_drift is null (not set) — default false behavior.
+	sv := nullVals()
+	sv["machine_configuration"] = tftypes.NewValue(tftypes.String, storedConfig)
+	sv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, storedHash)
+	stateRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, sv)
+
+	pv := nullVals()
+	pv["machine_configuration"] = tftypes.NewValue(tftypes.String, bumpedConfig)
+	pv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+	planRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, pv)
+
+	planObj := tfsdk.Plan{Schema: sch, Raw: planRaw}
+	req := frameworkresource.ModifyPlanRequest{
+		Config: tfsdk.Config{Schema: sch, Raw: planRaw},
+		Plan:   planObj,
+		State:  tfsdk.State{Schema: sch, Raw: stateRaw},
+	}
+	resp := frameworkresource.ModifyPlanResponse{Plan: planObj}
+
+	rmp, ok := r.(frameworkresource.ResourceWithModifyPlan)
+	if !ok {
+		t.Fatal("resource does not implement ResourceWithModifyPlan")
+	}
+
+	rmp.ModifyPlan(ctx, req, &resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("ModifyPlan returned errors: %v", resp.Diagnostics)
+	}
+
+	var plannedHash types.String
+
+	if diags := resp.Plan.GetAttribute(ctx, frameworkpath.Root("machine_configuration_hash"), &plannedHash); diags.HasError() {
+		t.Fatalf("GetAttribute returned errors: %v", diags)
+	}
+
+	if !plannedHash.IsUnknown() {
+		t.Fatalf("planned hash is not Unknown when k8s images changed without experimental flag — drift was not detected (hash: %s)", plannedHash.ValueString())
+	}
+}
+
+// TestModifyPlan_StructuralChange_HashIsUnknown verifies that real structural
+// changes (anything other than the five K8s image fields) still trigger a
+// re-apply by marking the hash Unknown.
+func TestModifyPlan_StructuralChange_HashIsUnknown(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	r := talos.NewTalosMachineResource()
+
+	var schemaResp frameworkresource.SchemaResponse
+
+	r.Schema(ctx, frameworkresource.SchemaRequest{}, &schemaResp)
+
+	sch := schemaResp.Schema
+
+	storedConfig := `machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.4
+`
+	changedConfig := `machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.4
+  kernel:
+    modules:
+      - name: br_netfilter
+`
+	storedHash, _ := talos.K8sManagedConfigHash([]byte(storedConfig))
+
+	schTFType, ok := sch.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("schema TerraformType is not tftypes.Object")
+	}
+
+	nullVals := func() map[string]tftypes.Value {
+		m := make(map[string]tftypes.Value, len(schTFType.AttributeTypes))
+		for name, typ := range schTFType.AttributeTypes {
+			m[name] = tftypes.NewValue(typ, nil)
+		}
+
+		return m
+	}
+
+	sv := nullVals()
+	sv["machine_configuration"] = tftypes.NewValue(tftypes.String, storedConfig)
+	sv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, storedHash)
+	sv["ignore_kubernetes_upgrade_drift"] = tftypes.NewValue(tftypes.Bool, true)
+	stateRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, sv)
+
+	pv := nullVals()
+	pv["machine_configuration"] = tftypes.NewValue(tftypes.String, changedConfig)
+	pv["machine_configuration_hash"] = tftypes.NewValue(tftypes.String, tftypes.UnknownValue)
+	pv["ignore_kubernetes_upgrade_drift"] = tftypes.NewValue(tftypes.Bool, true)
+	planRaw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, pv)
+
+	planObj := tfsdk.Plan{Schema: sch, Raw: planRaw}
+	req := frameworkresource.ModifyPlanRequest{
+		Config: tfsdk.Config{Schema: sch, Raw: planRaw},
+		Plan:   planObj,
+		State:  tfsdk.State{Schema: sch, Raw: stateRaw},
+	}
+	resp := frameworkresource.ModifyPlanResponse{Plan: planObj}
+
+	rmp, ok := r.(frameworkresource.ResourceWithModifyPlan)
+	if !ok {
+		t.Fatal("resource does not implement ResourceWithModifyPlan")
+	}
+
+	rmp.ModifyPlan(ctx, req, &resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("ModifyPlan returned errors: %v", resp.Diagnostics)
+	}
+
+	var plannedHash types.String
+
+	if diags := resp.Plan.GetAttribute(ctx, frameworkpath.Root("machine_configuration_hash"), &plannedHash); diags.HasError() {
+		t.Fatalf("GetAttribute returned errors: %v", diags)
+	}
+
+	if !plannedHash.IsUnknown() {
+		t.Fatal("planned hash is not Unknown when structural config changed — drift would go undetected")
 	}
 }
 

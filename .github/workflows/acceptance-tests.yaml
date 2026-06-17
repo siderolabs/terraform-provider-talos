@@ -38,6 +38,7 @@ jobs:
             libvirt-daemon-system \
             qemu-utils \
             qemu-block-extra \
+            qemu-system-x86 \
             ovmf
 
           sudo ln -s OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd
