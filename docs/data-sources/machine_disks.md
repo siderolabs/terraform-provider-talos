@@ -74,6 +74,7 @@ Read-Only:
 - `bus_path` (String)
 - `cdrom` (Boolean)
 - `dev_path` (String)
+- `firmware_version` (String)
 - `io_size` (Number)
 - `modalias` (String)
 - `model` (String)

@@ -6,7 +6,6 @@ package talos
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -38,7 +37,6 @@ import (
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	configresource "github.com/siderolabs/talos/pkg/machinery/resources/config"
 	talosreporter "github.com/siderolabs/talos/pkg/reporter"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/kubernetes"
@@ -742,17 +740,13 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 		return resetGetActorID(ctx, c, resetRequest)
 	}
 
-	if err := talosClientOp(ctx, endpoint, state.Node.ValueString(), talosConfig, func(_ context.Context, c *client.Client) error {
-		executor := newClientExecutor(c, []string{state.Node.ValueString()})
-
-		return action.NewTracker(
-			executor,
-			action.StopAllServicesEventFn,
-			actionFn,
-			action.WithDebug(false),
-			action.WithTimeout(deleteTimeout),
-		).Run(ctx)
-	}); err != nil {
+	if err := action.NewTracker(
+		newTalosClientFactory(talosConfig, endpoint, []string{state.Node.ValueString()}),
+		action.StopAllServicesEventFn,
+		actionFn,
+		action.WithDebug(false),
+		action.WithTimeout(deleteTimeout),
+	).Run(ctx); err != nil {
 		resp.Diagnostics.AddError("error resetting machine", err.Error())
 	}
 }
@@ -1016,53 +1010,6 @@ func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {
 	return cs, nil
 }
 
-// rebootExecutor implements action.ClientExecutor for the reboot-tracking path.
-// Unlike clientExecutor (which reuses a pre-built *client.Client and discards dial
-// options), this builds a fresh client on each WithClient call and applies the
-// dial options passed by the tracker — notably disabled gRPC backoff and keepalive
-// (10s/5s). This mirrors talosctl's GlobalArgs.WithClientNoNodes behavior and ensures
-// the gRPC ClientConn recovers quickly after the node reboots rather than waiting
-// through the default 120s exponential backoff before reconnecting.
-type rebootExecutor struct {
-	talosConfig *clientconfig.Config
-	endpoint    string
-	node        string
-}
-
-func (r *rebootExecutor) WithClient(ctx context.Context, fn func(context.Context, *client.Client) error, dialOpts ...grpc.DialOption) error {
-	c, err := client.New(ctx,
-		client.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}), //nolint:gosec
-		client.WithEndpoints(r.endpoint),
-		client.WithGRPCDialOptions(dialOpts...),
-	)
-	if err != nil {
-		return err
-	}
-
-	nodeCtx := client.WithNode(ctx, r.node)
-
-	if _, testErr := c.Disks(nodeCtx); testErr != nil {
-		c.Close() //nolint:errcheck
-
-		c, err = client.New(ctx,
-			client.WithConfig(r.talosConfig),
-			client.WithEndpoints(r.endpoint),
-			client.WithGRPCDialOptions(dialOpts...),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	defer c.Close() //nolint:errcheck
-
-	return fn(client.WithNode(ctx, r.node), c)
-}
-
-func (r *rebootExecutor) NodeList() []string {
-	return []string{r.node}
-}
-
 func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, rebootModeStr string) error {
 	rebootModeVal, ok := machineapi.RebootRequest_Mode_value[rebootModeStr]
 	if !ok {
@@ -1070,10 +1017,9 @@ func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig 
 	}
 
 	rebootMode := machineapi.RebootRequest_Mode(rebootModeVal)
-	executor := &rebootExecutor{talosConfig: talosConfig, endpoint: endpoint, node: node}
 
 	return action.NewTracker(
-		executor,
+		newTalosClientFactory(talosConfig, endpoint, []string{node}),
 		action.MachineReadyEventFn,
 		func(rebootCtx context.Context, c *client.Client) (string, error) {
 			resp, err := c.RebootWithResponse(rebootCtx, client.WithRebootMode(rebootMode))

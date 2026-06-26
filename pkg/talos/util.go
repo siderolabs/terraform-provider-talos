@@ -25,6 +25,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/crypto/x509"
 	sideronet "github.com/siderolabs/net"
+	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
 	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
@@ -534,6 +535,58 @@ func talosClientOp(ctx context.Context, endpoint, node string, tc *clientconfig.
 	defer c.Close() //nolint:errcheck
 
 	return opFunc(nodeCtx, c)
+}
+
+// talosClientFactory implements action.ClientFactory for all tracker-based operations.
+// It builds a fresh client per call: insecure first (maintenance mode), falling back to
+// cert-based when the node is already in normal operating mode. action.GRPCDialOptions()
+// enables keepalive (10s/5s) and disabled backoff so gRPC reconnects quickly after reboot.
+type talosClientFactory struct {
+	talosConfig *clientconfig.Config
+	endpoint    string
+	nodes       []string
+}
+
+func newTalosClientFactory(talosConfig *clientconfig.Config, endpoint string, nodes []string) *talosClientFactory {
+	return &talosClientFactory{
+		talosConfig: talosConfig,
+		endpoint:    endpoint,
+		nodes:       nodes,
+	}
+}
+
+func (f *talosClientFactory) BuildClient(ctx context.Context, node string) (context.Context, *client.Client, error) {
+	dialOpts := action.GRPCDialOptions()
+
+	c, err := client.New(ctx,
+		client.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}), //nolint:gosec
+		client.WithEndpoints(f.endpoint),
+		client.WithGRPCDialOptions(dialOpts...),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nodeCtx := client.WithNode(ctx, node)
+
+	if _, testErr := c.Disks(nodeCtx); testErr != nil {
+		c.Close() //nolint:errcheck
+
+		c, err = client.New(ctx,
+			client.WithConfig(f.talosConfig),
+			client.WithEndpoints(f.endpoint),
+			client.WithGRPCDialOptions(dialOpts...),
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return client.WithNode(ctx, node), c, nil
+}
+
+func (f *talosClientFactory) Nodes() []string {
+	return f.nodes
 }
 
 type talosVersionValidator struct{}

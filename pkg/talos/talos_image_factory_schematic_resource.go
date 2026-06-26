@@ -92,10 +92,12 @@ func (r *talosImageFactorySchematicResource) Create(ctx context.Context, req res
 
 	var schematic schematic.Schematic
 
-	if err := yaml.Unmarshal([]byte(config.Schematic.ValueString()), &schematic); err != nil {
-		resp.Diagnostics.AddError("failed to unmarshal schematic", err.Error())
+	if s := config.Schematic.ValueString(); s != "" {
+		if err := yaml.Unmarshal([]byte(s), &schematic); err != nil {
+			resp.Diagnostics.AddError("failed to unmarshal schematic", err.Error())
 
-		return
+			return
+		}
 	}
 
 	schematicID, _, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)
@@ -132,10 +134,12 @@ func (r *talosImageFactorySchematicResource) Update(ctx context.Context, req res
 
 	var schematic schematic.Schematic
 
-	if err := yaml.Unmarshal([]byte(plan.Schematic.ValueString()), &schematic); err != nil {
-		resp.Diagnostics.AddError("failed to unmarshal schematic", err.Error())
+	if s := plan.Schematic.ValueString(); s != "" {
+		if err := yaml.Unmarshal([]byte(s), &schematic); err != nil {
+			resp.Diagnostics.AddError("failed to unmarshal schematic", err.Error())
 
-		return
+			return
+		}
 	}
 
 	schematicID, _, err := r.imageFactoryClient.SchematicCreate(ctx, schematic)

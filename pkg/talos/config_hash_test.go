@@ -266,6 +266,69 @@ extraArgs:
 	}
 }
 
+// TestK8sManagedConfigHash_Talos114FullMultidoc verifies the full Talos 1.14+
+// multidoc layout where ALL four kubernetes component images (apiserver,
+// controller-manager, scheduler, proxy) are in separate documents and kubelet
+// stays inline in v1alpha1. Bumping all five image tags must not change the hash.
+func TestK8sManagedConfigHash_Talos114FullMultidoc(t *testing.T) {
+	t.Parallel()
+
+	v135 := []byte(`version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.35.4
+---
+kind: KubeAPIServerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-apiserver:v1.35.4
+---
+kind: KubeControllerManagerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-controller-manager:v1.35.4
+---
+kind: KubeSchedulerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-scheduler:v1.35.4
+---
+kind: KubeProxyConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-proxy:v1.35.4
+`)
+
+	v136 := []byte(`version: v1alpha1
+machine:
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:v1.36.0
+---
+kind: KubeAPIServerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-apiserver:v1.36.0
+---
+kind: KubeControllerManagerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-controller-manager:v1.36.0
+---
+kind: KubeSchedulerConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-scheduler:v1.36.0
+---
+kind: KubeProxyConfig
+apiVersion: v1alpha1
+image: registry.k8s.io/kube-proxy:v1.36.0
+`)
+
+	got, gotStripped := talos.K8sManagedConfigHash(v135)
+	want, wantStripped := talos.K8sManagedConfigHash(v136)
+
+	if !gotStripped || !wantStripped {
+		t.Fatal("K8sManagedConfigHash: stripping failed on valid YAML")
+	}
+
+	if got != want {
+		t.Fatalf("hash changed when only K8s image tags were bumped in Talos 1.14+ full multidoc config\n  v1.35.4: %s\n  v1.36.0: %s", got, want)
+	}
+}
+
 // TestNormalizedConfigHash_K8sImageBumpChangesHash verifies that NormalizedConfigHash
 // (used when ignore_kubernetes_upgrade_drift is false) produces a different hash
 // when k8s image tags change. This is the default behavior: kubernetes_version bumps

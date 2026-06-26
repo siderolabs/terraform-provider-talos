@@ -32,7 +32,8 @@ import (
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
-	"google.golang.org/grpc"
+	"github.com/siderolabs/talos/pkg/machinery/gendata"
+	"golang.org/x/mod/semver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -830,10 +831,10 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 			return resetGetActorID(ctx, c, resetRequest)
 		}
 
-		var postCheckFn func(context.Context, *client.Client, string) error
+		var postCheckFn func(context.Context, *client.Client, string, string) error
 
 		if state.OnDestroy.Reboot.ValueBool() {
-			postCheckFn = func(ctx context.Context, c *client.Client, preActionBootID string) error {
+			postCheckFn = func(ctx context.Context, c *client.Client, node, preActionBootID string) error {
 				insecureClient, err := client.New(
 					ctx,
 					client.WithTLSConfig(&tls.Config{
@@ -853,22 +854,18 @@ func (p *talosMachineConfigurationApplyResource) Delete(ctx context.Context, req
 				}
 
 				// try to get the boot ID in the normal mode to see if the node has rebooted
-				return action.BootIDChangedPostCheckFn(ctx, c, preActionBootID)
+				return action.BootIDChangedPostCheckFn(ctx, c, node, preActionBootID)
 			}
 		}
 
-		if err := talosClientOp(ctx, state.Endpoint.ValueString(), state.Node.ValueString(), talosClientConfig, func(_ context.Context, c *client.Client) error {
-			executor := newClientExecutor(c, []string{state.Node.ValueString()})
-
-			return action.NewTracker(
-				executor,
-				action.StopAllServicesEventFn,
-				actionFn,
-				action.WithPostCheck(postCheckFn),
-				action.WithDebug(false),
-				action.WithTimeout(deleteTimeout),
-			).Run(ctx)
-		}); err != nil {
+		if err := action.NewTracker(
+			newTalosClientFactory(talosClientConfig, state.Endpoint.ValueString(), []string{state.Node.ValueString()}),
+			action.StopAllServicesEventFn,
+			actionFn,
+			action.WithPostCheck(postCheckFn),
+			action.WithDebug(false),
+			action.WithTimeout(deleteTimeout),
+		).Run(ctx); err != nil {
 			resp.Diagnostics.AddError("Error resetting machine", err.Error())
 
 			return
@@ -893,7 +890,7 @@ func dryRunNeedsReboot(cfgBytes []byte, needsReboot *bool) func(context.Context,
 		}
 
 		if len(applyResp.Messages) > 0 {
-			*needsReboot = (applyResp.Messages[0].Mode == machineapi.ApplyConfigurationRequest_REBOOT)
+			*needsReboot = (applyResp.Messages[0].Mode != machineapi.ApplyConfigurationRequest_NO_REBOOT)
 		}
 
 		return nil
@@ -916,6 +913,19 @@ func (p *talosMachineConfigurationApplyResource) handleRebootPrevention(
 		setResolvedApplyMode(ctx, resp, applyMode)
 
 		return
+	}
+
+	// Talos 1.14 intentionally removed CanApplyImmediate from the ApplyConfiguration
+	// AUTO handler (commit 995bc30d5, "feat: drop apply config method reboot").
+	// The server no longer reports whether a config change requires a reboot, so
+	// staged_if_needing_reboot always resolves to "auto" on 1.14+ nodes.
+	if semver.Compare(semver.MajorMinor(gendata.VersionTag), "v1.14") >= 0 {
+		resp.Diagnostics.AddWarning(
+			"staged_if_needing_reboot is not supported on Talos 1.14+",
+			"Talos 1.14 removed automatic reboot detection from apply-config. "+
+				"The 'staged_if_needing_reboot' apply mode will always resolve to 'auto' on Talos 1.14+ nodes. "+
+				"Use 'staged' explicitly if you need to prevent reboots, then reboot manually with: talosctl reboot --nodes "+planState.Node.ValueString(),
+		)
 	}
 
 	// Cannot perform dry-run if node address is unknown (computed from another resource)
@@ -1259,26 +1269,4 @@ func resetGetActorID(ctx context.Context, c *client.Client, req *machineapi.Rese
 	}
 
 	return resp.GetMessages()[0].GetActorId(), nil
-}
-
-type clientExecutor struct {
-	c     *client.Client
-	nodes []string
-}
-
-func newClientExecutor(c *client.Client, nodes []string) *clientExecutor {
-	return &clientExecutor{
-		c:     c,
-		nodes: nodes,
-	}
-}
-
-func (c *clientExecutor) WithClient(ctx context.Context, action func(context.Context, *client.Client) error, _ ...grpc.DialOption) error {
-	ctx = client.WithNodes(ctx, c.nodes...)
-
-	return action(ctx, c.c)
-}
-
-func (c *clientExecutor) NodeList() []string {
-	return c.nodes
 }

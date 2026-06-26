@@ -36,11 +36,13 @@ var k8sImagePaths = [][]string{
 // fields (extraArgs, env, resources, enabled, config, …) remain in the hash so
 // talos_machine can detect user-driven drift in those documents.
 //
-// Source: github.com/siderolabs/talos@v1.14.0-alpha.0 pkg/machinery/config/generate/stdpatches/stdpatches.go
+// Source: github.com/siderolabs/talos@v1.14.0-alpha.2 pkg/machinery/config/generate/stdpatches/stdpatches.go
 // If upgrade-k8s ever manages additional document kinds, add them here.
 var k8sDocImageKinds = map[string]bool{
+	"KubeAPIServerConfig":         true,
 	"KubeControllerManagerConfig": true,
 	"KubeSchedulerConfig":         true,
+	"KubeProxyConfig":             true,
 }
 
 // K8sManagedConfigHash returns a SHA256 hex digest of cfgBytes with the

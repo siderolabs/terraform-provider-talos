@@ -15,24 +15,25 @@ import (
 )
 
 type diskspec struct {
-	DevPath        types.String `tfsdk:"dev_path"`
-	Size           types.Int64  `tfsdk:"size"`
-	PrettySize     types.String `tfsdk:"pretty_size"`
-	IOSize         types.Int64  `tfsdk:"io_size"`
-	SectorSize     types.Int64  `tfsdk:"sector_size"`
-	Readonly       types.Bool   `tfsdk:"readonly"`
-	CDROM          types.Bool   `tfsdk:"cdrom"`
-	Model          types.String `tfsdk:"model"`
-	Serial         types.String `tfsdk:"serial"`
-	Modalias       types.String `tfsdk:"modalias"`
-	WWID           types.String `tfsdk:"wwid"`
-	UUID           types.String `tfsdk:"uuid"`
-	BusPath        types.String `tfsdk:"bus_path"`
-	SubSystem      types.String `tfsdk:"sub_system"`
-	Transport      types.String `tfsdk:"transport"`
-	Rotational     types.Bool   `tfsdk:"rotational"`
-	SecondaryDisks types.List   `tfsdk:"secondary_disks"`
-	Symlinks       types.List   `tfsdk:"symlinks"`
+	DevPath         types.String `tfsdk:"dev_path"`
+	Size            types.Int64  `tfsdk:"size"`
+	PrettySize      types.String `tfsdk:"pretty_size"`
+	IOSize          types.Int64  `tfsdk:"io_size"`
+	SectorSize      types.Int64  `tfsdk:"sector_size"`
+	Readonly        types.Bool   `tfsdk:"readonly"`
+	CDROM           types.Bool   `tfsdk:"cdrom"`
+	Model           types.String `tfsdk:"model"`
+	FirmwareVersion types.String `tfsdk:"firmware_version"`
+	Serial          types.String `tfsdk:"serial"`
+	Modalias        types.String `tfsdk:"modalias"`
+	WWID            types.String `tfsdk:"wwid"`
+	UUID            types.String `tfsdk:"uuid"`
+	BusPath         types.String `tfsdk:"bus_path"`
+	SubSystem       types.String `tfsdk:"sub_system"`
+	Transport       types.String `tfsdk:"transport"`
+	Rotational      types.Bool   `tfsdk:"rotational"`
+	SecondaryDisks  types.List   `tfsdk:"secondary_disks"`
+	Symlinks        types.List   `tfsdk:"symlinks"`
 }
 
 var diskspecAttributes = map[string]schema.Attribute{
@@ -58,6 +59,9 @@ var diskspecAttributes = map[string]schema.Attribute{
 		Computed: true,
 	},
 	"model": schema.StringAttribute{
+		Computed: true,
+	},
+	"firmware_version": schema.StringAttribute{
 		Computed: true,
 	},
 	"serial": schema.StringAttribute{
@@ -96,22 +100,23 @@ var diskspecAttributes = map[string]schema.Attribute{
 
 func diskspecToTFTypes(diskspecSpec block.DiskSpec) diskspec {
 	return diskspec{
-		DevPath:    types.StringValue(diskspecSpec.DevPath),
-		Size:       types.Int64Value(int64(diskspecSpec.Size)),
-		PrettySize: types.StringValue(diskspecSpec.PrettySize),
-		IOSize:     types.Int64Value(int64(diskspecSpec.IOSize)),
-		SectorSize: types.Int64Value(int64(diskspecSpec.SectorSize)),
-		Readonly:   types.BoolValue(diskspecSpec.Readonly),
-		CDROM:      types.BoolValue(diskspecSpec.CDROM),
-		Model:      types.StringValue(diskspecSpec.Model),
-		Serial:     types.StringValue(diskspecSpec.Serial),
-		Modalias:   types.StringValue(diskspecSpec.Modalias),
-		WWID:       types.StringValue(diskspecSpec.WWID),
-		UUID:       types.StringValue(diskspecSpec.UUID),
-		BusPath:    types.StringValue(diskspecSpec.BusPath),
-		SubSystem:  types.StringValue(diskspecSpec.SubSystem),
-		Transport:  types.StringValue(diskspecSpec.Transport),
-		Rotational: types.BoolValue(diskspecSpec.Rotational),
+		DevPath:         types.StringValue(diskspecSpec.DevPath),
+		Size:            types.Int64Value(int64(diskspecSpec.Size)),
+		PrettySize:      types.StringValue(diskspecSpec.PrettySize),
+		IOSize:          types.Int64Value(int64(diskspecSpec.IOSize)),
+		SectorSize:      types.Int64Value(int64(diskspecSpec.SectorSize)),
+		Readonly:        types.BoolValue(diskspecSpec.Readonly),
+		CDROM:           types.BoolValue(diskspecSpec.CDROM),
+		Model:           types.StringValue(diskspecSpec.Model),
+		FirmwareVersion: types.StringValue(diskspecSpec.FirmwareVersion),
+		Serial:          types.StringValue(diskspecSpec.Serial),
+		Modalias:        types.StringValue(diskspecSpec.Modalias),
+		WWID:            types.StringValue(diskspecSpec.WWID),
+		UUID:            types.StringValue(diskspecSpec.UUID),
+		BusPath:         types.StringValue(diskspecSpec.BusPath),
+		SubSystem:       types.StringValue(diskspecSpec.SubSystem),
+		Transport:       types.StringValue(diskspecSpec.Transport),
+		Rotational:      types.BoolValue(diskspecSpec.Rotational),
 		SecondaryDisks: types.ListValueMust(types.StringType, xslices.Map(diskspecSpec.SecondaryDisks, func(s string) attr.Value {
 			return types.StringValue(s)
 		})),
