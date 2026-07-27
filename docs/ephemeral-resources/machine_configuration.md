@@ -35,7 +35,7 @@ Keep `kubernetes_version` here in sync with `talos_cluster.kubernetes_version` s
 - `docs` (Boolean) Whether to generate documentation for the generated configuration. Defaults to false
 - `examples` (Boolean) Whether to generate examples for the generated configuration. Defaults to false
 - `kubernetes_version` (String) Kubernetes version baked into the generated configuration. Used at bootstrap for new nodes. To upgrade Kubernetes on a running cluster, use `talos_cluster.kubernetes_version`. Without `ignore_kubernetes_upgrade_drift = true` on `talos_machine`, bumping this value causes `talos_machine` to re-apply the five Kubernetes component image fields directly, bypassing `upgrade-k8s`'s sequencing. With the flag set, only `talos_cluster.kubernetes_version` drives the upgrade. Keep this in sync with `talos_cluster.kubernetes_version`.
-- `talos_version` (String) The Talos version contract used to generate the machine configuration. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`
+- `talos_version` (String) The _Talos version contract_ used to generate the machine configuration. Generally, this means it should remain set to the version of Talos used to create the cluster. See [Reproducible Machine Configuration](https://docs.siderolabs.com/talos/v1.13/configure-your-talos-cluster/system-configuration/reproducible-machine-configuration#reproducible-machine-configuration) for more about the version contract. This does not control the installed Talos version. Use `config_patches` to set `machine.install.image` to the desired value. Example values: `v1.12`, `v1.12.1`, `1.12`, `1.12.1`
 
 ### Read-Only
 
