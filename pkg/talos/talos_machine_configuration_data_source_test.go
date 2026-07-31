@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/siderolabs/talos/pkg/machinery/config/configloader"
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 	"github.com/siderolabs/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/siderolabs/talos/pkg/machinery/constants"
@@ -300,7 +301,31 @@ func validateGeneratedTalosMachineConfig(
 		return err
 	}
 
+	// clusterName, clusterEndpoint and the kubelet image are emitted as separate multidoc
+	// documents (KubeClusterConfig, KubeletConfig); load the full bundle to read them.
+	provider, err := configloader.NewFromBytes([]byte(mc))
+	if err != nil {
+		return err
+	}
+
+	// Since Talos 1.14 the install settings are generated into a separate
+	// UnattendedInstallConfig document rather than the legacy machine.install section,
+	// so read whichever one carries them. Note these can disagree: a config_patch still
+	// writes machine.install, which Talos 1.14+ no longer installs from.
 	installDiskConfig := machineConfig.Machine().Install().Disk()
+	installImageConfig := machineConfig.Machine().Install().Image()
+
+	if uic := provider.UnattendedInstallConfig(); uic != nil {
+		if installImageConfig == "" {
+			installImageConfig = uic.InstallerImage()
+		}
+
+		if installDiskConfig == "" {
+			if m := regexp.MustCompile(`disk\.dev_path == "([^"]+)"`).FindStringSubmatch(uic.VolumeSelector().String()); m != nil {
+				installDiskConfig = m[1]
+			}
+		}
+	}
 
 	ep, err := url.Parse(endpoint)
 	if err != nil {
@@ -310,16 +335,16 @@ func validateGeneratedTalosMachineConfig(
 	switch machineType {
 	case "controlplane":
 		assert.Equal(t, machine.TypeControlPlane, machineConfig.Machine().Type())
-		assert.Equal(t, clusterName, machineConfig.Cluster().Name())
+		assert.Equal(t, clusterName, provider.K8sClusterConfig().ClusterName())
 	case "worker":
 		assert.Equal(t, machine.TypeWorker, machineConfig.Machine().Type())
 	}
 
-	assert.Equal(t, ep, machineConfig.Cluster().Endpoint())
+	assert.Equal(t, ep, provider.K8sClusterConfig().ClusterEndpoint())
 	assert.Equal(t, constants.DefaultDNSDomain, machineConfig.ClusterConfig.DNSDomain())
 	assert.Equal(t, installDisk, installDiskConfig)
-	assert.Equal(t, talos.GenerateInstallerImage(), machineConfig.Machine().Install().Image())
-	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", k8sVersion), machineConfig.Machine().Kubelet().Image())
+	assert.Equal(t, talos.GenerateInstallerImage(), installImageConfig)
+	assert.Equal(t, fmt.Sprintf("ghcr.io/siderolabs/kubelet:v%s", k8sVersion), provider.K8sKubeletConfig().Image())
 	assert.Equal(t, "v1alpha1", machineConfig.ConfigVersion)
 	// Since Talos 1.14, discovery config is emitted as a separate multidoc document.
 	// For older versions, it remains inline in the cluster config block.

@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
+	"golang.org/x/mod/semver"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
@@ -147,14 +148,7 @@ data "talos_machine_configuration" "cp" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[6]s:%[4]s"
-        }
-      }
-    })
+%[7]s
   ]
 }
 
@@ -168,14 +162,7 @@ data "talos_machine_configuration" "worker" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[6]s:%[4]s"
-        }
-      }
-    })
+%[7]s
   ]
 }
 
@@ -337,7 +324,8 @@ data "talos_cluster_health" "this" {
 
   timeouts = { read = "25m" }
 }
-`, rName, cpuMode, isoURL, cpImageTag, workerImageTag, installerBase)
+`, rName, cpuMode, isoURL, cpImageTag, workerImageTag, installerBase,
+		installDiskPatch(cpImageTag, fmt.Sprintf("%s:%s", installerBase, cpImageTag)))
 }
 
 // TestAccTalosMachine_upgrade tests that changing `image` triggers an OS upgrade:
@@ -826,6 +814,48 @@ const (
 	cpuModeCI      = "host-model"
 )
 
+// installDiskPatch renders a config_patches entry selecting the install disk, in the form
+// the target Talos version accepts.
+//
+// Talos 1.14 moved the install settings into an UnattendedInstallConfig document.
+// .machine.install still works there — it is deprecated but still validated for backwards
+// compatibility — but the two forms cannot be combined: UnattendedInstallConfig's
+// V1Alpha1ConflictValidate rejects a config that also carries .machine.install
+// ("UnattendedInstallConfig config is incompatible with v1alpha1 config"). Pre-1.14
+// machinery does not register the document kind at all.
+//
+// The generated config for a 1.14 contract already contains an UnattendedInstallConfig,
+// so the patch must use the document form there and the legacy form on older versions.
+//
+// Every libvirt fixture below boots a single virtio disk, so the device path is fixed.
+// image is optional; when empty the installer image is left as generated.
+func installDiskPatch(talosVersion, image string) string {
+	const devPath = "/dev/vda"
+
+	if semver.Compare(semver.MajorMinor(talosVersion), "v1.14") < 0 {
+		install := fmt.Sprintf("          disk = %q\n", devPath)
+		if image != "" {
+			install = fmt.Sprintf("          disk  = %q\n          image = %q\n", devPath, image)
+		}
+
+		return "    yamlencode({\n      machine = {\n        install = {\n" + install + "        }\n      }\n    })"
+	}
+
+	installer := ""
+	if image != "" {
+		installer = fmt.Sprintf("      installer = {\n        image = %q\n      }\n", image)
+	}
+
+	return "    yamlencode({\n" +
+		"      apiVersion = \"v1alpha1\"\n" +
+		"      kind       = \"UnattendedInstallConfig\"\n" +
+		installer +
+		"      provisioning = {\n" +
+		"        diskSelector = {\n" +
+		fmt.Sprintf("          match = %q\n", "disk.dev_path == '"+devPath+"'") +
+		"        }\n      }\n    })"
+}
+
 func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
@@ -850,14 +880,7 @@ data "talos_machine_configuration" "this" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[4]s:%[6]s"
-        }
-      }
-    })
+%[7]s
   ]
 }
 
@@ -952,7 +975,8 @@ data "talos_cluster_health" "this" {
     read = "25m"
   }
 }
-`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion)
+`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion,
+		installDiskPatch(imageTag, fmt.Sprintf("%s:%s", imageUrl, isoVersion)))
 }
 
 // testAccTalosMachineConfigWithWriteOnlyAttrs uses ephemeral talos_machine_secrets and
@@ -982,14 +1006,7 @@ ephemeral "talos_machine_configuration" "this" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[4]s:%[6]s"
-        }
-      }
-    })
+%[7]s
   ]
 }
 
@@ -1060,7 +1077,8 @@ resource "talos_machine" "this" {
     delete = "5m"
   }
 }
-`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion)
+`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion,
+		installDiskPatch(imageTag, fmt.Sprintf("%s:%s", imageUrl, isoVersion)))
 }
 
 // TestValidateConfig_DrainKubeconfigRequirement verifies that ValidateConfig rejects
@@ -1351,6 +1369,8 @@ func TestModifyPlan_UnchangedConfig_HashIsKnown(t *testing.T) {
 // upgrade target) from the talos_version contract and machine.install.image used in
 // the machine configuration. isoVersion stays constant
 // across steps so the only config diff between steps is kubernetes_version (K8s images).
+//
+//nolint:unparam // isoVersion pairs with the varying imageTag and pins the booted version explicitly
 func testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, imageTag, k8sVersion string, ignoreK8sDrift bool) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
@@ -1375,14 +1395,7 @@ ephemeral "talos_machine_configuration" "this" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "ghcr.io/siderolabs/installer:%[4]s"
-        }
-      }
-    })
+%[8]s
   ]
 }
 
@@ -1460,13 +1473,16 @@ resource "talos_machine_bootstrap" "this" {
   node                 = libvirt_domain.cp.network_interface[0].addresses[0]
   client_configuration = talos_machine_secrets.this.client_configuration
 }
-`, rName, cpuMode, isoURL, isoVersion, k8sVersion, imageTag, ignoreK8sDrift)
+`, rName, cpuMode, isoURL, isoVersion, k8sVersion, imageTag, ignoreK8sDrift,
+		installDiskPatch(isoVersion, "ghcr.io/siderolabs/installer:"+isoVersion))
 }
 
 // testAccTalosMachineConfigK8sBumpNoBootstrap is like
 // testAccTalosMachineConfigUpgradeAndK8sBump but without talos_machine_bootstrap.
 // It is used by tests that only need to verify machine_configuration_hash stability
 // and do not need a running Kubernetes cluster (which requires bootstrap + etcd).
+//
+//nolint:unparam // ignoreK8sDrift is explicit at the call sites to document the mode under test
 func testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, k8sVersion string, ignoreK8sDrift bool) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
@@ -1493,14 +1509,7 @@ ephemeral "talos_machine_configuration" "this" {
   docs               = false
   examples           = false
   config_patches = [
-    yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[6]s:%[4]s"
-        }
-      }
-    })
+%[8]s
   ]
 }
 
@@ -1572,7 +1581,8 @@ resource "talos_machine" "this" {
     delete = "5m"
   }
 }
-`, rName, cpuMode, isoURL, talosVersion, k8sVersion, installerBase, ignoreK8sDrift)
+`, rName, cpuMode, isoURL, talosVersion, k8sVersion, installerBase, ignoreK8sDrift,
+		installDiskPatch(talosVersion, fmt.Sprintf("%s:%s", installerBase, talosVersion)))
 }
 
 // TestModifyPlan_OnlyK8sImagesChanged_HashIsKnown verifies the core ownership

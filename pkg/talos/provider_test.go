@@ -116,6 +116,9 @@ resource "talos_machine_configuration_apply" "this" {
   machine_configuration = talos_machine_configuration_controlplane.this.machine_config
   node                  = libvirt_domain.cp.network_interface[0].addresses[0]
   endpoint              = libvirt_domain.cp.network_interface[0].addresses[0]
+  # The v0.1 provider generates a legacy v1alpha1-only config that already carries
+  # .machine.install, so the patch has to stay in that form: adding an
+  # UnattendedInstallConfig document alongside it is what Talos 1.14 rejects.
   config_patches = [
     yamlencode({
       machine = {
@@ -161,9 +164,11 @@ resource "talos_machine_configuration_apply" "this" {
   node                        = libvirt_domain.cp.network_interface[0].addresses[0]
   config_patches = [
     yamlencode({
-      machine = {
-        install = {
-          disk = data.talos_machine_disks.this.disks[0].dev_path
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '${data.talos_machine_disks.this.disks[0].dev_path}'"
         }
       }
     }),

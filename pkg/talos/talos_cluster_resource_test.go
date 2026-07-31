@@ -123,10 +123,14 @@ data "talos_machine_configuration" "this" {
   examples           = false
   config_patches = [
     yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[6]s:%[4]s"
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      installer = {
+        image = "%[6]s:%[4]s"
+      }
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '/dev/vda'"
         }
       }
     })
@@ -248,10 +252,14 @@ data "talos_machine_configuration" "cp" {
   examples           = false
   config_patches = [
     yamlencode({
-      machine = {
-        install = {
-          disk  = "/dev/vda"
-          image = "%[6]s:%[4]s"
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      installer = {
+        image = "%[6]s:%[4]s"
+      }
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '/dev/vda'"
         }
       }
     })
