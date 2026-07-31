@@ -26,7 +26,7 @@ func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
 			{
 				Config: testAccTalosImageFactoryVersionsDataSourceWithFilterConfig(),
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.13.6")),
+					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.13.7")),
 				},
 			},
 		},

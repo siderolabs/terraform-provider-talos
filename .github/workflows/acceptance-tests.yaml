@@ -73,7 +73,9 @@ jobs:
         run: nproc && free -h
       - name: acceptance-test
         env:
-          TERRAFORM_LIBVIRT_TEST_DOMAIN_TYPE: qemu
+          # The runner has /dev/kvm available; kvm-accelerated domains boot
+          # ~3.3x faster than qemu (software emulation).
+          TERRAFORM_LIBVIRT_TEST_DOMAIN_TYPE: kvm
           LIBVIRT_DEFAULT_URI: qemu:///system
           CI: "true"
         run: |
