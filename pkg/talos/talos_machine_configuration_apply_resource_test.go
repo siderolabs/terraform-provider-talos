@@ -507,7 +507,7 @@ func testAccTalosMachineConfigurationApplyWithEphemeralClientConfigWOConfig(rNam
 		cpuMode = cpuModeHostModel
 	}
 
-	isoURL := fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
+	isoURL := talosISOURL(gendata.VersionTag)
 
 	return fmt.Sprintf(`
 # Generate ephemeral machine secrets (NOT persisted - causes expected drift)

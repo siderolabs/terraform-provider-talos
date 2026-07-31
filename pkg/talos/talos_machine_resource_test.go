@@ -127,10 +127,7 @@ func testAccTalosMachineWorkerDrainConfig(rName, cpImageTag, workerImageTag stri
 
 	// Both CP and worker boot from the same base ISO. The worker upgrade target
 	// is controlled via talos_machine.image, not the ISO URL.
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		cpImageTag,
-	)
+	isoURL := talosISOURL(cpImageTag)
 
 	installerBase := images.InstallerImageRepository("metal")
 
@@ -832,10 +829,7 @@ func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) str
 		cpuMode = cpuModeCI
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		isoVersion,
-	)
+	isoURL := talosISOURL(isoVersion)
 
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
@@ -964,10 +958,7 @@ func testAccTalosMachineConfigWithWriteOnlyAttrs(rName, imageUrl, imageTag, isoV
 		cpuMode = cpuModeCI
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		isoVersion,
-	)
+	isoURL := talosISOURL(isoVersion)
 
 	return fmt.Sprintf(`
 ephemeral "talos_machine_secrets" "this" {}
@@ -1357,10 +1348,7 @@ func testAccTalosMachineConfigUpgradeAndK8sBump(rName, isoVersion, imageTag, k8s
 		cpuMode = cpuModeCI
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		isoVersion,
-	)
+	isoURL := talosISOURL(isoVersion)
 
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
@@ -1473,10 +1461,7 @@ func testAccTalosMachineConfigK8sBumpNoBootstrap(rName, talosVersion, k8sVersion
 		cpuMode = cpuModeCI
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		talosVersion,
-	)
+	isoURL := talosISOURL(talosVersion)
 
 	installerBase := images.InstallerImageRepository("metal")
 

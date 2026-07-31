@@ -102,10 +102,7 @@ func testAccTalosClusterConfig(rName, talosVersion, k8sVersion string) string {
 		cpuMode = cpuModeHostModel
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		talosVersion,
-	)
+	isoURL := talosISOURL(talosVersion)
 
 	installerBase := images.InstallerImageRepository("metal")
 
@@ -227,10 +224,7 @@ func testAccTalosClusterHAConfig(rName, talosVersion, k8sVersion string) string 
 		cpuMode = cpuModeHostModel
 	}
 
-	isoURL := fmt.Sprintf(
-		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
-		talosVersion,
-	)
+	isoURL := talosISOURL(talosVersion)
 
 	installerBase := images.InstallerImageRepository("metal")
 

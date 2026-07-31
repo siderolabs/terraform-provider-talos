@@ -39,7 +39,20 @@ type dynamicConfig struct {
 const (
 	cpuModeHostPassthrough = "host-passthrough"
 	cpuModeHostModel       = "host-model"
+
+	// emptySchematicID is Image Factory's schematic with no customisations, i.e. a stock
+	// Talos image. Same ID the image factory data sources are asserted against.
+	emptySchematicID = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
 )
+
+// talosISOURL is the boot ISO for a Talos version.
+//
+// Served by Image Factory rather than the GitHub release: qemu fetches this URL directly
+// for every domain, and Image Factory is behind a CDN whereas GitHub release downloads
+// are rate limited.
+func talosISOURL(version string) string {
+	return fmt.Sprintf("https://factory.talos.dev/image/%s/%s/metal-amd64.iso", emptySchematicID, version)
+}
 
 func (c *dynamicConfig) render() string {
 	cpuMode := cpuModeHostPassthrough
@@ -49,7 +62,7 @@ func (c *dynamicConfig) render() string {
 
 	c.CPUMode = cpuMode
 
-	c.IsoURL = fmt.Sprintf("https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso", gendata.VersionTag)
+	c.IsoURL = talosISOURL(gendata.VersionTag)
 
 	configTemplate := `
 resource "talos_machine_secrets" "this" {}
