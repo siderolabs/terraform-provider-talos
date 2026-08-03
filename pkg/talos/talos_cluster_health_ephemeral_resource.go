@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/talos/pkg/cluster"
 	"github.com/siderolabs/talos/pkg/cluster/check"
@@ -75,12 +77,18 @@ func (r *talosClusterHealthEphemeralResource) Schema(_ context.Context, _ epheme
 			"control_plane_nodes": schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
-				Description: "List of control plane nodes to check for health.",
+				Description: "List of control plane node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(ipAddressValid()),
+				},
 			},
 			"worker_nodes": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "List of worker nodes to check for health.",
+				Description: "List of worker node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(ipAddressValid()),
+				},
 			},
 			"skip_kubernetes_checks": schema.BoolAttribute{
 				Optional:    true,
