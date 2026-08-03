@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosi-project/runtime/pkg/safe"
 	frameworkpath "github.com/hashicorp/terraform-plugin-framework/path"
 	frameworkresource "github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -23,9 +24,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/siderolabs/talos/pkg/images"
+	"github.com/siderolabs/talos/pkg/machinery/client"
+	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
+	runtimeres "github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
@@ -348,6 +353,9 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 	const (
 		baseVersion    = "v1.12.7"
 		upgradeVersion = "v1.13.0"
+		// Same version as baseVersion, different schematic — see step 2.
+		schematicImage = "factory.talos.dev/metal-installer/c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
+		schematicID    = "c9078f9419961640c712a8bf2bb9174933dfcf1da383fd8ea2b7dc21493f8bac"
 	)
 
 	baseImage := images.InstallerImageRepository("metal")
@@ -373,7 +381,25 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 2: upgrade to v1.13.0, cluster still healthy afterwards
+			// Step 2: change only the schematic, staying on baseVersion (issue #377).
+			// The node is pre-1.13 here, so talosMachineUpgrade falls back to
+			// talosMachineUpgradeLegacy, whose completion check used to compare only the
+			// image tag and so reported success without upgrading anything.
+			// TestAccTalosMachine_upgradeSchematic covers the same change on v1.13+, which
+			// takes the LifecycleService path instead.
+			//
+			// Asserted against the node rather than state: when the upgrade is skipped
+			// Terraform still records the new image, so an attribute check (and the
+			// PlanOnly step below) passes either way.
+			{
+				Config: testAccTalosMachineConfig(rName, schematicImage, baseVersion, baseVersion),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine.this", "image",
+						fmt.Sprintf("%s:%s", schematicImage, baseVersion)),
+					checkNodeSchematic("talos_machine.this", schematicID),
+				),
+			},
+			// Step 3: upgrade to v1.13.0, cluster still healthy afterwards
 			{
 				Config: testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -382,7 +408,7 @@ func TestAccTalosMachine_upgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 3: idempotency after upgrade
+			// Step 4: idempotency after upgrade
 			{
 				Config:   testAccTalosMachineConfig(rName, baseImage, upgradeVersion, baseVersion),
 				PlanOnly: true,
@@ -1897,5 +1923,85 @@ func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 
 	if defaultUpdate < worstCaseUpdate {
 		t.Errorf("Update default %v < worst-case %v: legacy upgrade will time out", defaultUpdate, worstCaseUpdate)
+	}
+}
+
+// checkNodeSchematic asserts the Image Factory schematic the node actually booted, read
+// from ExtensionStatus the same way `talosctl get extensions` reports it.
+//
+// State says nothing about whether the installer ran: a skipped upgrade still leaves the
+// new image recorded, so only the node can distinguish a real upgrade from a silent no-op.
+func checkNodeSchematic(resourceName, wantSchematicID string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		machine, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource %s not found in state", resourceName)
+		}
+
+		secrets, ok := s.RootModule().Resources["talos_machine_secrets.this"]
+		if !ok {
+			return fmt.Errorf("talos_machine_secrets.this not found in state")
+		}
+
+		node := machine.Primary.Attributes["node"]
+		if node == "" {
+			return fmt.Errorf("%s has no node attribute", resourceName)
+		}
+
+		attrs := secrets.Primary.Attributes
+
+		ca, crt, key := attrs["client_configuration.ca_certificate"],
+			attrs["client_configuration.client_certificate"],
+			attrs["client_configuration.client_key"]
+		if ca == "" || crt == "" || key == "" {
+			return fmt.Errorf("talos_machine_secrets.this is missing client_configuration in state")
+		}
+
+		talosConfig := &clientconfig.Config{
+			Context: "acc",
+			Contexts: map[string]*clientconfig.Context{
+				"acc": {CA: ca, Crt: crt, Key: key},
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(node))
+		if err != nil {
+			return fmt.Errorf("building talos client for %s: %w", node, err)
+		}
+
+		defer c.Close() //nolint:errcheck
+
+		items, err := safe.StateListAll[*runtimeres.ExtensionStatus](client.WithNode(ctx, node), c.COSI)
+		if err != nil {
+			return fmt.Errorf("listing extensions on %s: %w", node, err)
+		}
+
+		var got string
+
+		for item := range items.All() {
+			// Image Factory reports the schematic as a pseudo-extension whose version is
+			// the schematic ID.
+			if item.TypedSpec().Metadata.Name == "schematic" {
+				got = item.TypedSpec().Metadata.Version
+
+				break
+			}
+		}
+
+		if got == "" {
+			return fmt.Errorf("node %s reports no schematic extension; it is not running a factory image", node)
+		}
+
+		if got != wantSchematicID {
+			return fmt.Errorf(
+				"node %s is running schematic %s, want %s — the image change never reached the node (issue #377)",
+				node, got, wantSchematicID,
+			)
+		}
+
+		return nil
 	}
 }

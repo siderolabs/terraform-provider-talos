@@ -1038,6 +1038,39 @@ func talosMachineReboot(ctx context.Context, endpoint, node string, talosConfig 
 	).Run(ctx)
 }
 
+// talosMachineBootID reads the node's boot ID, which the kernel regenerates on every boot.
+// Used to detect that a node has actually rebooted, the same signal
+// action.BootIDChangedPostCheckFn uses for the reboot and v1.13+ upgrade paths.
+func talosMachineBootID(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, op clientOpFunc) (string, error) {
+	var bootID string
+
+	if err := op(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+		reader, err := c.Read(nodeCtx, "/proc/sys/kernel/random/boot_id")
+		if err != nil {
+			return err
+		}
+
+		defer reader.Close() //nolint:errcheck
+
+		body, err := io.ReadAll(reader)
+		if err != nil {
+			return err
+		}
+
+		bootID = strings.TrimSpace(string(body))
+
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	if bootID == "" {
+		return "", errors.New("node returned an empty boot ID")
+	}
+
+	return bootID, nil
+}
+
 // talosMachineUpgradeLegacy handles Talos < 1.13 nodes where LifecycleService is not available.
 // MachineService.Upgrade combines install + reboot atomically. drain_on_upgrade is not applied
 // here — talosctl upgrade does not drain on the legacy path either.
@@ -1049,10 +1082,24 @@ func talosMachineUpgradeLegacy(ctx context.Context, endpoint, node string, talos
 
 	upgradeRebootMode := machineapi.UpgradeRequest_RebootMode(upgradeRebootModeVal)
 
+	// An upgrade always reboots, so a changed boot ID is what marks it complete. The
+	// running Talos version cannot be used: the image can change without the version
+	// changing (a new Image Factory schematic at the same tag), and replaceImageTag
+	// rebuilds the "running" image from the desired one, so it compared equal on the first
+	// poll and reported success before the upgrade had done anything. See issue #377.
+	// A node that cannot report its boot ID (older node, restricted role) falls back to
+	// waiting for the upgrade RPC itself to return.
+	preBootID, bootIDErr := talosMachineBootID(ctx, endpoint, node, talosConfig, op)
+	if bootIDErr != nil {
+		tflog.Warn(ctx, "could not read boot ID before upgrade; waiting for the upgrade RPC to return instead", map[string]any{
+			"error": bootIDErr.Error(),
+		})
+	}
+
 	// On Talos < v1.13, UpgradeWithOptions holds the gRPC connection open for the entire
 	// download+install duration (~30–45 min). The action.Tracker pattern can't be used here
 	// because the action function doesn't return until done, causing RST_STREAM timeouts.
-	// Instead, fire the RPC in a goroutine and independently poll for the version change.
+	// Instead, fire the RPC in a goroutine and independently poll for the reboot.
 	// The channel carries the first non-nil error so the poll loop can abort early if the
 	// RPC fails before the node even reboots (bad image ref, auth failure, etc.).
 	rpcErrCh := make(chan error, 1)
@@ -1068,38 +1115,38 @@ func talosMachineUpgradeLegacy(ctx context.Context, endpoint, node string, talos
 
 			return err
 		})
-		if err != nil {
-			rpcErrCh <- err
-		}
+		rpcErrCh <- err
 	}()
+
+	var rpcDone bool
 
 	if err := retry.RetryContext(ctx, 60*time.Minute, func() *retry.RetryError {
 		// Abort early if the upgrade RPC itself failed (e.g. bad image, auth error).
 		select {
 		case rpcErr := <-rpcErrCh:
-			return retry.NonRetryableError(fmt.Errorf("upgrade RPC failed: %w", rpcErr))
+			if rpcErr != nil {
+				return retry.NonRetryableError(fmt.Errorf("upgrade RPC failed: %w", rpcErr))
+			}
+
+			rpcDone = true
 		default:
 		}
 
-		err := op(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-			versionResp, err := c.Version(nodeCtx)
-			if err != nil {
-				return err
-			}
-
-			if len(versionResp.Messages) == 0 {
-				return fmt.Errorf("no version messages from node")
-			}
-
-			running := replaceImageTag(state.Image.ValueString(), versionResp.Messages[0].Version.Tag)
-			if running == state.Image.ValueString() {
+		if preBootID == "" {
+			if rpcDone {
 				return nil
 			}
 
-			return fmt.Errorf("node running %s, waiting for %s", running, state.Image.ValueString())
-		})
+			return retry.RetryableError(fmt.Errorf("waiting for the upgrade to %s to finish", state.Image.ValueString()))
+		}
+
+		currentBootID, err := talosMachineBootID(ctx, endpoint, node, talosConfig, op)
 		if err != nil {
 			return retry.RetryableError(err)
+		}
+
+		if currentBootID == preBootID {
+			return retry.RetryableError(fmt.Errorf("node has not rebooted into %s yet", state.Image.ValueString()))
 		}
 
 		return nil
