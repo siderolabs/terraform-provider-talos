@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/talos/pkg/cluster"
@@ -43,14 +45,20 @@ type clusterNodes struct {
 }
 
 func newClusterNodes(controlPlaneNodes, workerNodes []string) (*clusterNodes, error) {
+	// The attribute validators catch non-IPs at plan time, but only when the value is
+	// known then. Node addresses usually come from another resource and are unknown until
+	// apply, so the same mistake has to produce a usable error here too rather than a bare
+	// ParseAddr failure. See issue #382.
 	controlPlaneNodeInfos, err := cluster.IPsToNodeInfos(controlPlaneNodes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("control plane nodes must be IP addresses (health checks compare them "+
+			"against the addresses Kubernetes reports for each node): %w", err)
 	}
 
 	workerNodeInfos, err := cluster.IPsToNodeInfos(workerNodes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("worker nodes must be IP addresses (health checks compare them "+
+			"against the addresses Kubernetes reports for each node): %w", err)
 	}
 
 	nodesByType := make(map[machine.Type][]cluster.NodeInfo)
@@ -120,12 +128,18 @@ func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.
 			"control_plane_nodes": schema.ListAttribute{
 				Required:    true,
 				ElementType: types.StringType,
-				Description: "List of control plane nodes to check for health.",
+				Description: "List of control plane node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(ipAddressValid()),
+				},
 			},
 			"worker_nodes": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "List of worker nodes to check for health.",
+				Description: "List of worker node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(ipAddressValid()),
+				},
 			},
 			"skip_kubernetes_checks": schema.BoolAttribute{
 				Optional:    true,

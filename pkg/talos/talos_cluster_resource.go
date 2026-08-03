@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -20,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -77,14 +79,22 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				},
 			},
 			"node": schema.StringAttribute{
-				Required:    true,
-				Description: "The IP address or hostname of the control plane node to bootstrap etcd on.",
+				Required: true,
+				Description: "The IP address of the control plane node to bootstrap etcd on. Must be an IP: it defaults into " +
+					"`control_plane_nodes`, which the health checks compare against the addresses Kubernetes reports. " +
+					"Use `endpoint` to connect through a hostname.",
+				Validators: []validator.String{
+					ipAddressValid(),
+				},
 			},
 			"control_plane_nodes": schema.ListAttribute{
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
 				Description: "List of all control plane node IPs used for etcd health checks. Defaults to [node]. Required for HA clusters where all control plane IPs must be listed.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(ipAddressValid()),
+				},
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
 				},

@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -756,4 +757,46 @@ func talosClientTFConfigToTalosClientConfig(clusterName, ca, cert, key string) (
 	)
 
 	return talosConfig, nil
+}
+
+// ipAddressValidator rejects anything that is not an IP address.
+//
+// The cluster health checks match nodes against the addresses Kubernetes reports for them
+// (cluster.NodesMatch over Node.Status.Addresses), so node lists have to be IPs — a
+// hostname cannot be compared, and resolving one could yield a VIP or load balancer
+// address that parses but never matches. talosctl has the same restriction on its
+// equivalent flags. See issue #382.
+type ipAddressValidator struct{}
+
+func ipAddressValid() ipAddressValidator {
+	return ipAddressValidator{}
+}
+
+func (v ipAddressValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	value := req.ConfigValue.ValueString()
+
+	if _, err := netip.ParseAddr(value); err != nil {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid IP address",
+			fmt.Sprintf(
+				"%q is not an IP address. Cluster health checks compare nodes against the addresses "+
+					"Kubernetes reports for them, so this has to be the node's IP rather than a hostname. "+
+					"Use `endpoint`/`endpoints` if you need to reach the cluster through a hostname.",
+				value,
+			),
+		)
+	}
+}
+
+func (v ipAddressValidator) Description(_ context.Context) string {
+	return "Validates that the value is an IP address"
+}
+
+func (v ipAddressValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
 }

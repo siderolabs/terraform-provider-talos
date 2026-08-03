@@ -18,14 +18,14 @@ Checks the health of a Talos cluster. This is an ephemeral resource that does no
 ### Required
 
 - `client_configuration` (Attributes) The client configuration data (see [below for nested schema](#nestedatt--client_configuration))
-- `control_plane_nodes` (List of String) List of control plane nodes to check for health.
+- `control_plane_nodes` (List of String) List of control plane node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.
 - `endpoints` (List of String) endpoints to use for the health check client. Use at least one control plane endpoint.
 
 ### Optional
 
 - `skip_kubernetes_checks` (Boolean) Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.
 - `timeout` (String) Timeout for the health check. Defaults to 10m. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', 'h'.
-- `worker_nodes` (List of String) List of worker nodes to check for health.
+- `worker_nodes` (List of String) List of worker node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.
 
 <a id="nestedatt--client_configuration"></a>
 ### Nested Schema for `client_configuration`

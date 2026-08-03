@@ -65,7 +65,7 @@ The `kubernetes_version` argument in `talos_machine_configuration` controls the 
 ### Required
 
 - `kubernetes_version` (String) Desired Kubernetes version (e.g. `v1.32.0`). This is the canonical driver for Kubernetes upgrades: changing it runs Talos's `upgrade-k8s` procedure, which sequentially upgrades kube-apiserver, kube-controller-manager, kube-scheduler, kube-proxy, and kubelet on each node with health gating. Set `ignore_kubernetes_upgrade_drift = true` on `talos_machine` so that image tag changes owned by `upgrade-k8s` are excluded from drift detection and `talos_cluster` fully owns the upgrade sequencing.
-- `node` (String) The IP address or hostname of the control plane node to bootstrap etcd on.
+- `node` (String) The IP address of the control plane node to bootstrap etcd on. Must be an IP: it defaults into `control_plane_nodes`, which the health checks compare against the addresses Kubernetes reports. Use `endpoint` to connect through a hostname.
 
 ### Optional
 
