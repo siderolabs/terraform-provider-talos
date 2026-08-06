@@ -229,6 +229,44 @@ image: registry.k8s.io/kube-scheduler:v1.36.0
 	}
 }
 
+// TestK8sManagedConfigHash_KubeletConfigDocIgnoresImageBumps verifies that a
+// kubelet image bump in a KubeletConfig document does not change the hash.
+//
+// Talos 1.14.0-beta.0 moved the kubelet image out of .machine.kubelet.image
+// into its own KubeletConfig document, which is what upgrade-k8s now patches
+// (see stdpatches.WithKubeletImage). Missing this kind here would make every
+// kubernetes_version bump look like drift and race upgrade-k8s.
+func TestK8sManagedConfigHash_KubeletConfigDocIgnoresImageBumps(t *testing.T) {
+	t.Parallel()
+
+	v135 := []byte(`version: v1alpha1
+machine:
+  network:
+    hostname: cp-1
+---
+kind: KubeletConfig
+apiVersion: v1alpha1
+image: ghcr.io/siderolabs/kubelet:v1.35.4
+`)
+
+	v136 := []byte(`version: v1alpha1
+machine:
+  network:
+    hostname: cp-1
+---
+kind: KubeletConfig
+apiVersion: v1alpha1
+image: ghcr.io/siderolabs/kubelet:v1.36.0
+`)
+
+	got, _ := talos.K8sManagedConfigHash(v135)
+	want, _ := talos.K8sManagedConfigHash(v136)
+
+	if got != want {
+		t.Fatalf("hash changed when only the KubeletConfig image tag was bumped\n  v1.35.4: %s\n  v1.36.0: %s", got, want)
+	}
+}
+
 // TestK8sManagedConfigHash_MultidocStructuralChangeChangesHash verifies that
 // non-image changes in KubeControllerManagerConfig or KubeSchedulerConfig
 // documents DO change the hash. Those documents have user-exposed fields

@@ -18,6 +18,17 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
 )
 
+// installDiskPatchYAML is the yamlencode output of the UnattendedInstallConfig patch the
+// fixtures below use to select the install disk. Since Talos 1.14 the install disk lives in
+// this document; .machine.install still works on its own, but Talos rejects a config
+// carrying both.
+const installDiskPatchYAML = `"apiVersion": "v1alpha1"
+"kind": "UnattendedInstallConfig"
+"provisioning":
+  "diskSelector":
+    "match": "disk.dev_path == '/dev/vda'"
+`
+
 // TestAccTalosMachineConfigurationApplyResource applies machine configuration, checks all
 // attributes (including the disk data source that is always part of the config), verifies
 // idempotency, then exercises the regression for issue #352 (unknown machine_configuration_hash
@@ -48,7 +59,7 @@ func TestAccTalosMachineConfigurationApplyResource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_input"),
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.#", "1"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", installDiskPatchYAML),
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_hash"),
 					// disk data source assertions (always rendered by dynamicConfig)
 					resource.TestCheckResourceAttr("data.talos_machine_disks.this", "id", "machine_disks"),
@@ -193,7 +204,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyMode(t
 						VersionConstraint: "= 0.8.3",
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "auto"),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "auto", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.0 - baseline"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "auto"),
@@ -211,7 +222,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyMode(t
 						VersionConstraint: "= 0.8.3",
 					},
 				},
-				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot"),
+				Config: testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "v0.10.1 - BUG: resolved_apply_mode is empty"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
@@ -228,7 +239,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgradeWithResolvedApplyMode(t
 					},
 				},
 				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Config:                   testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot"),
+				Config:                   testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, "staged_if_needing_reboot", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					logApplyModeState(t, "current version - FIX: resolved_apply_mode is computed"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.staged_if_needing_reboot", "apply_mode", "staged_if_needing_reboot"),
@@ -287,7 +298,7 @@ func TestAccTalosMachineConfigurationApplyResourceUpgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration_input"),
 					resource.TestCheckResourceAttrSet("talos_machine_configuration_apply.this", "machine_configuration"),
 					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.#", "1"),
-					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", "\"machine\":\n  \"install\":\n    \"disk\": \"/dev/vda\"\n"),
+					resource.TestCheckResourceAttr("talos_machine_configuration_apply.this", "config_patches.0", installDiskPatchYAML),
 				),
 			},
 			// ensure there is no diff
@@ -350,9 +361,11 @@ resource "talos_machine_configuration_apply" "this" {
   node                        = libvirt_domain.cp.network_interface[0].addresses[0]
   config_patches = [
     yamlencode({
-      machine = {
-        install = {
-          disk = data.talos_machine_disks.this.disks[0].dev_path
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '${data.talos_machine_disks.this.disks[0].dev_path}'"
         }
       }
     }),
@@ -481,7 +494,21 @@ func TestAccTalosMachineConfigurationApplyWithEphemeralClientConfigWO(t *testing
 	})
 }
 
-func testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, applyMode string) string {
+// testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade renders the
+// apply-mode upgrade fixture.
+//
+// installDiskDoc selects the install-disk override form, which cannot be the same for
+// every step of the upgrade test:
+//
+//   - Talos 1.14 turned the install disk into an UnattendedInstallConfig document whose
+//     diskSelector a node-side controller acts on. machineConfigGenerateOptions.generate
+//     defaults to /dev/sda (util.go), which no test VM has, so without an override the
+//     controller can never satisfy the selector and the node stops answering on apid.
+//   - Only the current provider can emit that document: the external v0.10.x providers
+//     used by the earlier steps bundle pre-1.14 machinery, which does not register the
+//     kind and would fail to patch client-side. Those steps generate a legacy
+//     .machine.install config that Talos 1.14 does not act on, so they need no override.
+func testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName, applyMode string, installDiskDoc bool) string {
 	config := dynamicConfig{
 		Provider:        "talos",
 		ResourceName:    rName,
@@ -491,12 +518,28 @@ func testAccTalosMachineConfigurationApplyResourceConfigAutoStagedUpgrade(rName,
 
 	baseConfig := config.render()
 
+	configPatches := ""
+	if installDiskDoc {
+		configPatches = `
+  config_patches = [
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '${data.talos_machine_disks.this.disks[0].dev_path}'"
+        }
+      }
+    }),
+  ]`
+	}
+
 	return baseConfig + `
 resource "talos_machine_configuration_apply" "staged_if_needing_reboot" {
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
   node                        = libvirt_domain.cp.network_interface[0].addresses[0]
-  apply_mode                  = "` + applyMode + `"
+  apply_mode                  = "` + applyMode + `"` + configPatches + `
 }
 `
 }
@@ -525,9 +568,11 @@ ephemeral "talos_machine_configuration" "this" {
 
   config_patches = [
     yamlencode({
-      machine = {
-        install = {
-          disk = "/dev/vda"
+      apiVersion = "v1alpha1"
+      kind       = "UnattendedInstallConfig"
+      provisioning = {
+        diskSelector = {
+          match = "disk.dev_path == '/dev/vda'"
         }
       }
     })
@@ -650,7 +695,9 @@ resource "talos_machine_configuration_apply" "this" {
   endpoint                    = "127.0.0.1"
   config_patches = [
     for item in jsondecode(terraform_data.source.output) : yamlencode({
-      machine = { install = { disk = "/dev/${item}" } }
+      apiVersion   = "v1alpha1"
+      kind         = "UnattendedInstallConfig"
+      provisioning = { diskSelector = { match = "disk.dev_path == '/dev/${item}'" } }
     })
   ]
 }
