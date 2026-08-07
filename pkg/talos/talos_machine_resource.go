@@ -17,6 +17,7 @@ import (
 	cosistate "github.com/cosi-project/runtime/pkg/state"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -70,6 +71,7 @@ var (
 	_ resource.Resource                   = &talosMachineResource{}
 	_ resource.ResourceWithModifyPlan     = &talosMachineResource{}
 	_ resource.ResourceWithValidateConfig = &talosMachineResource{}
+	_ resource.ResourceWithImportState    = &talosMachineResource{}
 )
 
 type talosMachineResourceModel struct {
@@ -502,7 +504,7 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 	plan.MachineConfigurationHash = types.StringValue(cfgHash)
 
 	if !plan.Image.IsNull() {
-		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
+		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, false); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return
@@ -588,41 +590,15 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 	// one-time config re-apply. The re-apply is safe: the config is unchanged
 	// and Talos will not reboot for a no-op. No StateUpgraders migration is
 	// provided since only alpha versions are affected.
-	_ = talosClientOp(ctx, endpoint, state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error { //nolint:errcheck
-		cfg, err := safe.StateGet[*configresource.MachineConfig](
-			nodeCtx,
-			c.COSI,
-			cosiresource.NewMetadata(
-				configresource.NamespaceName,
-				configresource.MachineConfigType,
-				configresource.ActiveID,
-				cosiresource.VersionUndefined,
-			),
-		)
-		if err != nil {
-			return err
-		}
-
-		yamlBytes, err := cfg.Provider().Bytes()
-		if err != nil {
-			return err
-		}
-
-		// Both Read (COSI bytes) and ModifyPlan (provider-rendered bytes) go
-		// through computeConfigHash's yaml.Marshal normalization, so key
-		// ordering is consistent on both sides. The two byte sources are
-		// semantically identical as long as Talos does not inject extra default
-		// fields when serializing — which is the case for configs written by
-		// this provider.
-		cfgHash, stripped := computeConfigHash(yamlBytes, state.IgnoreKubernetesUpgradeDrift.ValueBool())
-		if !stripped {
-			tflog.Warn(nodeCtx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
-		}
-
+	if cfgHash, err := talosMachineLiveConfigHash(
+		ctx,
+		endpoint,
+		state.Node.ValueString(),
+		talosConfig,
+		state.IgnoreKubernetesUpgradeDrift.ValueBool(),
+	); err == nil {
 		state.MachineConfigurationHash = types.StringValue(cfgHash)
-
-		return nil
-	})
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -733,10 +709,22 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 	plan.Endpoint = types.StringValue(endpoint)
 
 	// Upgrade OS first so the new config is accepted by the upgraded node.
+	// Post-import state has a null image (identity-only ImportState). Use
+	// UpgradeIfNeeded only then so an already matching version and Factory
+	// schematic do not trigger pull/install/drain/reboot. Every other image
+	// change continues to use an unconditional upgrade.
 	imageChanged := !plan.Image.IsNull() && !plan.Image.Equal(state.Image)
+	postImportAdopt := state.Image.IsNull()
 
 	if imageChanged {
-		if err := talosMachineUpgrade(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, true); err != nil {
+		if err := talosMachineUpgradeOnUpdate(
+			ctxDeadline,
+			endpoint,
+			plan.Node.ValueString(),
+			talosConfig,
+			&plan,
+			postImportAdopt,
+		); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return
@@ -754,20 +742,39 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 			return
 		}
 
-		// Skip config apply if the normalized hash is unchanged. This covers two
-		// cases: (1) write-only machine_configuration_wo, where ModifyPlan cannot
-		// read the config and always marks hash Unknown; and (2) a simultaneous
-		// Talos OS upgrade where kubernetes_version also changed — the OS upgrade
-		// already happened above; with ignore_kubernetes_upgrade_drift=true, K8s
-		// images are excluded from the hash and must not be re-applied here, which
-		// would bypass upgrade-k8s's sequential safety procedure.
+		// Skip config apply if the normalized hash is unchanged. This covers:
+		// (1) write-only machine_configuration_wo, where ModifyPlan cannot read
+		// the config and always marks hash Unknown; (2) a simultaneous Talos OS
+		// upgrade where kubernetes_version also changed — with
+		// ignore_kubernetes_upgrade_drift=true, K8s images are excluded from the
+		// hash and must not be re-applied here; (3) post-import adopt, where
+		// state hash is empty — compare against the live COSI config so filling
+		// HCL into state does not re-apply an identical machine config.
 		configHash, stripped := computeConfigHash(cfgBytes, plan.IgnoreKubernetesUpgradeDrift.ValueBool())
 		if !stripped {
 			tflog.Warn(ctx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
 		}
 
-		if configHash == state.MachineConfigurationHash.ValueString() {
-			plan.MachineConfigurationHash = state.MachineConfigurationHash
+		baselineHash, baselineErr := talosMachineConfigBaselineHash(
+			ctxDeadline,
+			endpoint,
+			plan.Node.ValueString(),
+			talosConfig,
+			state.MachineConfigurationHash.ValueString(),
+			plan.IgnoreKubernetesUpgradeDrift.ValueBool(),
+			postImportAdopt,
+		)
+		if baselineErr != nil {
+			resp.Diagnostics.AddError(
+				"error reading live machine configuration for adopt/update",
+				baselineErr.Error(),
+			)
+
+			return
+		}
+
+		if configHash == baselineHash {
+			plan.MachineConfigurationHash = types.StringValue(configHash)
 			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 
 			return
@@ -837,6 +844,57 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 	).Run(ctx); err != nil {
 		resp.Diagnostics.AddError("error resetting machine", err.Error())
 	}
+}
+
+func (r *talosMachineResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	node := strings.TrimSpace(req.ID)
+	if node == "" {
+		resp.Diagnostics.AddError(
+			"failed to import state",
+			"import ID must be the Talos node IP address or hostname",
+		)
+
+		return
+	}
+
+	timeout, diag := basetypes.NewObjectValue(map[string]attr.Type{
+		"create": types.StringType,
+		"update": types.StringType,
+		"delete": types.StringType,
+	}, map[string]attr.Value{
+		"create": basetypes.NewStringNull(),
+		"update": basetypes.NewStringNull(),
+		"delete": basetypes.NewStringNull(),
+	})
+	resp.Diagnostics.Append(diag...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Import only records identity. Read cannot see HCL client_configuration, so
+	// image / machine_configuration_hash are filled on the first Update by
+	// observing the live node (UpgradeIfNeeded + live COSI hash compare) before
+	// any apply/upgrade. Do not treat a post-import plan "update in-place" as a
+	// license to mutate the node when HCL already matches reality.
+	clientConfig := basetypes.NewObjectNull(map[string]attr.Type{
+		"ca_certificate":     types.StringType,
+		"client_certificate": types.StringType,
+		"client_key":         types.StringType,
+	})
+
+	state := talosMachineResourceModel{
+		ID:                    basetypes.NewStringValue(node),
+		Node:                  basetypes.NewStringValue(node),
+		Endpoint:              basetypes.NewStringValue(node),
+		ClientConfiguration:   clientConfig,
+		ClientConfigurationWO: clientConfig, // write-only: always null in state; typed null required by ObjectType
+		Timeouts: timeouts.Value{
+			Object: timeout,
+		},
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 // talosMachineApplyConfig applies the machine configuration with retry and waits for
@@ -1003,14 +1061,16 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 // talosMachineUpgradeIfNeeded checks the running Talos version and, for Image Factory
 // images, the active schematic. If either differs from the desired image, it performs:
 // pull → install → drain → reboot → uncordon.
-func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel) (retErr error) {
+// Create does not wait for Kubernetes bootstrap; adoption through Update uses
+// the normal update readiness checks.
+func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, waitForKubernetes bool) (retErr error) {
 	runningImage, err := talosMachineRunningVersion(ctx, endpoint, node, talosConfig, state.Image.ValueString())
 	if err != nil {
 		return fmt.Errorf("reading running version: %w", err)
 	}
 
 	if runningImage != state.Image.ValueString() {
-		return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, false)
+		return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, waitForKubernetes)
 	}
 
 	requestedSchematic, isImageFactoryImage := talosMachineImageFactorySchematic(state.Image.ValueString())
@@ -1027,7 +1087,7 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 		return nil
 	}
 
-	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, false)
+	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, waitForKubernetes)
 }
 
 // talosMachineImageFactorySchematic returns the schematic ID embedded in the standard
@@ -1091,6 +1151,23 @@ func talosMachineRunningSchematic(ctx context.Context, endpoint, node string, ta
 	}
 
 	return schematicID, nil
+}
+
+// talosMachineUpgradeOnUpdate chooses UpgradeIfNeeded only for post-import adopt
+// (null prior image). All other Update image changes use unconditional Upgrade
+// so same-tag schematic changes are not skipped.
+func talosMachineUpgradeOnUpdate(
+	ctx context.Context,
+	endpoint, node string,
+	talosConfig *clientconfig.Config,
+	plan *talosMachineResourceModel,
+	postImportAdopt bool,
+) error {
+	if postImportAdopt {
+		return talosMachineUpgradeIfNeeded(ctx, endpoint, node, talosConfig, plan, true)
+	}
+
+	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, plan, true)
 }
 
 func talosMachineRunningVersion(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, desiredImage string) (string, error) {
@@ -1494,6 +1571,81 @@ func talosMachineReconcileRunningImage(desiredImage, reportedTag string) string 
 	}
 
 	return replaceImageTag(desiredImage, reportedTag)
+}
+
+// talosMachineLiveConfigHash reads the active machine config from COSI and returns
+// the same normalized hash ModifyPlan / Update use for drift detection.
+func talosMachineLiveConfigHash(
+	ctx context.Context,
+	endpoint, node string,
+	talosConfig *clientconfig.Config,
+	suppressK8sDrift bool,
+) (string, error) {
+	var cfgHash string
+
+	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+		cfg, err := safe.StateGet[*configresource.MachineConfig](
+			nodeCtx,
+			c.COSI,
+			cosiresource.NewMetadata(
+				configresource.NamespaceName,
+				configresource.MachineConfigType,
+				configresource.ActiveID,
+				cosiresource.VersionUndefined,
+			),
+		)
+		if err != nil {
+			return err
+		}
+
+		yamlBytes, err := cfg.Provider().Bytes()
+		if err != nil {
+			return err
+		}
+
+		// Both Read (COSI bytes) and ModifyPlan (provider-rendered bytes) go
+		// through computeConfigHash's yaml.Marshal normalization, so key
+		// ordering is consistent on both sides. The two byte sources are
+		// semantically identical as long as Talos does not inject extra default
+		// fields when serializing — which is the case for configs written by
+		// this provider.
+		hash, stripped := computeConfigHash(yamlBytes, suppressK8sDrift)
+		if !stripped {
+			tflog.Warn(nodeCtx, "computeConfigHash: failed to normalize config; hash covers raw config bytes")
+		}
+
+		cfgHash = hash
+
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	return cfgHash, nil
+}
+
+// talosMachineConfigBaselineHash returns the hash Update should compare against.
+// Post-import adopt (empty state hash + null prior image) requires a live COSI
+// read and errors if unavailable. Other empty-hash cases keep prior behavior:
+// empty baseline so desired config is applied.
+func talosMachineConfigBaselineHash(
+	ctx context.Context,
+	endpoint, node string,
+	talosConfig *clientconfig.Config,
+	stateHash string,
+	suppressK8sDrift bool,
+	postImportAdopt bool,
+) (string, error) {
+	if stateHash != "" || !postImportAdopt {
+		return stateHash, nil
+	}
+
+	liveHash, err := talosMachineLiveConfigHash(ctx, endpoint, node, talosConfig, suppressK8sDrift)
+	if err != nil {
+		return "", fmt.Errorf("state has no machine_configuration_hash; refused to apply without comparing to the node: %w", err)
+	}
+
+	return liveHash, nil
 }
 
 // resolveTalosMachineClientConfig builds the Talos client config from either the

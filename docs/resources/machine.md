@@ -206,3 +206,33 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+## Import
+
+Talos machines can be imported using the node IP address or hostname:
+
+```shell
+terraform import talos_machine.example 10.5.0.2
+```
+
+**The import ID must match `node` exactly.** Importing by IP address while using
+a hostname in configuration, or vice versa, causes Terraform to plan replacement
+of the machine.
+
+Import records node identity only. Provide existing client credentials and the
+desired machine configuration in HCL. The first plan shows an in-place update;
+applying it fills state and reconciles the node. A following plan should be empty
+when the configuration matches the node.
+
+When `image` is set, the first apply compares the running Talos version and any
+requested Image Factory schematic. Matches skip the OS upgrade; digest-pinned
+images are installed because the running digest cannot be verified. Matching
+versions for other repositories do not verify image content. Later changes to
+`image` trigger an upgrade.
+
+Matching machine configuration is not reapplied. A configuration-read failure
+stops configuration apply, but does not undo an earlier OS upgrade.
+
+Credentials must allow reading the active machine configuration through COSI
+and, for Image Factory images, the node's extension statuses.
