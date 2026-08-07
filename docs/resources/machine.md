@@ -205,3 +205,65 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+## Import
+
+Talos machines can be imported using the node IP address or hostname, e.g.
+
+```shell
+terraform import talos_machine.example 10.5.0.2
+```
+
+### Prerequisites
+
+Import only records identity (`id`, `node`, `endpoint`). It does not read
+certificates from the node.
+
+**Provider version:** `talos_machine` exists from provider **v0.12.0-alpha.0**
+onward. Import support for this resource requires a provider build that includes
+`ImportState` for `talos_machine` (this feature). The cluster itself does not
+need to have been created by that same provider version. A common path is to
+create the cluster with **v0.11.x** (`talos_machine_configuration_apply` +
+bootstrap + secrets), then adopt the node with a **v0.12+** provider that
+supports `talos_machine` import.
+
+**Credentials in state:** Wire `client_configuration` from an existing secrets
+resource (typical when migrating off `talos_machine_configuration_apply`):
+
+```terraform
+resource "talos_machine" "example" {
+  node                 = "10.5.0.2"
+  client_configuration = talos_machine_secrets.this.client_configuration
+  # ...
+}
+```
+
+`talos_machine_secrets` should already be in state (or import it first with
+`terraform import talos_machine_secrets.this <path-to-secrets.yaml>`).
+
+**Import ID must match `node`:** `node` has `RequiresReplace`. The import ID
+becomes both `id` and `node` in state. If HCL `node` does not match that value
+exactly (for example import by IP but configure a hostname, or the reverse), the
+first plan is a **destroy/create** of the live machine instead of an in-place
+state fill. Use the same address string in the import ID and in `node`.
+
+### What to expect after import
+
+1. `terraform state show` lists `id` / `node` / `endpoint` only at first.
+2. `terraform plan` shows an **in-place update** that fills attributes from HCL
+   (`client_configuration`, `image`, `machine_configuration`, flags such as
+   `drain_on_upgrade`, and so on). That is expected when import ID matches `node`.
+   It does **not** mean Terraform will recreate the VM or that those values are
+   missing from the cluster.
+3. `terraform apply` of that plan copies HCL into this resource's state. On that
+   post-import apply (state `image` is null), the provider observes the live
+   machine first: it skips OS upgrade when the running version already matches
+   `image`, and skips machine-config apply when the live config hash already
+   matches. Later applies that change `image` always upgrade (including same tag
+   with a new schematic). If HCL differs from the node, apply upgrades or
+   re-applies as usual.
+4. A following `terraform plan` should report no changes when configuration matches
+   the node.
+
+
