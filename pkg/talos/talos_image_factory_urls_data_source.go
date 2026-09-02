@@ -5,6 +5,7 @@
 package talos
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
@@ -49,6 +50,24 @@ The platform for which the URLs are generated.
         - {{ . }}
         {{- end }}
 `
+	diskImageFormatMarkdownDescriptionTemplate = `
+The format of the generated disk image URLs. Choose a disk format, like ` + "`qcow2`" + `,
+and optionally add a compression suffix, like ` + "`.zst`" + ` for ` + "`raw.zst`" + `. Defaults to the
+platform's own format. Setting ` + "`disk_image_format`" + ` is not allowed for an SBC, or for a platform without
+a disk image, like ` + "`equinixMetal`" + `.
+
+    #### Disk formats
+
+        {{- range .DiskFormats }}
+        - {{ . }}
+        {{- end }}
+
+    #### Compression suffixes
+
+        {{- range .Compressions }}
+        - {{ . }}
+        {{- end }}
+`
 	sbcMarkdownDescriptionTemplate = `
 The SBC's (Single Board Copmuters) for which the url are generated.
 
@@ -60,19 +79,30 @@ The SBC's (Single Board Copmuters) for which the url are generated.
 `
 )
 
+// diskImageFormats and diskImageCompressions mirror the two suffix lists that
+// image-factory's ParseFromPath matches against.
+//
+// See github.com/siderolabs/image-factory@v1.6.0 internal/profile/profile.go.
 var (
-	_ datasource.DataSource              = &talosImageFactoryURLSDataSource{}
-	_ datasource.DataSourceWithConfigure = &talosImageFactoryURLSDataSource{}
+	diskImageFormats      = []string{"raw", "qcow2", "vhd", "ova"}
+	diskImageCompressions = []string{".tar.gz", ".gz", ".xz", ".zst"}
+)
+
+var (
+	_ datasource.DataSource                   = &talosImageFactoryURLSDataSource{}
+	_ datasource.DataSourceWithConfigure      = &talosImageFactoryURLSDataSource{}
+	_ datasource.DataSourceWithValidateConfig = &talosImageFactoryURLSDataSource{}
 )
 
 type talosImageFactoryURLSDataSourceModelV0 struct {
-	ID           types.String `tfsdk:"id"`
-	Architecture types.String `tfsdk:"architecture"`
-	TalosVersion types.String `tfsdk:"talos_version"`
-	SchematicID  types.String `tfsdk:"schematic_id"`
-	Platform     types.String `tfsdk:"platform"`
-	SBC          types.String `tfsdk:"sbc"`
-	URLs         urls         `tfsdk:"urls"`
+	ID              types.String `tfsdk:"id"`
+	Architecture    types.String `tfsdk:"architecture"`
+	TalosVersion    types.String `tfsdk:"talos_version"`
+	SchematicID     types.String `tfsdk:"schematic_id"`
+	Platform        types.String `tfsdk:"platform"`
+	SBC             types.String `tfsdk:"sbc"`
+	DiskImageFormat types.String `tfsdk:"disk_image_format"`
+	URLs            urls         `tfsdk:"urls"`
 }
 
 type urls struct {
@@ -99,21 +129,12 @@ func (d *talosImageFactoryURLSDataSource) Metadata(_ context.Context, req dataso
 }
 
 func (d *talosImageFactoryURLSDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
-	var platformMarkdownDescription strings.Builder
-
-	template.Must(template.New("platformMarkdownDescription").Parse(platformMarkdownDescriptionTemplate)).Execute(&platformMarkdownDescription, struct { //nolint:errcheck
-		FactoryPlatforms []string
-	}{
-		FactoryPlatforms: cloudPlatforms,
-	})
-
-	var sbcMarkdownDescription strings.Builder
-
-	template.Must(template.New("sbcMarkdownDescription").Parse(sbcMarkdownDescriptionTemplate)).Execute(&sbcMarkdownDescription, struct { //nolint:errcheck
-		SBCs []string
-	}{
-		SBCs: sbcs,
-	})
+	platformMarkdownDescription := renderDescription("platformMarkdownDescription", platformMarkdownDescriptionTemplate, struct{ FactoryPlatforms []string }{cloudPlatforms})
+	sbcMarkdownDescription := renderDescription("sbcMarkdownDescription", sbcMarkdownDescriptionTemplate, struct{ SBCs []string }{sbcs})
+	diskImageFormatMarkdownDescription := renderDescription("diskImageFormatMarkdownDescription", diskImageFormatMarkdownDescriptionTemplate, struct {
+		DiskFormats  []string
+		Compressions []string
+	}{diskImageFormats, diskImageCompressions})
 
 	resp.Schema = schema.Schema{
 		Description: "Generates URLs for different assets supported by the Talos image factory.",
@@ -139,7 +160,7 @@ func (d *talosImageFactoryURLSDataSource) Schema(_ context.Context, _ datasource
 			},
 			"platform": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: platformMarkdownDescription.String(),
+				MarkdownDescription: platformMarkdownDescription,
 				Validators: []validator.String{
 					stringvalidator.All(
 						stringvalidator.OneOf(allPlatforms...),
@@ -151,7 +172,7 @@ func (d *talosImageFactoryURLSDataSource) Schema(_ context.Context, _ datasource
 			},
 			"sbc": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: sbcMarkdownDescription.String(),
+				MarkdownDescription: sbcMarkdownDescription,
 				Validators: []validator.String{
 					stringvalidator.All(
 						stringvalidator.OneOf(sbcs...),
@@ -159,6 +180,13 @@ func (d *talosImageFactoryURLSDataSource) Schema(_ context.Context, _ datasource
 							path.MatchRoot("platform"),
 						}...),
 					),
+				},
+			},
+			"disk_image_format": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: diskImageFormatMarkdownDescription,
+				Validators: []validator.String{
+					stringvalidator.OneOf(supportedDiskImageFormats()...),
 				},
 			},
 			"urls": schema.SingleNestedAttribute{
@@ -233,6 +261,56 @@ func (d *talosImageFactoryURLSDataSource) Configure(_ context.Context, req datas
 	d.imageFactoryClient = imageFactoryClient
 }
 
+func (d *talosImageFactoryURLSDataSource) ValidateConfig(ctx context.Context, req datasource.ValidateConfigRequest, resp *datasource.ValidateConfigResponse) {
+	var obj types.Object
+
+	resp.Diagnostics.Append(req.Config.Get(ctx, &obj)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var config talosImageFactoryURLSDataSourceModelV0
+
+	resp.Diagnostics.Append(obj.As(ctx, &config, basetypes.ObjectAsOptions{
+		UnhandledNullAsEmpty:    true,
+		UnhandledUnknownAsEmpty: true,
+	})...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if config.DiskImageFormat.IsNull() || config.DiskImageFormat.IsUnknown() {
+		return
+	}
+
+	if !config.SBC.IsNull() && !config.SBC.IsUnknown() {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("disk_image_format"),
+			"disk_image_format is not supported for SBCs",
+			fmt.Sprintf("The disk image URL for the %s SBC is always metal-arm64.raw.xz, so disk_image_format would have no effect.", config.SBC.ValueString()),
+		)
+
+		return
+	}
+
+	if config.Platform.IsUnknown() {
+		return
+	}
+
+	platform := config.Platform.ValueString()
+	platformData := xslices.Filter(platforms.CloudPlatforms(), func(p platforms.Platform) bool { return p.Name == platform })
+
+	if len(platformData) == 1 && !slices.Contains(platformData[0].BootMethods, platforms.BootMethodDiskImage) {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("disk_image_format"),
+			"disk_image_format is not supported by the platform",
+			fmt.Sprintf("The %s platform has no disk image, so disk_image_format would have no effect.", platform),
+		)
+	}
+}
+
 func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	if d.imageFactoryClient == nil {
 		resp.Diagnostics.AddError("image factory client is not configured", "Please report this issue to the provider developers.")
@@ -265,6 +343,7 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 
 	architecture := config.Architecture.ValueString()
 	platform := config.Platform.ValueString()
+	diskImageFormat := config.DiskImageFormat.ValueString()
 	talosVersion := "v" + strings.TrimPrefix(config.TalosVersion.ValueString(), "v")
 
 	if _, err := semver.ParseTolerant(talosVersion); err != nil {
@@ -289,13 +368,16 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 	switch platform {
 	case "metal":
 		platformData := platforms.MetalPlatform()
+		diskImageSuffix := cmp.Or(diskImageFormat, platformData.DiskImageSuffix)
 
 		urlsData.InstallerSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/%s-installer-secureboot/%s:%s", uri.Host, platform, schematicID, talosVersion))
 		urlsData.ISO = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.ISOPath(architecture)))
 		urlsData.ISOSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootISOPath(architecture)))
-		urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.DiskImageDefaultPath(architecture)))
+		urlsData.DiskImage = basetypes.NewStringValue(
+			fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.DiskImagePath(architecture, diskImageSuffix)),
+		)
 		urlsData.DiskImageSecureboot = basetypes.NewStringValue(
-			fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootDiskImageDefaultPath(architecture)),
+			fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.SecureBootDiskImagePath(architecture, diskImageSuffix)),
 		)
 		urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/%s", uri.Scheme, uri.Host, schematicID, talosVersion, platformData.PXEScriptPath(architecture)))
 		urlsData.Kernel = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData.KernelPath(architecture)))
@@ -321,9 +403,11 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 		for _, bootMethod := range platformData[0].BootMethods {
 			switch bootMethod {
 			case platforms.BootMethodDiskImage:
-				urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].DiskImageDefaultPath(architecture))) //nolint:lll
+				diskImageSuffix := cmp.Or(diskImageFormat, platformData[0].DiskImageSuffix)
+
+				urlsData.DiskImage = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].DiskImagePath(architecture, diskImageSuffix))) //nolint:lll
 				if platformData[0].SecureBootSupported {
-					urlsData.DiskImageSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].SecureBootDiskImageDefaultPath(architecture))) //nolint:lll
+					urlsData.DiskImageSecureboot = basetypes.NewStringValue(fmt.Sprintf("%s/image/%s/%s/%s", d.imageFactoryClient.BaseURL(), schematicID, talosVersion, platformData[0].SecureBootDiskImagePath(architecture, diskImageSuffix))) //nolint:lll
 				}
 			case platforms.BootMethodPXE:
 				urlsData.PXE = basetypes.NewStringValue(fmt.Sprintf("%s://pxe.%s/pxe/%s/%s/%s", uri.Scheme, uri.Host, schematicID, talosVersion, platformData[0].PXEScriptPath(architecture))) //nolint:lll
@@ -344,4 +428,32 @@ func (d *talosImageFactoryURLSDataSource) Read(ctx context.Context, req datasour
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+// supportedDiskImageFormats returns every disk format, alone and followed by each
+// compression suffix. The factory refuses some platform and format combinations,
+// so a format in this list is not guaranteed to build.
+func supportedDiskImageFormats() []string {
+	formats := make([]string, 0, len(diskImageFormats)*(len(diskImageCompressions)+1))
+
+	for _, diskFormat := range diskImageFormats {
+		formats = append(formats, diskFormat)
+
+		for _, compression := range diskImageCompressions {
+			formats = append(formats, diskFormat+compression)
+		}
+	}
+
+	slices.Sort(formats)
+
+	return formats
+}
+
+func renderDescription(name, tmpl string, data any) string {
+	var description strings.Builder
+
+	//nolint:errcheck
+	template.Must(template.New(name).Parse(tmpl)).Execute(&description, data)
+
+	return description.String()
 }

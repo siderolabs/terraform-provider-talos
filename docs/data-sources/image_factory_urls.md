@@ -35,6 +35,22 @@ output "installer_image" {
 ### Optional
 
 - `architecture` (String) The platform architecture for which the URLs are generated. Defaults to amd64.
+- `disk_image_format` (String) The format of the generated disk image URLs. Choose a disk format, like `qcow2`,
+and optionally add a compression suffix, like `.zst` for `raw.zst`. Defaults to the
+platform's own format. Setting `disk_image_format` is not allowed for an SBC, or for a platform without
+a disk image, like `equinixMetal`.
+
+    #### Disk formats
+        - raw
+        - qcow2
+        - vhd
+        - ova
+
+    #### Compression suffixes
+        - .tar.gz
+        - .gz
+        - .xz
+        - .zst
 - `platform` (String) The platform for which the URLs are generated.
 
 	#### Metal

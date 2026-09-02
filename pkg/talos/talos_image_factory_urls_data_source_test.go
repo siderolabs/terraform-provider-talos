@@ -29,6 +29,18 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 				Config:      testAccTalosImageFactoryURLsInvalidVersionConfig(),
 				ExpectError: regexp.MustCompile("talos_version is not valid"),
 			},
+			{
+				Config:      testAccTalosImageFactoryURLsInvalidDiskImageFormatConfig(),
+				ExpectError: regexp.MustCompile(`(?s)Invalid Attribute Value Match.*disk_image_format`),
+			},
+			{
+				Config:      testAccTalosImageFactoryURLsEquinixMetalPlatformRawConfig(),
+				ExpectError: regexp.MustCompile(`(?s)disk_image_format is not supported by the platform.*equinixMetal`),
+			},
+			{
+				Config:      testAccTalosImageFactoryURLsSBCQcow2Config(),
+				ExpectError: regexp.MustCompile(`(?s)disk_image_format is not supported for SBCs.*rpi_generic`),
+			},
 		},
 	})
 
@@ -121,6 +133,22 @@ func TestAccTalosImageFactoryURLsDataSource(t *testing.T) {
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.kernel_command_line"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.initramfs"),
 					resource.TestCheckNoResourceAttr("data.talos_image_factory_urls.this", "urls.uki"),
+				),
+			},
+			// nocloud platform, qcow2 disk image format
+			{
+				Config: testAccTalosImageFactoryURLsNoCloudPlatformQcow2Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64.qcow2"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/nocloud-amd64-secureboot.qcow2"),
+				),
+			},
+			// metal platform, qcow2 disk image format
+			{
+				Config: testAccTalosImageFactoryURLsMetalPlatformQcow2Config(),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-amd64.qcow2"),
+					resource.TestCheckResourceAttr("data.talos_image_factory_urls.this", "urls.disk_image_secureboot", "https://factory.talos.dev/image/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba/v1.7.5/metal-amd64-secureboot.qcow2"),
 				),
 			},
 		},
@@ -220,6 +248,71 @@ data "talos_image_factory_urls" "this" {
 	talos_version = "invalid_version"
 	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
 	platform = "metal"
+}
+`
+}
+
+func testAccTalosImageFactoryURLsNoCloudPlatformQcow2Config() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_urls" "this" {
+	talos_version = "v1.7.5"
+	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	platform = "nocloud"
+	disk_image_format = "qcow2"
+}
+`
+}
+
+func testAccTalosImageFactoryURLsMetalPlatformQcow2Config() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_urls" "this" {
+	talos_version = "v1.7.5"
+	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	platform = "metal"
+	disk_image_format = "qcow2"
+}
+`
+}
+
+func testAccTalosImageFactoryURLsInvalidDiskImageFormatConfig() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_urls" "this" {
+	talos_version = "v1.7.5"
+	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	platform = "metal"
+	disk_image_format = "qcow"
+}
+`
+}
+
+func testAccTalosImageFactoryURLsSBCQcow2Config() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_urls" "this" {
+	talos_version = "v1.7.5"
+	schematic_id = "ee21ef4a5ef808a9b7484cc0dda0f25075021691c8c09a276591eedb638ea1f9"
+	sbc = "rpi_generic"
+	disk_image_format = "qcow2"
+}
+`
+}
+
+func testAccTalosImageFactoryURLsEquinixMetalPlatformRawConfig() string {
+	return `
+provider "talos" {}
+
+data "talos_image_factory_urls" "this" {
+	talos_version = "v1.7.5"
+	schematic_id = "376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"
+	platform = "equinixMetal"
+	disk_image_format = "raw"
 }
 `
 }
