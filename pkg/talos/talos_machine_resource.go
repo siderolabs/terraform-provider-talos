@@ -67,6 +67,7 @@ var (
 )
 
 type talosMachineResourceModel struct {
+	UpgradePolicy                types.Object          `tfsdk:"upgrade_policy"`
 	OnDestroy                    *onDestroyOptions     `tfsdk:"on_destroy"`
 	MachineConfigurationWO       types.String          `tfsdk:"machine_configuration_wo"`
 	Kubeconfig                   types.String          `tfsdk:"kubeconfig"`
@@ -192,6 +193,7 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				},
 				Description: "Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.",
 			},
+			"upgrade_policy": upgradePolicySchema(),
 			"drain_on_upgrade": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -264,6 +266,14 @@ func (r *talosMachineResource) ValidateConfig(ctx context.Context, req resource.
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	if _, _, err := decodeUpgradePolicy(ctx, cfg.UpgradePolicy); err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("upgrade_policy"), "Invalid upgrade policy", err.Error())
+	}
+
+	if !cfg.UpgradePolicy.IsNull() && !cfg.DrainOnUpgrade.IsUnknown() && !cfg.DrainOnUpgrade.IsNull() && !cfg.DrainOnUpgrade.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("drain_on_upgrade"), "Upgrade policy requires draining", "Set drain_on_upgrade = true when using upgrade_policy.")
 	}
 
 	clientSet := !cfg.ClientConfiguration.IsNull()
@@ -651,7 +661,7 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 	imageChanged := !plan.Image.IsNull() && !plan.Image.Equal(state.Image)
 
 	if imageChanged {
-		if err := talosMachineUpgrade(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, true); err != nil {
+		if err := talosMachineUpgradeWithBudget(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return

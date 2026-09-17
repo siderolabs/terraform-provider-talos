@@ -112,6 +112,70 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Experimental worker upgrade budgets
+
+For worker OS upgrades, an optional `upgrade_policy` coordinates admission across
+`talos_machine` resources in the **same provider process**. This allows workers
+managed with `for_each` to upgrade within a pool budget while unrelated resources
+continue concurrently:
+
+```terraform
+locals {
+  worker_node_names = toset(["worker-1", "worker-2", "worker-3", "worker-4"])
+}
+
+resource "talos_machine" "worker" {
+  for_each = local.worker_node_names
+  # node, client_configuration, machine_configuration, image, etc.
+
+  drain_on_upgrade = true
+  kubeconfig_wo    = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+
+  upgrade_policy = {
+    group           = "general-workers"
+    node_names      = local.worker_node_names
+    max_unavailable = "25%" # one of these four workers; alternatively "1"
+  }
+}
+```
+
+Every participating resource must specify the same group, complete membership,
+and budget. Membership uses Kubernetes node names, not Talos addresses, and must
+include unchanged workers. Members must already exist. Groups are scoped by the
+UID of the cluster's `kube-system` namespace and must not overlap. The kubeconfig
+needs permission to list Nodes and get the `kube-system` Namespace in addition
+to the permissions needed for draining.
+
+A budget accepts a positive integer or a percentage. Percentages round down;
+a percentage that permits zero workers is rejected. Existing NotReady, Unknown,
+cordoned, and deleting workers consume capacity. Reservations count before a
+node is cordoned and are counted only once if that node becomes unavailable.
+Admission requires the candidate itself to be Ready and schedulable. Missing
+members and Kubernetes API errors prevent admission. Control-plane-labeled
+members are rejected; keep the explicit control-plane dependency chain above.
+
+The reservation covers image preparation, drain, reboot, and the existing
+recovery/uncordon checks. It is released only after a fresh Kubernetes check
+confirms that the worker is Ready and schedulable. An upgrade or recovery failure
+stops further admission in that group for the lifetime of the provider process;
+already admitted upgrades can finish. Waiting for capacity consumes the resource's
+update timeout. Investigate a failed node before starting another apply. Existing
+drain behavior, including PodDisruptionBudget handling, remains unchanged.
+
+**Scope and limitations:** this is process-local coordination, not a distributed
+lock. Separate provider processes (including aliases hosted in separate processes)
+and concurrent applies do not share reservations. Use one provider configuration
+and one apply for a pool. Workers without this policy can bypass the budget.
+External failures may exceed the budget, and Kubernetes health observations may
+lag actual failures. Node readiness does not guarantee application readiness.
+
+The policy covers only OS image updates of existing `talos_machine` resources.
+It does not gate initial creation, destruction, configuration application,
+Kubernetes upgrades, or hypervisor changes. Keep other disruptive operations in
+separate maintenance steps; a simultaneous machine configuration change can run
+after the OS upgrade reservation has been released. Changing only the policy does
+not trigger an OS upgrade.
+
 ## Kubernetes component image management
 
 When used together with [`talos_cluster`](cluster.md), set `ignore_kubernetes_upgrade_drift = true` on `talos_machine`. This prevents `talos_machine` from re-applying the five Kubernetes component image fields managed by `upgrade-k8s`:
@@ -161,6 +225,7 @@ If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upg
 then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework. (see [below for nested schema](#nestedatt--on_destroy))
 - `reboot_mode` (String) Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
+- `upgrade_policy` (Attributes) Experimental worker OS upgrade budget shared within one provider process. Requires drain_on_upgrade and kubeconfig. Does not coordinate separate provider processes or concurrent applies. Applies to image updates of existing nodes only. (see [below for nested schema](#nestedatt--upgrade_policy))
 
 ### Read-Only
 
@@ -205,3 +270,13 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+<a id="nestedatt--upgrade_policy"></a>
+### Nested Schema for `upgrade_policy`
+
+Required:
+
+- `group` (String) Group name, scoped to the Kubernetes cluster. All members must use identical membership and budget settings.
+- `max_unavailable` (String) Positive integer (for example 1) or percentage (for example 25%). Percentages round down and must permit at least one node. Existing NotReady, Unknown, deleting, or cordoned nodes count against the budget.
+- `node_names` (Set of String) Complete set of Kubernetes worker node names, including unchanged nodes. Groups must not overlap. Nodes must already exist.

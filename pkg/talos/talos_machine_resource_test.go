@@ -1246,8 +1246,12 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 		name                string
 		imageSet            bool // true = set image to imageRef
 		kubeconfigWOUnknown bool // true = kubeconfig_wo is an unresolved reference (unknown)
+		upgradePolicy       bool
 		wantError           bool
 	}{
+		{name: "upgrade policy rejects disabled drain", imageSet: true, drainOnUpgrade: boolValPtr(false), kubeconfig: strPtr("kubeconfig"), upgradePolicy: true, wantError: true},
+		{name: "upgrade policy accepts enabled drain", imageSet: true, drainOnUpgrade: boolValPtr(true), kubeconfig: strPtr("kubeconfig"), upgradePolicy: true},
+		{name: "upgrade policy accepts default drain", imageSet: true, kubeconfig: strPtr("kubeconfig"), upgradePolicy: true},
 		{
 			name:           "image set, drain=true explicit, no kubeconfig",
 			imageSet:       true,
@@ -1342,6 +1346,13 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 				vals["kubeconfig_wo"] = tftypes.NewValue(tftypes.String, *tc.kubeconfigWO)
 			}
 
+			if tc.upgradePolicy {
+				vals["upgrade_policy"] = tftypes.NewValue(schTFType.AttributeTypes["upgrade_policy"], map[string]tftypes.Value{
+					"group":           tftypes.NewValue(tftypes.String, "workers"),
+					"node_names":      tftypes.NewValue(tftypes.Set{ElementType: tftypes.String}, []tftypes.Value{tftypes.NewValue(tftypes.String, "w1")}),
+					"max_unavailable": tftypes.NewValue(tftypes.String, "1"),
+				})
+			}
 			raw := tftypes.NewValue(tftypes.Object{AttributeTypes: schTFType.AttributeTypes}, vals)
 			req := frameworkresource.ValidateConfigRequest{
 				Config: tfsdk.Config{Schema: sch, Raw: raw},
