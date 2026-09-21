@@ -54,6 +54,12 @@ const (
 	DefaultUpdateTimeout = 90 * time.Minute // above + 60m legacy upgrade poll + margin
 )
 
+// ReadLivenessTimeout bounds how long Read() retries the liveness probe before
+// giving up on a node. It only needs to absorb an ordinary reboot window
+// (netboot, kernel upgrade, a brief network partition), not a full boot cycle —
+// exported so tests can assert against it without duplicating the value.
+const ReadLivenessTimeout = 2 * time.Minute
+
 // clientOpFunc matches the signature of talosClientOp and lets unit tests inject
 // a mock into talosMachineUpgradeLegacy without touching any pre-existing file.
 type clientOpFunc func(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, fn func(nodeCtx context.Context, c *client.Client) error) error
@@ -516,32 +522,44 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 
 	endpoint := talosMachineEffectiveEndpoint(&state)
 
-	var runningImage string
+	versionResp, err := talosMachineWaitReachable(ctx, endpoint, state.Node.ValueString(), talosConfig, talosClientOp)
+	if err != nil {
+		if errors.Is(err, errInvalidClientCredentials) {
+			// The stored client_configuration cannot be parsed into a certificate — no
+			// amount of retrying the node fixes that. Fail loudly rather than spending
+			// the whole ReadLivenessTimeout window retrying a guaranteed-fail dial and
+			// then reporting it as if the node were merely unreachable.
+			resp.Diagnostics.AddError("invalid talos_machine client credentials", err.Error())
 
-	if err := talosClientOp(ctx, endpoint, state.Node.ValueString(), talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		versionResp, err := c.Version(nodeCtx)
-		if err != nil {
-			return err
+			return
 		}
 
-		if len(versionResp.Messages) > 0 {
-			base := state.Image.ValueString()
-			if base == "" {
-				base = images.InstallerImageRepository("metal")
-			}
-
-			runningImage = replaceImageTag(base, versionResp.Messages[0].Version.Tag)
-		}
-
-		return nil
-	}); err != nil {
-		// Node unreachable — let Terraform re-create.
-		resp.State.RemoveResource(ctx)
+		// Unreachable for the whole retry window: could be a node mid-reboot (netboot,
+		// kernel upgrade, a network blip) or a genuinely decommissioned machine — a
+		// Version RPC failure cannot tell those apart, so this is not a positive signal
+		// the resource is gone. Leave state untouched rather than guessing, same reflex
+		// as the COSI hash read below, which also treats its own failure as non-fatal.
+		resp.Diagnostics.AddWarning(
+			"could not refresh talos_machine",
+			fmt.Sprintf(
+				"The node did not become reachable within %s: %s. Leaving the prior state untouched. "+
+					"If this machine was intentionally decommissioned, remove it from state manually "+
+					"(terraform state rm) instead of letting the next apply recreate it.",
+				ReadLivenessTimeout, err,
+			),
+		)
 
 		return
 	}
 
-	state.Image = types.StringValue(runningImage)
+	if len(versionResp.Messages) > 0 {
+		base := state.Image.ValueString()
+		if base == "" {
+			base = images.InstallerImageRepository("metal")
+		}
+
+		state.Image = types.StringValue(replaceImageTag(base, versionResp.Messages[0].Version.Tag))
+	}
 
 	// Fetch the applied config hash from COSI to detect out-of-band drift.
 	// Non-fatal: leave hash stale if COSI is unavailable.
@@ -590,6 +608,56 @@ func (r *talosMachineResource) Read(ctx context.Context, req resource.ReadReques
 	})
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+// errInvalidClientCredentials marks a client_configuration that cannot be parsed
+// into a certificate. Unlike node unreachability, retrying never resolves this.
+var errInvalidClientCredentials = errors.New("invalid client credentials")
+
+// talosMachineWaitReachable retries a plain Version RPC for up to
+// ReadLivenessTimeout, absorbing the kind of brief unreachability a normal
+// reboot (netboot, kernel upgrade) causes. Past that point it does not classify
+// errors — any failure is retried until the deadline, since there is no gRPC
+// status that positively identifies "this machine no longer exists" as opposed
+// to "this machine is temporarily unreachable".
+//
+// The one exception is checked once, up front: state.client_configuration
+// (e.g. from a manual edit or a partial state write) that cannot be parsed into
+// a certificate can never succeed no matter how long this retries, so it fails
+// fast instead of behind a misleading ReadLivenessTimeout-long "unreachable".
+func talosMachineWaitReachable(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, op clientOpFunc) (*machineapi.VersionResponse, error) {
+	if cfgCtx, ok := talosConfig.Contexts[talosConfig.Context]; ok {
+		if _, err := client.CertificateFromConfigContext(cfgCtx); err != nil {
+			return nil, fmt.Errorf("%w: %w", errInvalidClientCredentials, err)
+		}
+	}
+
+	var versionResp *machineapi.VersionResponse
+
+	err := retry.RetryContext(ctx, ReadLivenessTimeout, func() *retry.RetryError {
+		attemptCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		if err := op(attemptCtx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+			resp, err := c.Version(nodeCtx)
+			if err != nil {
+				return err
+			}
+
+			versionResp = resp
+
+			return nil
+		}); err != nil {
+			return retry.RetryableError(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return versionResp, nil
 }
 
 func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
