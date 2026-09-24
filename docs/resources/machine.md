@@ -112,6 +112,31 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Serializing OS upgrades
+
+Set `serialize_upgrades = true` on `talos_machine` resources to upgrade them one at
+a time, including resources managed with `for_each`. Omitted or `false` preserves
+concurrent upgrades.
+
+On Talos 1.13 and newer, image pull and installation remain concurrent. Only the
+existing cordon/drain, reboot, recovery and uncordon sequence is serialized. On
+older Talos versions, the entire legacy upgrade operation is serialized. Waiting
+consumes the operation's timeout and respects cancellation.
+
+An upgrade error stops subsequent serialized upgrades for the rest of the provider
+process. This includes cancellation after admission, but not cancellation while
+waiting. Investigate the failed node before retrying in a new apply: failed or
+canceled requests may leave work running on the node.
+
+All opted-in resources in one provider process share this serialization, even across
+clusters. Separate provider processes and concurrent applies do not coordinate.
+There is no defined upgrade order or availability budget. Existing drain and
+recovery behavior is unchanged. Configuration changes, initial installation and
+destruction are not serialized; any OS upgrade performed during creation is covered.
+Changing only this option does not trigger an upgrade. You choose which machines
+participate and whether to define explicit dependencies for a particular upgrade
+order.
+
 ## Kubernetes component image management
 
 When used together with [`talos_cluster`](cluster.md), set `ignore_kubernetes_upgrade_drift = true` on `talos_machine`. This prevents `talos_machine` from re-applying the five Kubernetes component image fields managed by `upgrade-k8s`:
@@ -160,6 +185,7 @@ If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upg
 > Note: Any changes to *on_destroy* block has to be applied first by running *terraform apply* first,
 then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework. (see [below for nested schema](#nestedatt--on_destroy))
 - `reboot_mode` (String) Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.
+- `serialize_upgrades` (Boolean) Serialize OS upgrades with other resources enabling this option in the provider process. Image preparation remains concurrent. Stops subsequent serialized upgrades after failure. Defaults to false.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
