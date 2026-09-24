@@ -73,6 +73,7 @@ var (
 )
 
 type talosMachineResourceModel struct {
+	SerializeUpgrades            types.Bool            `tfsdk:"serialize_upgrades"`
 	OnDestroy                    *onDestroyOptions     `tfsdk:"on_destroy"`
 	MachineConfigurationWO       types.String          `tfsdk:"machine_configuration_wo"`
 	Kubeconfig                   types.String          `tfsdk:"kubeconfig"`
@@ -197,6 +198,11 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 					stringvalidator.OneOf("DEFAULT", "POWERCYCLE"),
 				},
 				Description: "Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.",
+			},
+			"serialize_upgrades": schema.BoolAttribute{
+				Optional: true,
+				Description: "Serialize OS upgrades with other resources enabling this option in the provider process. " +
+					"Image preparation remains concurrent. Stops subsequent serialized upgrades after failure. Defaults to false.",
 			},
 			"drain_on_upgrade": schema.BoolAttribute{
 				Optional:    true,
@@ -926,6 +932,13 @@ func talosMachineCheckBootReady(ctx context.Context, c *client.Client) error {
 // talosMachineUpgrade upgrades the Talos OS to the desired installer image
 // by performing: pull → install → drain → reboot → uncordon.
 func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, waitForKubernetes bool) (retErr error) {
+	preparing := true
+	defer func() {
+		if preparing && state.SerializeUpgrades.ValueBool() {
+			machineUpgradeLock.stop(retErr)
+		}
+	}()
+
 	rebootModeStr := strings.ToUpper(state.RebootMode.ValueString())
 
 	containerdInst := &commonapi.ContainerdInstance{
@@ -939,6 +952,14 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 	pullErr := talosMachinePullImage(ctx, endpoint, node, talosConfig, state.Image.ValueString(), containerdInst)
 	if pullErr != nil {
 		if st, _ := status.FromError(pullErr); st.Code() == codes.Unimplemented {
+			preparing = false
+
+			release, err := machineUpgradeLock.acquire(ctx, state.SerializeUpgrades.ValueBool())
+			if err != nil {
+				return err
+			}
+			defer func() { release(retErr) }()
+
 			return talosMachineUpgradeLegacy(ctx, endpoint, node, talosConfig, state, rebootModeStr, talosClientOp)
 		}
 
@@ -954,6 +975,15 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 	if rawKubeconfig == "" {
 		rawKubeconfig = state.Kubeconfig.ValueString()
 	}
+
+	preparing = false
+
+	release, err := machineUpgradeLock.acquire(ctx, state.SerializeUpgrades.ValueBool())
+	if err != nil {
+		return err
+	}
+	// Registered before uncordon so the lock is released after cleanup.
+	defer func() { release(retErr) }()
 
 	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig)
 	if err != nil {
@@ -975,7 +1005,9 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 		return fmt.Errorf("waiting for node after reboot: %w", err)
 	}
 
-	return nil
+	// The Talos action tracker can return nil on cancellation. Preserve it as a
+	// failure so a canceled upgrade cannot admit subsequent serialized upgrades.
+	return ctx.Err()
 }
 
 // talosMachineUpgradeIfNeeded checks the running Talos version and, for Image Factory
