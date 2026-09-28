@@ -631,7 +631,7 @@ func (v goDurationValidator) ValidateString(_ context.Context, req validator.Str
 	if _, err := time.ParseDuration(req.ConfigValue.ValueString()); err != nil {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
-			"invalid crt_ttl",
+			"Invalid duration",
 			fmt.Sprintf("unable to parse duration %q: %s", req.ConfigValue.ValueString(), err.Error()),
 		)
 	}
@@ -642,6 +642,42 @@ func (v goDurationValidator) Description(_ context.Context) string {
 }
 
 func (v goDurationValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+type positiveDurationValidator struct{}
+
+func positiveDurationValid() positiveDurationValidator {
+	return positiveDurationValidator{}
+}
+
+// ValidateString rejects zero and negative durations. Parse failures are goDurationValid's
+// job — silently return here rather than pile a second, misleading diagnostic onto an
+// already-invalid value.
+func (v positiveDurationValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	d, err := time.ParseDuration(req.ConfigValue.ValueString())
+	if err != nil {
+		return
+	}
+
+	if d <= 0 {
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid duration",
+			fmt.Sprintf("duration %q must be greater than zero", req.ConfigValue.ValueString()),
+		)
+	}
+}
+
+func (v positiveDurationValidator) Description(_ context.Context) string {
+	return "Validates that the value is a positive Go duration"
+}
+
+func (v positiveDurationValidator) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
 

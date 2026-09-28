@@ -266,7 +266,7 @@ provider "echo" {
 
 resource "echo" "test" {}
 `,
-				ExpectError: regexp.MustCompile(`invalid crt_ttl`),
+				ExpectError: regexp.MustCompile(`unable to parse duration "not-a-duration"`),
 			},
 		},
 	})
