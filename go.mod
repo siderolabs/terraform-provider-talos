@@ -14,12 +14,12 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.40.1
 	github.com/hashicorp/terraform-plugin-testing v1.16.0
 	github.com/siderolabs/crypto v0.6.5
-	github.com/siderolabs/gen v0.8.7
+	github.com/siderolabs/gen v0.8.8
 	github.com/siderolabs/go-kubernetes v0.2.41
 	github.com/siderolabs/image-factory v1.6.0
 	github.com/siderolabs/net v0.4.0
-	github.com/siderolabs/talos v1.14.0
-	github.com/siderolabs/talos/pkg/machinery v1.14.0
+	github.com/siderolabs/talos v1.14.1
+	github.com/siderolabs/talos/pkg/machinery v1.14.1
 	github.com/stretchr/testify v1.12.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.6.0.20260809190231-643e93b9c9be
 	golang.org/x/crypto v0.55.0
