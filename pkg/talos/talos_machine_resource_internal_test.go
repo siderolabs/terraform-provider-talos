@@ -14,6 +14,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
 )
 
 // testDigest is a fixture SHA-256 digest reused by tests covering digest-pinned
@@ -104,6 +110,125 @@ func TestReplaceImageTag(t *testing.T) {
 
 			if got := replaceImageTag(test.imageRef, test.newTag); got != test.want {
 				t.Fatalf("replaceImageTag(%q, %q) = %q, want %q", test.imageRef, test.newTag, got, test.want)
+			}
+		})
+	}
+}
+
+// TestTalosMachineDrainNode_HonorsConfiguredTimeout is the red-phase test for
+// https://github.com/siderolabs/terraform-provider-talos/issues/411: the drain step
+// of drain_on_upgrade hardcoded nodedrain.Options{}, whose zero DrainTimeout always
+// falls back to go-kubernetes' 5-minute DefaultDrainTimeout. Raising timeouts.update
+// never helped, because that budget is independent of — and always at least as long
+// as — this inner cap. A drain blocked on a PodDisruptionBudget (e.g. Longhorn
+// relocating volume replicas) was killed at 5 minutes no matter what the user set.
+//
+// This test blocks eviction forever (every eviction request returns 429 Too Many
+// Requests) and asks for a 200ms drain timeout. If that value is ignored in favor of
+// the hardcoded 5-minute default, the call will not return before the test's own
+// 2-second bound and the test fails; only a caller that actually threads the
+// configured duration into nodedrain.Options.DrainTimeout returns in time.
+func TestTalosMachineDrainNode_HonorsConfiguredTimeout(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node1"}},
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "default"},
+			Spec:       corev1.PodSpec{NodeName: "node1"},
+		},
+	)
+
+	// Advertise eviction subresource support so kubectl's drain helper attempts a
+	// real eviction instead of falling back to a plain delete, which would ignore
+	// PodDisruptionBudgets and succeed immediately, defeating this test.
+	cs.Resources = []*metav1.APIResourceList{
+		{
+			GroupVersion: "v1",
+			APIResources: []metav1.APIResource{
+				{Name: "pods/eviction", Kind: "Eviction", Group: "policy", Version: "v1"},
+			},
+		},
+	}
+
+	cs.PrependReactor("create", "pods", func(action ktesting.Action) (bool, runtime.Object, error) {
+		if action.GetSubresource() != "eviction" {
+			return false, nil, nil
+		}
+
+		return true, nil, apierrors.NewTooManyRequests("blocked by PodDisruptionBudget", 1)
+	})
+
+	const (
+		configuredTimeout = 200 * time.Millisecond
+		testBound         = 2 * time.Second
+	)
+
+	// Bounded so that if this test ever regresses (the configured timeout ignored in
+	// favor of nodedrain's hardcoded 5m default), the goroutine is canceled at the same
+	// point the test gives up, instead of retrying evictions for up to 5 more minutes
+	// after the test has already failed.
+	ctx, cancel := context.WithTimeout(context.Background(), testBound)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		errCh <- talosMachineDrainNode(ctx, cs, "node1", configuredTimeout)
+	}()
+
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Fatal("expected drain to fail once the configured timeout elapsed, got nil")
+		}
+	case <-time.After(testBound):
+		t.Fatalf("drain did not return within %s; the configured %s drain_timeout was not honored "+
+			"(still waiting on the hardcoded 5m default)", testBound, configuredTimeout)
+	}
+}
+
+// TestParseDrainTimeout is the red-phase test for a code-review finding: the call site
+// in talosMachineUpgrade parsed drain_timeout with `_ := time.ParseDuration(...)
+// //nolint:errcheck`, silently discarding any parse failure and falling back to
+// nodedrain's hardcoded 5m default instead of surfacing an error — diverging from this
+// codebase's own convention for the same kind of field (see
+// talos_cluster_kubeconfig_resource.go's CertificateRenewalDuration parse, which reports
+// via resp.Diagnostics.AddError instead of swallowing the error).
+func TestParseDrainTimeout(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		raw     string
+		want    time.Duration
+		wantErr bool
+	}{
+		{name: "valid", raw: "10m", want: 10 * time.Minute},
+		{name: "invalid", raw: "not-a-duration", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseDrainTimeout(tc.raw)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("parseDrainTimeout(%q) = nil error, want error", tc.raw)
+				}
+
+				if !strings.Contains(err.Error(), "drain_timeout") {
+					t.Errorf("error does not name drain_timeout: %v", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("parseDrainTimeout(%q) unexpected error: %v", tc.raw, err)
+			}
+
+			if got != tc.want {
+				t.Errorf("parseDrainTimeout(%q) = %v, want %v", tc.raw, got, tc.want)
 			}
 		})
 	}

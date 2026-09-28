@@ -74,19 +74,20 @@ var (
 
 type talosMachineResourceModel struct {
 	OnDestroy                    *onDestroyOptions     `tfsdk:"on_destroy"`
-	MachineConfigurationWO       types.String          `tfsdk:"machine_configuration_wo"`
-	Kubeconfig                   types.String          `tfsdk:"kubeconfig"`
+	ID                           types.String          `tfsdk:"id"`
+	MachineConfigurationHash     types.String          `tfsdk:"machine_configuration_hash"`
 	KubeconfigWO                 types.String          `tfsdk:"kubeconfig_wo"`
 	Endpoint                     types.String          `tfsdk:"endpoint"`
 	ClientConfiguration          basetypes.ObjectValue `tfsdk:"client_configuration"`
 	ClientConfigurationWO        basetypes.ObjectValue `tfsdk:"client_configuration_wo"`
+	Kubeconfig                   types.String          `tfsdk:"kubeconfig"`
 	MachineConfiguration         types.String          `tfsdk:"machine_configuration"`
-	ID                           types.String          `tfsdk:"id"`
 	Image                        types.String          `tfsdk:"image"`
-	MachineConfigurationHash     types.String          `tfsdk:"machine_configuration_hash"`
+	MachineConfigurationWO       types.String          `tfsdk:"machine_configuration_wo"`
 	RebootMode                   types.String          `tfsdk:"reboot_mode"`
 	Timeouts                     timeouts.Value        `tfsdk:"timeouts"`
 	Node                         types.String          `tfsdk:"node"`
+	DrainTimeout                 types.String          `tfsdk:"drain_timeout"`
 	DrainOnUpgrade               types.Bool            `tfsdk:"drain_on_upgrade"`
 	IgnoreKubernetesUpgradeDrift types.Bool            `tfsdk:"ignore_kubernetes_upgrade_drift"`
 }
@@ -203,6 +204,22 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Computed:    true,
 				Default:     booldefault.StaticBool(true),
 				Description: "Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.",
+			},
+			"drain_timeout": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				// Matches nodedrain.DefaultDrainTimeout as an independent literal, not a
+				// reference: this is our own stable default, not a mirror of upstream's.
+				Default: stringdefault.StaticString("5m"),
+				Description: "Maximum time to wait for pod eviction to complete when draining the node, as a Go " +
+					"duration string (e.g. \"10m\"). Only used when drain_on_upgrade = true. Raise this if pods " +
+					"take longer than 5m to evict, e.g. when a CSI driver like Longhorn relocates volume replicas. " +
+					"This runs inside the update (or create) timeout, so also raise `timeouts.update` (or " +
+					"`timeouts.create`) if it does not already leave enough headroom for drain_timeout.",
+				Validators: []validator.String{
+					goDurationValid(),
+					positiveDurationValid(),
+				},
 			},
 			"ignore_kubernetes_upgrade_drift": schema.BoolAttribute{
 				Optional: true,
@@ -955,7 +972,12 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 		rawKubeconfig = state.Kubeconfig.ValueString()
 	}
 
-	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig)
+	drainTimeout, err := parseDrainTimeout(state.DrainTimeout.ValueString())
+	if err != nil {
+		return err
+	}
+
+	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig, drainTimeout)
 	if err != nil {
 		return fmt.Errorf("draining node: %w", err)
 	}
@@ -1158,7 +1180,7 @@ func talosMachineInstallImage(ctx context.Context, endpoint, node string, talosC
 	})
 }
 
-func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, drain bool, rawKubeconfig string) (string, error) {
+func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, drain bool, rawKubeconfig string, drainTimeout time.Duration) (string, error) {
 	if !drain {
 		return "", nil
 	}
@@ -1183,9 +1205,31 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 		return "", err
 	}
 
+	return k8sNodeName, talosMachineDrainNode(ctx, cs, k8sNodeName, drainTimeout)
+}
+
+// talosMachineDrainNode cordons and drains a single Kubernetes node, capping pod
+// eviction at drainTimeout. A zero drainTimeout defers to nodedrain's own 5m default.
+// Split out from talosMachineCordonAndDrain so it can be exercised directly against a
+// fake clientset, without a live Talos endpoint to resolve the Kubernetes node name.
+func talosMachineDrainNode(ctx context.Context, cs kubernetes.Interface, nodeName string, drainTimeout time.Duration) error {
 	noopReport := func(talosreporter.Update) {}
 
-	return k8sNodeName, nodedrain.CordonAndDrain(ctx, cs, k8sNodeName, nodedrain.Options{}, noopReport)
+	return nodedrain.CordonAndDrain(ctx, cs, nodeName, nodedrain.Options{DrainTimeout: drainTimeout}, noopReport)
+}
+
+// parseDrainTimeout parses the drain_timeout attribute into a duration. The schema's
+// goDurationValid and positiveDurationValid validators already guarantee a well-formed,
+// positive value reaches here in normal use; this only guards a model built outside
+// req.Config.Get (e.g. directly in a test) from silently reverting to nodedrain's
+// hardcoded 5m default instead of surfacing the mistake.
+func parseDrainTimeout(raw string) (time.Duration, error) {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("parsing drain_timeout %q: %w", raw, err)
+	}
+
+	return d, nil
 }
 
 func talosMachineUncordon(ctx context.Context, k8sNodeName, rawKubeconfig string) error {

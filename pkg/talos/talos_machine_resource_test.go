@@ -169,13 +169,15 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 2: upgrade the worker with drain_on_upgrade = true.
-			// The worker must be drained via the Kubernetes API before rebooting.
+			// Step 2: upgrade the worker with drain_on_upgrade = true and a custom
+			// drain_timeout. The worker must be drained via the Kubernetes API before
+			// rebooting, and the configured timeout must round-trip into state.
 			{
 				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, upgradeVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.worker", "image",
 						images.InstallerImageRepository("metal")+":"+upgradeVersion),
+					resource.TestCheckResourceAttr("talos_machine.worker", "drain_timeout", "3m"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
@@ -371,6 +373,7 @@ resource "talos_machine" "worker" {
   machine_configuration = data.talos_machine_configuration.worker.machine_configuration
   image                 = "%[6]s:%[5]s"
   drain_on_upgrade      = true
+  drain_timeout         = "3m"
   kubeconfig_wo         = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
 
   timeouts = {
