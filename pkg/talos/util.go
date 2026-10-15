@@ -17,8 +17,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -914,4 +916,111 @@ func (v ipAddressValidator) MarkdownDescription(ctx context.Context) string {
 // component from one.
 func isDigestPinnedImage(imageRef string) bool {
 	return strings.Contains(imageRef, "@")
+}
+
+// parseK8sEndpoint parses a Kubernetes API endpoint of the form
+// [https://]host[:port][/] and returns it as "host:port", the form expected by
+// cluster.KubernetesClient.ForceEndpoint. ForceEndpoint only strips the scheme,
+// so a trailing slash or path would otherwise end up in the port. The port
+// defaults to the Kubernetes API port when omitted, matching talosctl.
+//
+//nolint:gocyclo,cyclop
+func parseK8sEndpoint(endpoint string) (string, error) {
+	const defaultPort = constants.DefaultControlPlanePort
+
+	invalid := func(reason string) (string, error) {
+		return "", fmt.Errorf("invalid Kubernetes endpoint %q: %s", endpoint, reason)
+	}
+
+	// Bare IPv4 or IPv6, including IPv6 zones.
+	if addr, err := netip.ParseAddr(endpoint); err == nil {
+		return hostPortWithoutScheme(addr.String(), defaultPort), nil
+	}
+
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "https://" + endpoint
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return invalid(err.Error())
+	}
+
+	if u.Scheme != "https" {
+		return invalid("only https is supported")
+	}
+
+	if u.Host == "" || u.Hostname() == "" {
+		return invalid("host is empty")
+	}
+
+	if u.User != nil {
+		return invalid("credentials are not allowed")
+	}
+
+	if (u.Path != "" && u.Path != "/") ||
+		u.RawQuery != "" || u.ForceQuery ||
+		u.Fragment != "" || u.RawFragment != "" {
+		return invalid("paths, queries and fragments are not allowed")
+	}
+
+	host := u.Hostname()
+
+	// IPv6 must be valid and bracketed in URLs.
+	if strings.Contains(host, ":") {
+		if _, err := netip.ParseAddr(host); err != nil {
+			return invalid("invalid IPv6 address")
+		}
+
+		if !strings.HasPrefix(u.Host, "[") {
+			return invalid("IPv6 address must be bracketed")
+		}
+	}
+
+	if strings.HasSuffix(u.Host, ":") {
+		return invalid("port is empty")
+	}
+
+	port := defaultPort
+
+	if rawPort := u.Port(); rawPort != "" {
+		n, err := strconv.ParseUint(rawPort, 10, 16)
+		if err != nil || n == 0 {
+			return invalid("invalid port")
+		}
+
+		port = int(n)
+	}
+
+	return hostPortWithoutScheme(host, port), nil
+}
+
+// hostPortWithoutScheme joins host and port the way a URL authority is
+// written, so IPv6 zones keep their %25 escaping, without the leading "//".
+func hostPortWithoutScheme(host string, port int) string {
+	return strings.TrimPrefix((&url.URL{Host: net.JoinHostPort(host, strconv.Itoa(port))}).String(), "//")
+}
+
+type k8sEndpointValidator struct{}
+
+func k8sEndpointValid() k8sEndpointValidator {
+	return k8sEndpointValidator{}
+}
+
+func (v k8sEndpointValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	if _, err := parseK8sEndpoint(req.ConfigValue.ValueString()); err != nil {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid Kubernetes endpoint", err.Error())
+	}
+}
+
+func (v k8sEndpointValidator) Description(_ context.Context) string {
+	return "Validates that the value is a Kubernetes API endpoint of the form https://<ip or host>:<port>/"
+}
+
+func (v k8sEndpointValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
 }
