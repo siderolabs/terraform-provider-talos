@@ -17,8 +17,10 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -807,4 +809,59 @@ func (v ipAddressValidator) MarkdownDescription(ctx context.Context) string {
 // component from one.
 func isDigestPinnedImage(imageRef string) bool {
 	return strings.Contains(imageRef, "@")
+}
+
+// parseK8sEndpoint turns a Kubernetes API endpoint URL of the form
+// "https://<ip or host>:<port>/" into the "host:port" form expected by
+// cluster.KubernetesClient.ForceEndpoint. ForceEndpoint only strips the scheme,
+// so a trailing slash or path would otherwise end up in the port. The port
+// defaults to the Kubernetes API port when omitted, matching talosctl.
+func parseK8sEndpoint(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", fmt.Errorf("invalid Kubernetes endpoint %q: %w", endpoint, err)
+	}
+
+	if u.Scheme != "https" {
+		return "", fmt.Errorf("invalid Kubernetes endpoint %q: scheme must be https", endpoint)
+	}
+
+	if u.Hostname() == "" {
+		return "", fmt.Errorf("invalid Kubernetes endpoint %q: missing host", endpoint)
+	}
+
+	if u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("invalid Kubernetes endpoint %q: expected https://<ip or host>:<port>/", endpoint)
+	}
+
+	port := u.Port()
+	if port == "" {
+		port = strconv.Itoa(constants.DefaultControlPlanePort)
+	}
+
+	return net.JoinHostPort(u.Hostname(), port), nil
+}
+
+type k8sEndpointValidator struct{}
+
+func k8sEndpointValid() k8sEndpointValidator {
+	return k8sEndpointValidator{}
+}
+
+func (v k8sEndpointValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	if _, err := parseK8sEndpoint(req.ConfigValue.ValueString()); err != nil {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid Kubernetes endpoint", err.Error())
+	}
+}
+
+func (v k8sEndpointValidator) Description(_ context.Context) string {
+	return "Validates that the value is a Kubernetes API endpoint of the form https://<ip or host>:<port>/"
+}
+
+func (v k8sEndpointValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
 }

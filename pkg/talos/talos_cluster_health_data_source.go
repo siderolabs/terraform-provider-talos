@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -37,6 +38,7 @@ type talosClusterHealthDataSourceModelV0 struct {
 	ClientConfiguration  clientConfiguration `tfsdk:"client_configuration"`
 	Timeouts             timeouts.Value      `tfsdk:"timeouts"`
 	SkipKubernetesChecks types.Bool          `tfsdk:"skip_kubernetes_checks"`
+	K8sEndpoint          types.String        `tfsdk:"k8s_endpoint"`
 }
 
 type clusterNodes struct {
@@ -161,6 +163,14 @@ func (d *talosClusterHealthDataSource) Schema(ctx context.Context, _ datasource.
 				Optional:    true,
 				Description: "Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.",
 			},
+			"k8s_endpoint": schema.StringAttribute{
+				Optional: true,
+				Description: "Kubernetes API endpoint to use for the Kubernetes checks instead of the one from the cluster's kubeconfig, " +
+					"in the form `https://<ip or host>:<port>/`. The port defaults to 6443 when omitted.",
+				Validators: []validator.String{
+					k8sEndpointValid(),
+				},
+			},
 			"client_configuration": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
 					"ca_certificate": schema.StringAttribute{
@@ -254,6 +264,17 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 	}
 	defer clientProvider.Close() //nolint:errcheck
 
+	var k8sEndpoint string
+
+	if !state.K8sEndpoint.IsNull() {
+		k8sEndpoint, err = parseK8sEndpoint(state.K8sEndpoint.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root("k8s_endpoint"), "invalid Kubernetes endpoint", err.Error())
+
+			return
+		}
+	}
+
 	nodeInfos, err := newClusterNodes(controlPlaneNodes, workerNodes)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to generate node infos", err.Error())
@@ -269,6 +290,7 @@ func (d *talosClusterHealthDataSource) Read(ctx context.Context, req datasource.
 		ClientProvider: clientProvider,
 		K8sProvider: &cluster.KubernetesClient{
 			ClientProvider: clientProvider,
+			ForceEndpoint:  k8sEndpoint,
 		},
 		Info: nodeInfos,
 	}
