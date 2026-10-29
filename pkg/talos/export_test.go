@@ -4,8 +4,19 @@
 
 package talos
 
+type (
+	ClientOpFunc           = clientOpFunc
+	ControlPlaneWaitTiming = controlPlaneWaitTiming
+)
+
 var (
-	TalosMachineCheckBootReady        = talosMachineCheckBootReady
-	TalosMachineWaitForBoot           = talosMachineWaitForBoot
-	TalosMachineRebootBeforeBootstrap = talosMachineRebootBeforeBootstrap
+	TalosMachineCheckBootReady          = talosMachineCheckBootReady
+	TalosMachineWaitForBoot             = talosMachineWaitForBoot
+	TalosMachineRebootBeforeBootstrap   = talosMachineRebootBeforeBootstrap
+	TalosMachineControlPlaneNodeName    = talosMachineControlPlaneNodeName
+	TalosMachineWaitForControlPlane     = talosMachineWaitForControlPlane
+	TalosMachineStaticPodsSettle        = talosMachineStaticPodsSettle
+	TalosMachinePrepareControlPlaneWait = talosMachinePrepareControlPlaneWait
+	TalosMachineRunControlPlaneWait     = talosMachineRunControlPlaneWait
+	TalosMachineDefaultTimeout          = talosMachineDefaultTimeout
 )
