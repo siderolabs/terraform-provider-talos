@@ -4,8 +4,13 @@
 
 package talos
 
+type ControlPlaneWaitTiming = controlPlaneWaitTiming
+
 var (
 	TalosMachineCheckBootReady        = talosMachineCheckBootReady
 	TalosMachineWaitForBoot           = talosMachineWaitForBoot
 	TalosMachineRebootBeforeBootstrap = talosMachineRebootBeforeBootstrap
+	TalosMachineControlPlaneNodeName  = talosMachineControlPlaneNodeName
+	TalosMachineWaitForControlPlane   = talosMachineWaitForControlPlane
+	TalosMachineStaticPodsSettle      = talosMachineStaticPodsSettle
 )

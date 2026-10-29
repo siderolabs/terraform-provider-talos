@@ -17,6 +17,7 @@ import (
 	cosistate "github.com/cosi-project/runtime/pkg/state"
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -50,8 +51,8 @@ import (
 // for talos_machine timeouts. Exported so tests can assert they cover the
 // worst-case internal retry budgets without duplicating magic numbers.
 const (
-	DefaultCreateTimeout = 40 * time.Minute // 10m apply + 10m wait-for-node + 15m create reboot + margin
-	DefaultUpdateTimeout = 90 * time.Minute // above + 60m legacy upgrade poll + margin
+	DefaultCreateTimeout = 50 * time.Minute  // 10m apply + 10m wait-for-node + 15m create reboot + 10m control plane wait + margin
+	DefaultUpdateTimeout = 100 * time.Minute // above + 60m legacy upgrade poll + margin
 )
 
 // ReadLivenessTimeout bounds how long Read() retries the liveness probe before
@@ -89,6 +90,7 @@ type talosMachineResourceModel struct {
 	Node                         types.String          `tfsdk:"node"`
 	DrainOnUpgrade               types.Bool            `tfsdk:"drain_on_upgrade"`
 	IgnoreKubernetesUpgradeDrift types.Bool            `tfsdk:"ignore_kubernetes_upgrade_drift"`
+	WaitForControlPlane          types.Bool            `tfsdk:"wait_for_control_plane"`
 }
 
 // NewTalosMachineResource implements the resource.Resource interface.
@@ -215,11 +217,22 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 					"to work with all future Talos versions: if upgrade-k8s manages additional image " +
 					"fields in a future release, this attribute must be updated to match.",
 			},
+			"wait_for_control_plane": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				Description: "After applying configuration to a control plane node whose kube-apiserver is Ready, " +
+					"wait until kube-apiserver, kube-controller-manager and kube-scheduler run the applied " +
+					"configuration and are Ready again. Combined with -parallelism=1 or depends_on between " +
+					"control plane nodes, this restarts the control plane one node at a time. Requires kubeconfig " +
+					"or kubeconfig_wo. No-op on workers and before the cluster is bootstrapped. On Talos before " +
+					"1.14, an apply that reboots the node does not wait.",
+			},
 			"kubeconfig": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
-				Description: "Kubeconfig used to drain and uncordon the node during upgrades. " +
-					"Required when drain_on_upgrade = true and image is set. " +
+				Description: "Kubeconfig used to drain and uncordon the node during upgrades and for wait_for_control_plane. " +
+					"Required when drain_on_upgrade = true and image is set, or when wait_for_control_plane = true. " +
 					"Provide talos_cluster_kubeconfig.this.kubeconfig_raw. " +
 					"Use kubeconfig_wo when using ephemeral resources.",
 			},
@@ -306,8 +319,14 @@ func (r *talosMachineResource) ValidateConfig(ctx context.Context, req resource.
 		)
 	}
 
+	validateTalosMachineKubeconfig(&cfg, &resp.Diagnostics)
+}
+
+// validateTalosMachineKubeconfig requires a kubeconfig for the features that talk
+// to the Kubernetes API: drain during OS upgrades and wait_for_control_plane.
+func validateTalosMachineKubeconfig(cfg *talosMachineResourceModel, diags *diag.Diagnostics) {
 	if !cfg.Kubeconfig.IsNull() && !cfg.KubeconfigWO.IsNull() {
-		resp.Diagnostics.AddError(
+		diags.AddError(
 			"Conflicting kubeconfig",
 			"Only one of kubeconfig or kubeconfig_wo can be set, not both.",
 		)
@@ -319,10 +338,18 @@ func (r *talosMachineResource) ValidateConfig(ctx context.Context, req resource.
 	imageManaged := !cfg.Image.IsNull() && !cfg.Image.IsUnknown()
 	drainEnabled := cfg.DrainOnUpgrade.IsNull() || (!cfg.DrainOnUpgrade.IsUnknown() && cfg.DrainOnUpgrade.ValueBool())
 
-	if imageManaged && drainEnabled && kubeconfigMissing(&cfg) {
-		resp.Diagnostics.AddError(
+	if imageManaged && drainEnabled && kubeconfigMissing(cfg) {
+		diags.AddError(
 			"Missing kubeconfig for drain",
 			"drain_on_upgrade = true requires kubeconfig or kubeconfig_wo when image is set. "+
+				"Provide ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw via kubeconfig_wo.",
+		)
+	}
+
+	if cfg.WaitForControlPlane.ValueBool() && kubeconfigMissing(cfg) {
+		diags.AddError(
+			"Missing kubeconfig for control plane wait",
+			"wait_for_control_plane = true requires kubeconfig or kubeconfig_wo. "+
 				"Provide ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw via kubeconfig_wo.",
 		)
 	}
@@ -471,7 +498,7 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 
 	endpoint := talosMachineEffectiveEndpoint(&plan)
 
-	if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes); err != nil {
+	if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes, plan.WaitForControlPlane.ValueBool(), talosMachineRawKubeconfig(&plan)); err != nil {
 		resp.Diagnostics.AddError("error applying machine configuration", err.Error())
 
 		return
@@ -756,7 +783,7 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 			return
 		}
 
-		if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes); err != nil {
+		if err := talosMachineApplyConfig(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, cfgBytes, plan.WaitForControlPlane.ValueBool(), talosMachineRawKubeconfig(&plan)); err != nil {
 			resp.Diagnostics.AddError("error applying machine configuration", err.Error())
 
 			return
@@ -823,16 +850,53 @@ func (r *talosMachineResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 // talosMachineApplyConfig applies the machine configuration with retry and waits for
-// CRI to be ready during normal boot (first apply can install and reboot).
-func talosMachineApplyConfig(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, cfgBytes []byte) error {
-	if err := retry.RetryContext(ctx, 10*time.Minute, func() *retry.RetryError {
-		if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-			_, err := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
+// CRI to be ready during normal boot (first apply can install and reboot). With
+// waitForControlPlane it then waits for the control plane static pods, if the
+// node's kube-apiserver was serving before the apply.
+func talosMachineApplyConfig(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, cfgBytes []byte,
+	waitForControlPlane bool, rawKubeconfig string,
+) error {
+	// The control plane probe and the apply share one retry budget.
+	applyCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	var (
+		cs       kubernetes.Interface
+		nodeName string
+	)
+
+	if waitForControlPlane {
+		var err error
+
+		if nodeName, err = talosMachineControlPlaneNodeName(applyCtx, endpoint, node, talosConfig, talosClientOp); err != nil {
+			return fmt.Errorf("checking kube-apiserver before apply: %w", err)
+		}
+
+		if nodeName != "" {
+			if cs, err = kubeclientFromRaw([]byte(rawKubeconfig)); err != nil {
+				return fmt.Errorf("building k8s client for control plane wait: %w", err)
+			}
+		}
+	}
+
+	// The zero value is REBOOT, which would skip the wait if no message came back.
+	applyMode := machineapi.ApplyConfigurationRequest_NO_REBOOT
+
+	if err := retry.RetryContext(applyCtx, 10*time.Minute, func() *retry.RetryError {
+		if err := talosClientOp(applyCtx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+			resp, err := c.ApplyConfiguration(nodeCtx, &machineapi.ApplyConfigurationRequest{
 				Mode: machineapi.ApplyConfigurationRequest_AUTO,
 				Data: cfgBytes,
 			})
+			if err != nil {
+				return err
+			}
 
-			return err
+			if msgs := resp.GetMessages(); len(msgs) > 0 {
+				applyMode = msgs[0].GetMode()
+			}
+
+			return nil
 		}); err != nil {
 			if s := status.Code(err); s == codes.InvalidArgument {
 				return retry.NonRetryableError(err)
@@ -848,15 +912,43 @@ func talosMachineApplyConfig(ctx context.Context, endpoint, node string, talosCo
 
 	// The API also responds during maintenance and early boot. Wait until the
 	// node is out of maintenance and CRI is ready before reading extensions or pulling an installer.
-	return talosMachineWaitForBoot(ctx, endpoint, node, talosConfig, talosClientOp)
+	if err := talosMachineWaitForBoot(ctx, endpoint, node, talosConfig, talosClientOp); err != nil {
+		return err
+	}
+
+	if nodeName == "" {
+		return nil
+	}
+
+	switch applyMode { //nolint:exhaustive // every other mode applied without a reboot
+	case machineapi.ApplyConfigurationRequest_STAGED:
+		// A staged config only takes effect on the next reboot.
+		return nil
+	case machineapi.ApplyConfigurationRequest_REBOOT: //nolint:staticcheck // Talos before 1.14 still reports it
+		// The reboot starts after ApplyConfiguration returns, so the pre-reboot
+		// mirror pods could pass the check. Talos 1.14 never reboots on apply.
+		tflog.Warn(ctx, "configuration apply reboots the node; not waiting for control plane static pods", map[string]any{"node": node})
+
+		return nil
+	}
+
+	return talosMachineWaitForControlPlane(ctx, endpoint, node, talosConfig, talosClientOp, cs, nodeName, defaultControlPlaneWaitTiming)
 }
 
 func talosMachineWaitForBoot(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, op clientOpFunc) error {
+	return talosMachineRetryNodeOp(ctx, endpoint, node, talosConfig, op, talosMachineCheckBootReadyOrVersion)
+}
+
+// talosMachineRetryNodeOp runs fn against the node for up to 10 minutes, giving
+// each attempt 10 seconds, until it succeeds or fails with a non-retryable error.
+func talosMachineRetryNodeOp(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, op clientOpFunc,
+	fn func(context.Context, *client.Client) error,
+) error {
 	return retry.RetryContext(ctx, 10*time.Minute, func() *retry.RetryError {
 		attemptCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 
-		if err := op(attemptCtx, endpoint, node, talosConfig, talosMachineCheckBootReadyOrVersion); err != nil {
+		if err := op(attemptCtx, endpoint, node, talosConfig, fn); err != nil {
 			return talosMachineBootRetryError(err)
 		}
 
@@ -950,10 +1042,7 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 		return fmt.Errorf("installing new OS image: %w", installErr)
 	}
 
-	rawKubeconfig := state.KubeconfigWO.ValueString()
-	if rawKubeconfig == "" {
-		rawKubeconfig = state.Kubeconfig.ValueString()
-	}
+	rawKubeconfig := talosMachineRawKubeconfig(state)
 
 	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig)
 	if err != nil {
@@ -1201,6 +1290,15 @@ func talosMachineUncordon(ctx context.Context, k8sNodeName, rawKubeconfig string
 	}
 
 	return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
+}
+
+// talosMachineRawKubeconfig returns kubeconfig_wo, falling back to kubeconfig.
+func talosMachineRawKubeconfig(state *talosMachineResourceModel) string {
+	if raw := state.KubeconfigWO.ValueString(); raw != "" {
+		return raw
+	}
+
+	return state.Kubeconfig.ValueString()
 }
 
 func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {
