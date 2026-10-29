@@ -1191,6 +1191,8 @@ resource "talos_machine" "this" {
 //
 // Regression: drain_on_upgrade defaults to true, so omitting it (null in config, before
 // defaults are applied) must also trigger the error — not silently pass.
+//
+// wait_for_control_plane = true needs the kubeconfig regardless of image.
 func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 	t.Parallel()
 
@@ -1237,10 +1239,20 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 
 	strPtr := func(s string) *string { return &s }
 
+	// nil = omitted (null) in config.
+	optionalBool := func(v *tftypes.Value) tftypes.Value {
+		if v == nil {
+			return tftypes.NewValue(tftypes.Bool, nil)
+		}
+
+		return *v
+	}
+
 	const imageRef = "ghcr.io/siderolabs/installer:v1.13.0"
 
 	tests := []struct {
 		drainOnUpgrade      *tftypes.Value // nil = omitted (null) in config
+		waitForControlPlane *tftypes.Value // nil = omitted (null) in config
 		kubeconfig          *string        // nil = null; &"" = empty string; &"x" = value
 		kubeconfigWO        *string        // nil = null; &"" = empty string; &"x" = value
 		name                string
@@ -1307,6 +1319,28 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 			kubeconfigWOUnknown: true,
 			wantError:           false,
 		},
+		{
+			name:                "no image, wait_for_control_plane=true, no kubeconfig",
+			waitForControlPlane: boolValPtr(true),
+			wantError:           true,
+		},
+		{
+			name:                "no image, wait_for_control_plane=true, kubeconfig_wo set",
+			waitForControlPlane: boolValPtr(true),
+			kubeconfigWO:        strPtr("kubeconfig-yaml-content"),
+			wantError:           false,
+		},
+		{
+			name:                "no image, wait_for_control_plane=true, kubeconfig_wo unknown",
+			waitForControlPlane: boolValPtr(true),
+			kubeconfigWOUnknown: true,
+			wantError:           false,
+		},
+		{
+			name:                "no image, wait_for_control_plane=false, no kubeconfig",
+			waitForControlPlane: boolValPtr(false),
+			wantError:           false,
+		},
 	}
 
 	rvc, ok := r.(frameworkresource.ResourceWithValidateConfig)
@@ -1326,11 +1360,8 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 				vals["image"] = tftypes.NewValue(tftypes.String, imageRef)
 			}
 
-			if tc.drainOnUpgrade == nil {
-				vals["drain_on_upgrade"] = tftypes.NewValue(tftypes.Bool, nil)
-			} else {
-				vals["drain_on_upgrade"] = *tc.drainOnUpgrade
-			}
+			vals["drain_on_upgrade"] = optionalBool(tc.drainOnUpgrade)
+			vals["wait_for_control_plane"] = optionalBool(tc.waitForControlPlane)
 
 			if tc.kubeconfig != nil {
 				vals["kubeconfig"] = tftypes.NewValue(tftypes.String, *tc.kubeconfig)
@@ -1995,6 +2026,8 @@ func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 		waitNodeBudget      = 10 * time.Minute
 		rebootBudget        = 15 * time.Minute
 		legacyUpgradeBudget = 60 * time.Minute
+		// wait_for_control_plane: settle + static pod restarts.
+		controlPlaneWaitBudget = 10 * time.Minute
 	)
 
 	// Default timeouts — read from the exported constants in talos_machine_resource.go
@@ -2002,8 +2035,8 @@ func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 	defaultCreate := talos.DefaultCreateTimeout
 	defaultUpdate := talos.DefaultUpdateTimeout
 
-	worstCaseCreate := applyRetryBudget + waitNodeBudget + rebootBudget        // 35 m
-	worstCaseUpdate := applyRetryBudget + waitNodeBudget + legacyUpgradeBudget // 80 m
+	worstCaseCreate := applyRetryBudget + waitNodeBudget + rebootBudget + controlPlaneWaitBudget        // 45 m
+	worstCaseUpdate := applyRetryBudget + waitNodeBudget + legacyUpgradeBudget + controlPlaneWaitBudget // 90 m
 
 	if defaultCreate < worstCaseCreate {
 		t.Errorf("Create default %v < worst-case %v: operations will time out", defaultCreate, worstCaseCreate)
