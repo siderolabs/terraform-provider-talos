@@ -207,3 +207,31 @@ func TestTalosMachineImageFactorySchematic(t *testing.T) {
 		})
 	}
 }
+
+// TestTalosMachineImageManaged covers
+// https://github.com/siderolabs/terraform-provider-talos/issues/420: an omitted
+// image plans as unknown on create (Optional+Computed, nothing for
+// UseStateForUnknown to pin), and Create/Update must treat that the same as null
+// ("OS version is not managed") instead of running the upgrade path with an
+// empty image reference.
+func TestTalosMachineImageManaged(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		image types.String
+		want  bool
+	}{
+		{name: "null", image: types.StringNull(), want: false},
+		{name: "unknown", image: types.StringUnknown(), want: false},
+		{name: "known", image: types.StringValue("ghcr.io/siderolabs/installer:v1.13.0"), want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := talosMachineImageManaged(tc.image); got != tc.want {
+				t.Fatalf("talosMachineImageManaged(%s) = %v, want %v", tc.image, got, tc.want)
+			}
+		})
+	}
+}
