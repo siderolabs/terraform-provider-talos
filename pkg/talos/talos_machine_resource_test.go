@@ -36,6 +36,45 @@ import (
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
+// TestAccTalosMachine_import verifies importing an existing node by address.
+// Import only seeds id/node/endpoint; credentials and machine configuration come
+// from HCL after import. A follow-up apply is not exercised here because Update
+// contacts the node (unlike talos_machine_bootstrap's no-op Update).
+func TestAccTalosMachine_import(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		IsUnitTest:               true, // import can be unit tested
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccTalosMachineResourceConfigImport("10.5.0.2"),
+				ResourceName:       "talos_machine.this",
+				ImportStateId:      "10.5.0.2",
+				ImportState:        true,
+				ImportStatePersist: true,
+				ImportStateCheck: func(is []*terraform.InstanceState) error {
+					if len(is) != 1 {
+						return fmt.Errorf("expected 1 state, got %d", len(is))
+					}
+
+					if is[0].ID != "10.5.0.2" {
+						return fmt.Errorf("expected id %q, got %q", "10.5.0.2", is[0].ID)
+					}
+
+					if got := is[0].Attributes["node"]; got != "10.5.0.2" {
+						return fmt.Errorf("expected node %q, got %q", "10.5.0.2", got)
+					}
+
+					if got := is[0].Attributes["endpoint"]; got != "10.5.0.2" {
+						return fmt.Errorf("expected endpoint %q, got %q", "10.5.0.2", got)
+					}
+
+					return nil
+				},
+			},
+		},
+	})
+}
+
 // TestAccTalosMachine_bootstrap applies machine configuration via talos_machine,
 // bootstraps etcd, waits for cluster health, and confirms idempotency.
 func TestAccTalosMachine_bootstrap(t *testing.T) {
@@ -169,13 +208,15 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 2: upgrade the worker with drain_on_upgrade = true.
-			// The worker must be drained via the Kubernetes API before rebooting.
+			// Step 2: upgrade the worker with drain_on_upgrade = true and a custom
+			// drain_timeout. The worker must be drained via the Kubernetes API before
+			// rebooting, and the configured timeout must round-trip into state.
 			{
 				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, upgradeVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.worker", "image",
 						images.InstallerImageRepository("metal")+":"+upgradeVersion),
+					resource.TestCheckResourceAttr("talos_machine.worker", "drain_timeout", "3m"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
@@ -371,6 +412,7 @@ resource "talos_machine" "worker" {
   machine_configuration = data.talos_machine_configuration.worker.machine_configuration
   image                 = "%[6]s:%[5]s"
   drain_on_upgrade      = true
+  drain_timeout         = "3m"
   kubeconfig_wo         = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
 
   timeouts = {
@@ -945,6 +987,27 @@ func installDiskPatch(talosVersion, image string) string {
 		"        diskSelector = {\n" +
 		fmt.Sprintf("          match = %q\n", "disk.dev_path == '"+devPath+"'") +
 		"        }\n      }\n    })"
+}
+
+func testAccTalosMachineResourceConfigImport(node string) string {
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+data "talos_machine_configuration" "this" {
+  cluster_name     = "example-cluster"
+  machine_type     = "controlplane"
+  cluster_endpoint = "https://%s:6443"
+  machine_secrets  = talos_machine_secrets.this.machine_secrets
+  docs             = false
+  examples         = false
+}
+
+resource "talos_machine" "this" {
+  node                  = "%s"
+  client_configuration  = talos_machine_secrets.this.client_configuration
+  machine_configuration = data.talos_machine_configuration.this.machine_configuration
+}
+`, node, node)
 }
 
 func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) string {

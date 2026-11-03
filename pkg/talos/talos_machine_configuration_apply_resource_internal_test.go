@@ -7,13 +7,17 @@ package talos
 import (
 	"context"
 	"maps"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 )
 
 // TestTalosMachineConfigurationApplyModifyPlanConfigPatchesUnknownElement verifies
@@ -205,4 +209,43 @@ func planHash(ctx context.Context, t *testing.T, plan tfsdk.Plan) (string, bool)
 	}
 
 	return hash.ValueString(), hash.IsUnknown()
+}
+
+// TestGeneratePreservesEmptySearchDomains is the red-phase test for issue #414:
+// a ResolverConfig patch clearing DHCP search domains with `domains: []` must
+// survive rendering. With machinery v1.14.0 the empty list is dropped twice:
+// merge treats an empty slice as zero (no `merge:"replace"` tag), and the
+// encoder omits it (`omitempty` without `talos:"omitonlyifnil"`). The node
+// then keeps the DHCPv4 search domain, defeating the patch. Fixed by bumping
+// machinery to v1.14.1 (siderolabs/talos@20dcd515ab).
+func TestGeneratePreservesEmptySearchDomains(t *testing.T) {
+	secretsBundle, err := secrets.NewBundle(secrets.NewFixedClock(time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)), nil)
+	if err != nil {
+		t.Fatalf("failed to create secrets bundle: %v", err)
+	}
+
+	opts := &machineConfigGenerateOptions{
+		machineSecrets:    secretsBundle,
+		clusterName:       "issue-414",
+		clusterEndpoint:   "https://10.0.0.1:6443",
+		kubernetesVersion: "v1.34.0",
+		talosVersion:      "v1.14.1",
+		machineType:       machine.TypeControlPlane,
+		configPatches: []string{`apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+  - address: 100.100.100.100
+searchDomains:
+  domains: []
+`},
+	}
+
+	rendered, err := opts.generate()
+	if err != nil {
+		t.Fatalf("generate failed: %v", err)
+	}
+
+	if !strings.Contains(rendered, "domains: []") {
+		t.Errorf("rendered config dropped the empty search domain list; expected 'domains: []' in the ResolverConfig document.")
+	}
 }
