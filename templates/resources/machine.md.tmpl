@@ -82,6 +82,25 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Restarting the control plane one node at a time
+
+A configuration change that touches kube-apiserver, kube-controller-manager or kube-scheduler (extra args, audit policy, service account issuer, ...) makes Talos restart those static pods after `ApplyConfiguration` has already returned. Serializing the applies alone therefore still restarts every kube-apiserver at about the same time, and the cluster endpoint has no ready backend for that window.
+
+Set `wait_for_control_plane = true` on control plane nodes to have `talos_machine` wait until the node's control plane pods run the applied configuration and are Ready again. Together with `depends_on` or `-parallelism=1` this restarts the control plane one node at a time:
+
+```terraform
+resource "talos_machine" "controlplane" {
+  for_each = toset(["10.5.0.1", "10.5.0.2", "10.5.0.3"])
+
+  node                   = each.value
+  wait_for_control_plane = true
+  kubeconfig_wo          = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+  # ...
+}
+```
+
+The wait only runs when the node's kube-apiserver was Ready before the apply, so the initial apply before etcd bootstrap and worker nodes are not affected. A change that does not touch the control plane adds a settle period of about 5 seconds. On Talos before 1.14, a change that makes the apply reboot the node is not waited for.
+
 ## Kubernetes component image management
 
 When used together with [`talos_cluster`](cluster.md), set `ignore_kubernetes_upgrade_drift = true` on `talos_machine`. This prevents `talos_machine` from re-applying the five Kubernetes component image fields managed by `upgrade-k8s`:
