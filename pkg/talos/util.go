@@ -681,6 +681,41 @@ func (v positiveDurationValidator) MarkdownDescription(ctx context.Context) stri
 	return v.Description(ctx)
 }
 
+type imageRepositoryValidator struct{}
+
+func imageRepositoryValid() imageRepositoryValidator {
+	return imageRepositoryValidator{}
+}
+
+// ValidateString rejects image references with a tag or digest: upgrade-k8s
+// appends ":v<kubernetes_version>" to the repository itself.
+func (v imageRepositoryValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+
+	image := req.ConfigValue.ValueString()
+
+	switch {
+	case image == "":
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid image repository", "image repository must not be empty")
+	case isDigestPinnedImage(image) || stripImageTag(image) != image:
+		resp.Diagnostics.AddAttributeError(
+			req.Path,
+			"Invalid image repository",
+			fmt.Sprintf("image repository %q must not contain a tag or digest: the tag is set from kubernetes_version", image),
+		)
+	}
+}
+
+func (v imageRepositoryValidator) Description(_ context.Context) string {
+	return "Validates that the value is an image repository without a tag or digest"
+}
+
+func (v imageRepositoryValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
 type rfc3339Validator struct{}
 
 func rfc3339Valid() rfc3339Validator {

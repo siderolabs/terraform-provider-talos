@@ -71,10 +71,16 @@ The `kubernetes_version` argument in `talos_machine_configuration` controls the 
 
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
+- `apiserver_image` (String) Image repository (without tag) used for kube-apiserver during a Kubernetes upgrade; the tag is set from `kubernetes_version`. Defaults to `registry.k8s.io/kube-apiserver`. Changing it alone does not run an upgrade.
 - `client_configuration` (Attributes) The Talos client configuration. Use client_configuration_wo when using ephemeral resources. (see [below for nested schema](#nestedatt--client_configuration))
 - `client_configuration_wo` (Attributes, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of client_configuration for use with ephemeral resources. Requires Terraform 1.11+. (see [below for nested schema](#nestedatt--client_configuration_wo))
 - `control_plane_nodes` (List of String) List of all control plane node IPs used for etcd health checks. Defaults to [node]. Required for HA clusters where all control plane IPs must be listed.
+- `controller_manager_image` (String) Image repository (without tag) used for kube-controller-manager during a Kubernetes upgrade; the tag is set from `kubernetes_version`. Defaults to `registry.k8s.io/kube-controller-manager`. Changing it alone does not run an upgrade.
 - `endpoint` (String) The endpoint to use when connecting to the node. Defaults to node.
+- `kubelet_image` (String) Image repository (without tag) used for kubelet during a Kubernetes upgrade; the tag is set from `kubernetes_version`. Defaults to `ghcr.io/siderolabs/kubelet`. Changing it alone does not run an upgrade.
+- `pre_pull_images` (Boolean) Pre-pull Kubernetes component images on all nodes before a Kubernetes upgrade. Defaults to true. Equivalent to `talosctl upgrade-k8s --pre-pull-images`.
+- `proxy_image` (String) Image repository (without tag) used for kube-proxy during a Kubernetes upgrade; the tag is set from `kubernetes_version`. Defaults to `registry.k8s.io/kube-proxy`. Changing it alone does not run an upgrade.
+- `scheduler_image` (String) Image repository (without tag) used for kube-scheduler during a Kubernetes upgrade; the tag is set from `kubernetes_version`. Defaults to `registry.k8s.io/kube-scheduler`. Changing it alone does not run an upgrade.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
