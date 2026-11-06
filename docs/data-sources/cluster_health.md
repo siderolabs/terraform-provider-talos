@@ -23,6 +23,7 @@ Waits for the Talos cluster to be healthy. Can be used as a dependency before ru
 
 ### Optional
 
+- `k8s_endpoint` (String) Kubernetes API endpoint to use for the Kubernetes checks instead of the one from the cluster's kubeconfig, in the form `https://<ip or host>:<port>/`. The port defaults to 6443 when omitted.
 - `skip_kubernetes_checks` (Boolean) Skip Kubernetes component checks, this is useful to check if the nodes has finished booting up and kubelet is running. Default is false.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `worker_nodes` (List of String) List of worker node IPs to check for health. Must be IPs: the health checks compare these against the addresses Kubernetes reports for each node.
