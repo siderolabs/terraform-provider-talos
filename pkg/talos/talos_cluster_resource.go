@@ -55,6 +55,13 @@ type talosClusterResourceModel struct {
 	KubernetesVersion     types.String          `tfsdk:"kubernetes_version"`
 	Node                  types.String          `tfsdk:"node"`
 	Timeouts              timeouts.Value        `tfsdk:"timeouts"`
+
+	KubeletImage           types.String `tfsdk:"kubelet_image"`
+	APIServerImage         types.String `tfsdk:"apiserver_image"`
+	ControllerManagerImage types.String `tfsdk:"controller_manager_image"`
+	SchedulerImage         types.String `tfsdk:"scheduler_image"`
+	ProxyImage             types.String `tfsdk:"proxy_image"`
+	PrePullImages          types.Bool   `tfsdk:"pre_pull_images"`
 }
 
 // NewTalosClusterResource implements the resource.Resource interface.
@@ -160,10 +167,39 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 					"changes owned by `upgrade-k8s` are excluded from drift detection and `talos_cluster` " +
 					"fully owns the upgrade sequencing.",
 			},
+			"kubelet_image":            kubernetesImageAttribute("kubelet", constants.KubeletImage),
+			"apiserver_image":          kubernetesImageAttribute("kube-apiserver", constants.KubernetesAPIServerImage),
+			"controller_manager_image": kubernetesImageAttribute("kube-controller-manager", constants.KubernetesControllerManagerImage),
+			"scheduler_image":          kubernetesImageAttribute("kube-scheduler", constants.KubernetesSchedulerImage),
+			"proxy_image":              kubernetesImageAttribute("kube-proxy", constants.KubeProxyImage),
+			"pre_pull_images": schema.BoolAttribute{
+				Optional: true,
+				Description: "Pre-pull Kubernetes component images on all nodes before a Kubernetes upgrade. " +
+					"Defaults to true. Equivalent to `talosctl upgrade-k8s --pre-pull-images`.",
+			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 				Update: true,
 			}),
+		},
+	}
+}
+
+// kubernetesImageAttribute describes an optional image repository override for
+// upgrade-k8s. The attribute is deliberately not Computed with a default: null
+// means "Talos default", so adding it to the schema does not produce a diff for
+// existing state.
+func kubernetesImageAttribute(component, defaultImage string) schema.StringAttribute {
+	return schema.StringAttribute{
+		Optional: true,
+		Description: fmt.Sprintf(
+			"Image repository (without tag) used for %s during a Kubernetes upgrade; the tag is set from "+
+				"`kubernetes_version`. Defaults to `%s`. Changing it runs `upgrade-k8s` at the current "+
+				"`kubernetes_version`, which only updates the components whose image changed.",
+			component, defaultImage,
+		),
+		Validators: []validator.String{
+			imageRepositoryValid(),
 		},
 	}
 }
@@ -366,8 +402,10 @@ func (r *talosClusterResource) Update(ctx context.Context, req resource.UpdateRe
 	endpoint := talosClusterEffectiveEndpoint(&plan)
 	plan.Endpoint = types.StringValue(endpoint)
 
-	if !plan.KubernetesVersion.Equal(state.KubernetesVersion) {
-		if upgradeErr := talosClusterUpgradeKubernetes(ctxDeadline, endpoint, talosConfig, plan.KubernetesVersion.ValueString()); upgradeErr != nil {
+	upgradeOpts := talosClusterUpgradeOptions(endpoint, &plan)
+
+	if !plan.KubernetesVersion.Equal(state.KubernetesVersion) || talosClusterImagesChanged(upgradeOpts, talosClusterUpgradeOptions(endpoint, &state)) {
+		if upgradeErr := talosClusterUpgradeKubernetes(ctxDeadline, endpoint, talosConfig, plan.KubernetesVersion.ValueString(), upgradeOpts); upgradeErr != nil {
 			resp.Diagnostics.AddError("error upgrading Kubernetes", upgradeErr.Error())
 
 			return
@@ -443,8 +481,52 @@ func talosClusterWaitForK8s(ctx context.Context, endpoint string, controlPlaneNo
 	return check.Wait(ctx, &clusterState, check.PreBootSequenceChecks(), progress)
 }
 
+// talosClusterUpgradeOptions builds upgrade-k8s options from the resource model.
+// Null image and pre-pull attributes fall back to the Talos defaults.
+func talosClusterUpgradeOptions(endpoint string, model *talosClusterResourceModel) k8s.UpgradeOptions {
+	stringOr := func(v types.String, def string) string {
+		if v.IsNull() || v.IsUnknown() {
+			return def
+		}
+
+		return v.ValueString()
+	}
+
+	prePull := true
+	if !model.PrePullImages.IsNull() && !model.PrePullImages.IsUnknown() {
+		prePull = model.PrePullImages.ValueBool()
+	}
+
+	return k8s.UpgradeOptions{
+		ControlPlaneEndpoint:   endpoint,
+		PrePullImages:          prePull,
+		UpgradeKubelet:         true,
+		DryRun:                 false,
+		EncoderOpt:             encoder.WithComments(encoder.CommentsDisabled),
+		InventoryPolicy:        ssa.InventoryPolicyAdoptIfNoInventory,
+		ReconcileTimeout:       5 * time.Minute,
+		KubeletImage:           stringOr(model.KubeletImage, constants.KubeletImage),
+		APIServerImage:         stringOr(model.APIServerImage, constants.KubernetesAPIServerImage),
+		ControllerManagerImage: stringOr(model.ControllerManagerImage, constants.KubernetesControllerManagerImage),
+		SchedulerImage:         stringOr(model.SchedulerImage, constants.KubernetesSchedulerImage),
+		ProxyImage:             stringOr(model.ProxyImage, constants.KubeProxyImage),
+	}
+}
+
+// talosClusterImagesChanged reports whether upgrade-k8s would roll out a different
+// image repository. It compares the resolved options, so switching between null
+// and the explicit Talos default is not a change. upgrade-k8s with an unchanged
+// version only updates the components whose image reference changed.
+func talosClusterImagesChanged(plan, state k8s.UpgradeOptions) bool {
+	return plan.KubeletImage != state.KubeletImage ||
+		plan.APIServerImage != state.APIServerImage ||
+		plan.ControllerManagerImage != state.ControllerManagerImage ||
+		plan.SchedulerImage != state.SchedulerImage ||
+		plan.ProxyImage != state.ProxyImage
+}
+
 // talosClusterUpgradeKubernetes runs a rolling Kubernetes upgrade via the talos cluster package.
-func talosClusterUpgradeKubernetes(ctx context.Context, endpoint string, talosConfig *clientconfig.Config, toVersion string) error {
+func talosClusterUpgradeKubernetes(ctx context.Context, endpoint string, talosConfig *clientconfig.Config, toVersion string, opts k8s.UpgradeOptions) error {
 	c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(endpoint))
 	if err != nil {
 		return err
@@ -464,21 +546,6 @@ func talosClusterUpgradeKubernetes(ctx context.Context, endpoint string, talosCo
 			ClientProvider: clientProvider,
 			ForceEndpoint:  endpoint,
 		},
-	}
-
-	opts := k8s.UpgradeOptions{
-		ControlPlaneEndpoint:   endpoint,
-		PrePullImages:          true,
-		UpgradeKubelet:         true,
-		DryRun:                 false,
-		EncoderOpt:             encoder.WithComments(encoder.CommentsDisabled),
-		InventoryPolicy:        ssa.InventoryPolicyAdoptIfNoInventory,
-		ReconcileTimeout:       5 * time.Minute,
-		KubeletImage:           constants.KubeletImage,
-		APIServerImage:         constants.KubernetesAPIServerImage,
-		ControllerManagerImage: constants.KubernetesControllerManagerImage,
-		SchedulerImage:         constants.KubernetesSchedulerImage,
-		ProxyImage:             constants.KubeProxyImage,
 	}
 
 	fromVersion, err := k8s.DetectLowestVersion(ctx, &clusterState, opts)
