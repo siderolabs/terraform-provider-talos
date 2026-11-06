@@ -36,6 +36,45 @@ import (
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
 
+// TestAccTalosMachine_import verifies importing an existing node by address.
+// Import only seeds id/node/endpoint; credentials and machine configuration come
+// from HCL after import. A follow-up apply is not exercised here because Update
+// contacts the node (unlike talos_machine_bootstrap's no-op Update).
+func TestAccTalosMachine_import(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		IsUnitTest:               true, // import can be unit tested
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccTalosMachineResourceConfigImport("10.5.0.2"),
+				ResourceName:       "talos_machine.this",
+				ImportStateId:      "10.5.0.2",
+				ImportState:        true,
+				ImportStatePersist: true,
+				ImportStateCheck: func(is []*terraform.InstanceState) error {
+					if len(is) != 1 {
+						return fmt.Errorf("expected 1 state, got %d", len(is))
+					}
+
+					if is[0].ID != "10.5.0.2" {
+						return fmt.Errorf("expected id %q, got %q", "10.5.0.2", is[0].ID)
+					}
+
+					if got := is[0].Attributes["node"]; got != "10.5.0.2" {
+						return fmt.Errorf("expected node %q, got %q", "10.5.0.2", got)
+					}
+
+					if got := is[0].Attributes["endpoint"]; got != "10.5.0.2" {
+						return fmt.Errorf("expected endpoint %q, got %q", "10.5.0.2", got)
+					}
+
+					return nil
+				},
+			},
+		},
+	})
+}
+
 // TestAccTalosMachine_bootstrap applies machine configuration via talos_machine,
 // bootstraps etcd, waits for cluster health, and confirms idempotency.
 func TestAccTalosMachine_bootstrap(t *testing.T) {
@@ -68,6 +107,45 @@ func TestAccTalosMachine_bootstrap(t *testing.T) {
 			// second apply must produce an empty plan
 			{
 				Config:   testAccTalosMachineConfig(rName, baseImage, gendata.VersionTag, gendata.VersionTag),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// TestAccTalosMachine_bootstrapWithoutImage is the acceptance coverage for
+// https://github.com/siderolabs/terraform-provider-talos/issues/420: create a
+// machine with image omitted and assert the next plan is empty. The unit helper
+// test alone does not prove Create/Read/plan stay idle when image is unmanaged.
+func TestAccTalosMachine_bootstrapWithoutImage(t *testing.T) {
+	baseImage := images.InstallerImageRepository("metal")
+
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+	config := testAccTalosMachineConfigOmitImage(rName, baseImage, gendata.VersionTag, gendata.VersionTag)
+
+	resource.ParallelTest(t, resource.TestCase{
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_machine.this", "id"),
+					resource.TestCheckResourceAttrSet("talos_machine.this", "node"),
+					// Read fills the running installer image even when unmanaged.
+					resource.TestCheckResourceAttrSet("talos_machine.this", "image"),
+					resource.TestCheckResourceAttrSet("talos_machine.this", "machine_configuration_hash"),
+					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
+				),
+			},
+			// next plan must be empty — omitted image must not plan an upgrade
+			{
+				Config:   config,
 				PlanOnly: true,
 			},
 		},
@@ -169,13 +247,15 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
-			// Step 2: upgrade the worker with drain_on_upgrade = true.
-			// The worker must be drained via the Kubernetes API before rebooting.
+			// Step 2: upgrade the worker with drain_on_upgrade = true and a custom
+			// drain_timeout. The worker must be drained via the Kubernetes API before
+			// rebooting, and the configured timeout must round-trip into state.
 			{
 				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, upgradeVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.worker", "image",
 						images.InstallerImageRepository("metal")+":"+upgradeVersion),
+					resource.TestCheckResourceAttr("talos_machine.worker", "drain_timeout", "3m"),
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
@@ -371,6 +451,7 @@ resource "talos_machine" "worker" {
   machine_configuration = data.talos_machine_configuration.worker.machine_configuration
   image                 = "%[6]s:%[5]s"
   drain_on_upgrade      = true
+  drain_timeout         = "3m"
   kubeconfig_wo         = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
 
   timeouts = {
@@ -947,12 +1028,158 @@ func installDiskPatch(talosVersion, image string) string {
 		"        }\n      }\n    })"
 }
 
+func testAccTalosMachineResourceConfigImport(node string) string {
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+data "talos_machine_configuration" "this" {
+  cluster_name     = "example-cluster"
+  machine_type     = "controlplane"
+  cluster_endpoint = "https://%s:6443"
+  machine_secrets  = talos_machine_secrets.this.machine_secrets
+  docs             = false
+  examples         = false
+}
+
+resource "talos_machine" "this" {
+  node                  = "%s"
+  client_configuration  = talos_machine_secrets.this.client_configuration
+  machine_configuration = data.talos_machine_configuration.this.machine_configuration
+}
+`, node, node)
+}
+
 func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) string {
 	return testAccTalosMachineConfigWithInstallImage(rName, imageUrl, imageTag, isoVersion, true)
 }
 
 func testAccTalosMachineConfigWithoutInstallImage(rName, imageUrl, imageTag, isoVersion string) string {
 	return testAccTalosMachineConfigWithInstallImage(rName, imageUrl, imageTag, isoVersion, false)
+}
+
+// testAccTalosMachineConfigOmitImage is like testAccTalosMachineConfig but leaves
+// talos_machine.image unset so the provider does not manage the OS version.
+func testAccTalosMachineConfigOmitImage(rName, imageUrl, imageTag, isoVersion string) string {
+	cpuMode := cpuModeDefault
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeCI
+	}
+
+	isoURL := fmt.Sprintf(
+		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
+		isoVersion,
+	)
+
+	configPatch := installDiskPatch(imageTag, fmt.Sprintf("%s:%s", imageUrl, isoVersion))
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+data "talos_machine_configuration" "this" {
+  cluster_name       = "test"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
+  talos_version      = %[5]q
+  kubernetes_version = "v1.35.3"
+  docs               = false
+  examples           = false
+  config_patches = [
+%[7]s
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = %[1]q
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = %[1]q
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [cpu, nvram, disk["url"]]
+  }
+
+  cpu {
+    mode = %[2]q
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = %[3]q
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+resource "talos_machine" "this" {
+  node                  = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint              = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration  = talos_machine_secrets.this.client_configuration
+  machine_configuration = data.talos_machine_configuration.this.machine_configuration
+  drain_on_upgrade = false
+
+  timeouts = {
+    create = "20m"
+    update = "60m"
+    delete = "5m"
+  }
+}
+
+resource "talos_machine_bootstrap" "this" {
+  depends_on           = [talos_machine.this]
+  node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration = talos_machine_secrets.this.client_configuration
+}
+
+resource "talos_cluster_kubeconfig" "this" {
+  depends_on           = [talos_machine_bootstrap.this]
+  client_configuration = talos_machine_secrets.this.client_configuration
+  node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+}
+
+data "talos_cluster_health" "this" {
+  depends_on = [talos_cluster_kubeconfig.this]
+
+  client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = libvirt_domain.cp.network_interface[0].addresses
+  control_plane_nodes  = libvirt_domain.cp.network_interface[0].addresses
+
+  timeouts = {
+    read = "25m"
+  }
+}
+`, rName, cpuMode, isoURL, imageUrl, imageTag, isoVersion, configPatch)
 }
 
 func testAccTalosMachineConfigWithInstallImage(rName, imageUrl, imageTag, isoVersion string, includeInstallImage bool) string {

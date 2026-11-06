@@ -5,6 +5,7 @@
 package talos_test
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -25,8 +26,10 @@ func TestAccTalosImageFactoryVersionsDataSource(t *testing.T) {
 			},
 			{
 				Config: testAccTalosImageFactoryVersionsDataSourceWithFilterConfig(),
+				// the latest stable version changes with every Talos release, so only
+				// assert that it is a stable (non-prerelease) semver.
 				ConfigStateChecks: []statecheck.StateCheck{
-					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringExact("v1.14.1")),
+					statecheck.ExpectKnownOutputValue("talos_version", knownvalue.StringRegexp(regexp.MustCompile(`^v\d+\.\d+\.\d+$`))),
 				},
 			},
 		},

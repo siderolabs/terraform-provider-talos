@@ -148,6 +148,7 @@ If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upg
 - `client_configuration` (Attributes) The Talos client configuration. Use client_configuration_wo when using ephemeral resources. (see [below for nested schema](#nestedatt--client_configuration))
 - `client_configuration_wo` (Attributes, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of client_configuration for use with ephemeral resources. Requires Terraform 1.11+. (see [below for nested schema](#nestedatt--client_configuration_wo))
 - `drain_on_upgrade` (Boolean) Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.
+- `drain_timeout` (String) Maximum time to wait for pod eviction to complete when draining the node, as a Go duration string (e.g. "10m"). Only used when drain_on_upgrade = true. Raise this if pods take longer than 5m to evict, e.g. when a CSI driver like Longhorn relocates volume replicas. This runs inside the update (or create) timeout, so also raise `timeouts.update` (or `timeouts.create`) if it does not already leave enough headroom for drain_timeout.
 - `endpoint` (String) The endpoint to use when connecting to the node. Defaults to node.
 - `ignore_kubernetes_upgrade_drift` (Boolean) Experimental: when true, talos_machine ignores Kubernetes component image tag changes owned by talos_cluster/upgrade-k8s, preventing drift detection from interfering with graceful Kubernetes upgrades. Safe to use — enabling or disabling causes at most a one-time apply to refresh the config hash. Cannot be guaranteed to work with all future Talos versions: if upgrade-k8s manages additional image fields in a future release, this attribute must be updated to match.
 - `image` (String) Talos installer image (e.g. `ghcr.io/siderolabs/installer:v1.9.0`). When set, upgrades if running version differs. When omitted, OS version is not managed.
@@ -205,3 +206,33 @@ Optional:
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 - `delete` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 - `update` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+## Import
+
+Talos machines can be imported using the node IP address or hostname:
+
+```shell
+terraform import talos_machine.example 10.5.0.2
+```
+
+**The import ID must match `node` exactly.** Importing by IP address while using
+a hostname in configuration, or vice versa, causes Terraform to plan replacement
+of the machine.
+
+Import records node identity only. Provide existing client credentials and the
+desired machine configuration in HCL. The first plan shows an in-place update;
+applying it fills state and reconciles the node. A following plan should be empty
+when the configuration matches the node.
+
+When `image` is set, the first apply compares the running Talos version and any
+requested Image Factory schematic. Matches skip the OS upgrade; digest-pinned
+images are installed because the running digest cannot be verified. Matching
+versions for other repositories do not verify image content. Later changes to
+`image` trigger an upgrade.
+
+Matching machine configuration is not reapplied. A configuration-read failure
+stops configuration apply, but does not undo an earlier OS upgrade.
+
+Credentials must allow reading the active machine configuration through COSI
+and, for Image Factory images, the node's extension statuses.
