@@ -335,7 +335,7 @@ func (r *talosMachineResource) ValidateConfig(ctx context.Context, req resource.
 	// drain only runs during OS upgrades (when image is managed), so only require
 	// kubeconfig when image is also set. drain_on_upgrade defaults to true, so treat
 	// null the same as true. Skip unknown — can't evaluate references at validate time.
-	imageManaged := !cfg.Image.IsNull() && !cfg.Image.IsUnknown()
+	imageManaged := talosMachineImageManaged(cfg.Image)
 	drainEnabled := cfg.DrainOnUpgrade.IsNull() || (!cfg.DrainOnUpgrade.IsUnknown() && cfg.DrainOnUpgrade.ValueBool())
 
 	if imageManaged && drainEnabled && kubeconfigMissing(&cfg) {
@@ -380,6 +380,32 @@ func (r *talosMachineResource) ModifyPlan(ctx context.Context, req resource.Modi
 
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Omitted Optional+Computed image plans as unknown whenever state cannot pin
+	// it (null after create, write-only Read skip, or identity-only import). Keep
+	// the prior state value so the next plan stays empty and Update does not treat
+	// unknown as an image change toward an empty upgrade.
+	if cfgFromConfig.Image.IsNull() && plan.Image.IsUnknown() {
+		prior := types.StringNull()
+
+		if !req.State.Raw.IsNull() {
+			var stateForImage talosMachineResourceModel
+
+			resp.Diagnostics.Append(req.State.Get(ctx, &stateForImage)...)
+
+			if resp.Diagnostics.HasError() {
+				return
+			}
+
+			prior = stateForImage.Image
+		}
+
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("image"), prior)...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Default endpoint to node only when the user didn't provide endpoint in config at all.
@@ -503,12 +529,19 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 
 	plan.MachineConfigurationHash = types.StringValue(cfgHash)
 
-	if !plan.Image.IsNull() {
+	// An omitted image plans as unknown on create (Optional+Computed with no prior
+	// state for UseStateForUnknown to pin), so a null check alone would send an
+	// empty image reference down the upgrade path. Only a known image is managed.
+	if talosMachineImageManaged(plan.Image) {
 		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, false); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return
 		}
+	} else if plan.Image.IsUnknown() {
+		// Unmanaged: leave it null rather than unknown (which Terraform rejects after
+		// apply); Read fills in the running installer image on the next refresh.
+		plan.Image = types.StringNull()
 	}
 
 	plan.ID = types.StringValue(plan.Node.ValueString())
@@ -709,11 +742,17 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 	plan.Endpoint = types.StringValue(endpoint)
 
 	// Upgrade OS first so the new config is accepted by the upgraded node.
+	// UseStateForUnknown cannot pin a null prior image, so an omitted image can
+	// still plan as unknown here. Treat it as unmanaged and keep the prior value.
+	if plan.Image.IsUnknown() {
+		plan.Image = state.Image
+	}
+
 	// Post-import state has a null image (identity-only ImportState). Use
 	// UpgradeIfNeeded only then so an already matching version and Factory
 	// schematic do not trigger pull/install/drain/reboot. Every other image
 	// change continues to use an unconditional upgrade.
-	imageChanged := !plan.Image.IsNull() && !plan.Image.Equal(state.Image)
+	imageChanged := talosMachineImageManaged(plan.Image) && !plan.Image.Equal(state.Image)
 	postImportAdopt := state.Image.IsNull()
 
 	if imageChanged {
@@ -1056,6 +1095,14 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 	}
 
 	return nil
+}
+
+// talosMachineImageManaged reports whether image holds a known installer image
+// reference. A null image means the OS version is not managed; an unknown image
+// (an omitted Optional+Computed attribute with no prior state) must be treated
+// the same way, otherwise an empty image reference reaches the upgrade path.
+func talosMachineImageManaged(image types.String) bool {
+	return !image.IsNull() && !image.IsUnknown()
 }
 
 // talosMachineUpgradeIfNeeded checks the running Talos version and, for Image Factory
