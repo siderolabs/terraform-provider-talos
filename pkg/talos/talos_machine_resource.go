@@ -60,9 +60,14 @@ const (
 // talosMachineDefaultTimeout returns base plus the longest time the waits
 // enabled in the configuration can take, so they do not shorten the time left
 // for the apply and upgrade of users who leave timeouts unset.
-func talosMachineDefaultTimeout(base time.Duration, waitForControlPlane bool) time.Duration {
+func talosMachineDefaultTimeout(base time.Duration, waitForControlPlane, tryMode bool) time.Duration {
 	if waitForControlPlane {
 		base += controlPlaneProbeTimeout + defaultControlPlaneWaitTiming.Timeout
+	}
+
+	if tryMode {
+		// Confirming ends before Talos rolls the change back.
+		base += defaultTryApplyTiming.RollbackAfter
 	}
 
 	return base
@@ -106,6 +111,7 @@ type talosMachineResourceModel struct {
 	DrainOnUpgrade               types.Bool            `tfsdk:"drain_on_upgrade"`
 	IgnoreKubernetesUpgradeDrift types.Bool            `tfsdk:"ignore_kubernetes_upgrade_drift"`
 	WaitForControlPlane          types.Bool            `tfsdk:"wait_for_control_plane"`
+	TryMode                      types.Bool            `tfsdk:"try_mode"`
 }
 
 // NewTalosMachineResource implements the resource.Resource interface.
@@ -259,6 +265,17 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 					"or kubeconfig_wo. No-op on workers and before the cluster is bootstrapped. The wait never fails " +
 					"the apply: if it cannot run or does not finish within 10 minutes, Terraform shows a warning. " +
 					"On Talos before 1.14, an apply that reboots the node does not wait.",
+			},
+			"try_mode": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				Description: "Apply configuration changes to a running node in Talos try mode. Talos rolls the change back " +
+					"after 1 minute unless the provider confirms it, which the provider does once the node is still " +
+					"reachable through the Talos API 10 seconds after the apply. A change that cuts the node off from the " +
+					"provider is rolled back and the apply fails; reachability from other nodes is not checked. " +
+					"Adds about 10 seconds to every configuration change. Do not use it for changes that move the address the provider connects to (endpoint or node). " +
+					"Nodes in maintenance mode and, on Talos before 1.14, changes that need a reboot are applied without try mode.",
 			},
 			"kubeconfig": schema.StringAttribute{
 				Optional:  true,
@@ -511,7 +528,7 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 		plan.ClientConfiguration = resolvedClientConfig
 	}
 
-	timeout, diags := plan.Timeouts.Create(ctx, talosMachineDefaultTimeout(DefaultCreateTimeout, plan.WaitForControlPlane.ValueBool()))
+	timeout, diags := plan.Timeouts.Create(ctx, talosMachineDefaultTimeout(DefaultCreateTimeout, plan.WaitForControlPlane.ValueBool(), plan.TryMode.ValueBool()))
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -735,7 +752,7 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 		plan.ClientConfiguration = resolvedClientConfig
 	}
 
-	timeout, diags := plan.Timeouts.Update(ctx, talosMachineDefaultTimeout(DefaultUpdateTimeout, plan.WaitForControlPlane.ValueBool()))
+	timeout, diags := plan.Timeouts.Update(ctx, talosMachineDefaultTimeout(DefaultUpdateTimeout, plan.WaitForControlPlane.ValueBool(), plan.TryMode.ValueBool()))
 	resp.Diagnostics.Append(diags...)
 
 	if resp.Diagnostics.HasError() {
@@ -955,7 +972,7 @@ func talosMachineApplyConfig(ctx context.Context, endpoint string, talosConfig *
 		cs, nodeName = talosMachinePrepareControlPlaneWait(ctx, endpoint, node, talosConfig, talosMachineRawKubeconfig(plan), talosClientOp, diags)
 	}
 
-	rebooted, err := talosMachineApplyAndBoot(ctx, endpoint, node, talosConfig, cfgBytes)
+	rebooted, err := talosMachineApplyAndBoot(ctx, endpoint, node, talosConfig, cfgBytes, plan.TryMode.ValueBool(), diags)
 	if err != nil {
 		return err
 	}
@@ -970,8 +987,10 @@ func talosMachineApplyConfig(ctx context.Context, endpoint string, talosConfig *
 // talosMachineApplyAndBoot sends the machine configuration and waits for CRI to
 // be ready during normal boot (first apply can install and reboot). It reports
 // whether Talos reboots the node to apply the configuration.
-func talosMachineApplyAndBoot(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, cfgBytes []byte) (bool, error) {
-	rebooted, err := talosMachineSendAuto(ctx, endpoint, node, talosConfig, cfgBytes, talosClientOp)
+func talosMachineApplyAndBoot(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, cfgBytes []byte,
+	tryMode bool, diags *diag.Diagnostics,
+) (bool, error) {
+	rebooted, err := talosMachineSendConfig(ctx, endpoint, node, talosConfig, cfgBytes, talosClientOp, tryMode, defaultTryApplyTiming, diags)
 	if err != nil {
 		return false, err
 	}

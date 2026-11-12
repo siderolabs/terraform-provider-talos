@@ -7,6 +7,7 @@ package talos
 type (
 	ClientOpFunc           = clientOpFunc
 	ControlPlaneWaitTiming = controlPlaneWaitTiming
+	TryApplyTiming         = tryApplyTiming
 )
 
 var (
@@ -19,4 +20,6 @@ var (
 	TalosMachinePrepareControlPlaneWait = talosMachinePrepareControlPlaneWait
 	TalosMachineRunControlPlaneWait     = talosMachineRunControlPlaneWait
 	TalosMachineDefaultTimeout          = talosMachineDefaultTimeout
+	TalosMachineSendConfig              = talosMachineSendConfig
+	TalosMachineConfirmTry              = talosMachineConfirmTry
 )
