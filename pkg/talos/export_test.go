@@ -12,6 +12,7 @@ import (
 type (
 	ClientOpFunc           = clientOpFunc
 	ControlPlaneWaitTiming = controlPlaneWaitTiming
+	TryApplyTiming         = tryApplyTiming
 )
 
 var (
@@ -25,6 +26,8 @@ var (
 	TalosMachinePrepareControlPlaneWait = talosMachinePrepareControlPlaneWait
 	TalosMachineRunControlPlaneWait     = talosMachineRunControlPlaneWait
 	TalosMachineDefaultTimeout          = talosMachineDefaultTimeout
+	TalosMachineSendConfig              = talosMachineSendConfig
+	TalosMachineConfirmTry              = talosMachineConfirmTry
 )
 
 // MachineConfigurationComponents is the model of the talos_machine_configuration `components` attribute.
