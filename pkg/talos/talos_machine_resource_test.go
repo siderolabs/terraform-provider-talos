@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -26,12 +27,19 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
+	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
 	"github.com/siderolabs/talos/pkg/images"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/gendata"
+	configres "github.com/siderolabs/talos/pkg/machinery/resources/config"
 	runtimeres "github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	"golang.org/x/mod/semver"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/kubectl/pkg/util/podutils"
 
 	"github.com/siderolabs/terraform-provider-talos/pkg/talos"
 )
@@ -434,6 +442,187 @@ data "talos_cluster_health" "this" {
 }
 `, rName, cpuMode, isoURL, cpImageTag, workerImageTag, installerBase,
 		installDiskPatch(cpImageTag, fmt.Sprintf("%s:%s", installerBase, cpImageTag)))
+}
+
+// TestAccTalosMachine_controlPlaneConfigChange changes a kube-apiserver argument
+// on a running control plane node with wait_for_control_plane and try_mode set.
+// The apply must return only once the restarted kube-apiserver runs the change,
+// and the try-mode change must outlive the rollback timer.
+//
+// The first apply installs Talos from maintenance mode, so it also covers both
+// options falling back quietly: no try mode and no control plane wait.
+func TestAccTalosMachine_controlPlaneConfigChange(t *testing.T) {
+	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
+
+	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0),
+		},
+		ExternalProviders: map[string]resource.ExternalProvider{
+			"libvirt": {
+				Source:            "dmacvicar/libvirt",
+				VersionConstraint: "= 0.8.3",
+			},
+		},
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccTalosMachineControlPlaneChangeConfig(rName, "1h0m0s"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("talos_machine.this", "try_mode", "true"),
+					resource.TestCheckResourceAttr("talos_machine.this", "wait_for_control_plane", "true"),
+					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
+				),
+			},
+			{
+				Config: testAccTalosMachineControlPlaneChangeConfig(rName, "2h0m0s"),
+				// Sequential: the first check must run right after the apply.
+				Check: resource.ComposeTestCheckFunc(
+					checkAPIServerRunsArg("talos_machine.this", "--event-ttl=2h0m0s"),
+					checkAPIServerArgSurvivesRollback("talos_machine.this", "event-ttl", "2h0m0s"),
+				),
+			},
+			{
+				Config:   testAccTalosMachineControlPlaneChangeConfig(rName, "2h0m0s"),
+				PlanOnly: true,
+			},
+		},
+	})
+}
+
+// testAccTalosMachineControlPlaneChangeConfig creates a single control plane node
+// with try_mode and wait_for_control_plane, running kube-apiserver with --event-ttl.
+func testAccTalosMachineControlPlaneChangeConfig(rName, eventTTL string) string {
+	cpuMode := cpuModeDefault
+	if os.Getenv("CI") != "" {
+		cpuMode = cpuModeCI
+	}
+
+	isoURL := fmt.Sprintf(
+		"https://github.com/siderolabs/talos/releases/download/%s/metal-amd64.iso",
+		gendata.VersionTag,
+	)
+
+	installerBase := images.InstallerImageRepository("metal")
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+data "talos_machine_configuration" "this" {
+  cluster_name       = "test"
+  cluster_endpoint   = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
+  talos_version      = %[4]q
+  kubernetes_version = "v1.35.3"
+  docs               = false
+  examples           = false
+  config_patches = [
+%[6]s,
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "KubeAPIServerConfig"
+      extraArgs = {
+        "event-ttl" = %[7]q
+      }
+    })
+  ]
+}
+
+resource "libvirt_volume" "cp" {
+  name = %[1]q
+  size = 6442450944
+}
+
+resource "libvirt_domain" "cp" {
+  name     = %[1]q
+  firmware = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+
+  nvram {
+    file     = "/var/lib/libvirt/qemu/nvram/%[1]s_VARS.fd"
+    template = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+  }
+
+  lifecycle {
+    ignore_changes = [cpu, nvram, disk["url"]]
+  }
+
+  cpu {
+    mode = %[2]q
+  }
+
+  console {
+    type        = "pty"
+    target_port = "0"
+  }
+
+  graphics {
+    type        = "vnc"
+    listen_type = "address"
+  }
+
+  disk {
+    url = %[3]q
+  }
+
+  disk {
+    volume_id = libvirt_volume.cp.id
+  }
+
+  boot_device {
+    dev = ["cdrom"]
+  }
+
+  network_interface {
+    network_name   = "default"
+    wait_for_lease = true
+  }
+
+  vcpu   = "2"
+  memory = "4096"
+}
+
+ephemeral "talos_cluster_kubeconfig" "this" {
+  machine_secrets = talos_machine_secrets.this.machine_secrets
+  cluster_name    = "test"
+  endpoint        = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+}
+
+resource "talos_machine" "this" {
+  node                   = libvirt_domain.cp.network_interface[0].addresses[0]
+  endpoint               = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration   = talos_machine_secrets.this.client_configuration
+  machine_configuration  = data.talos_machine_configuration.this.machine_configuration
+  image                  = "%[5]s:%[4]s"
+  drain_on_upgrade       = false
+  try_mode               = true
+  wait_for_control_plane = true
+  kubeconfig_wo          = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+
+  timeouts = {
+    create = "20m"
+    update = "20m"
+    delete = "5m"
+  }
+}
+
+resource "talos_machine_bootstrap" "this" {
+  depends_on           = [talos_machine.this]
+  node                 = libvirt_domain.cp.network_interface[0].addresses[0]
+  client_configuration = talos_machine_secrets.this.client_configuration
+}
+
+data "talos_cluster_health" "this" {
+  depends_on = [talos_machine_bootstrap.this]
+
+  client_configuration = talos_machine_secrets.this.client_configuration
+  endpoints            = libvirt_domain.cp.network_interface[0].addresses
+  control_plane_nodes  = libvirt_domain.cp.network_interface[0].addresses
+
+  timeouts = { read = "15m" }
+}
+`, rName, cpuMode, isoURL, gendata.VersionTag, installerBase,
+		installDiskPatch(gendata.VersionTag, fmt.Sprintf("%s:%s", installerBase, gendata.VersionTag)), eventTTL)
 }
 
 // TestAccTalosMachine_upgrade tests that changing `image` triggers an OS upgrade:
@@ -1254,6 +1443,8 @@ resource "talos_machine" "this" {
 //
 // Regression: drain_on_upgrade defaults to true, so omitting it (null in config, before
 // defaults are applied) must also trigger the error — not silently pass.
+//
+// wait_for_control_plane = true needs the kubeconfig regardless of image.
 func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 	t.Parallel()
 
@@ -1300,10 +1491,20 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 
 	strPtr := func(s string) *string { return &s }
 
+	// nil = omitted (null) in config.
+	optionalBool := func(v *tftypes.Value) tftypes.Value {
+		if v == nil {
+			return tftypes.NewValue(tftypes.Bool, nil)
+		}
+
+		return *v
+	}
+
 	const imageRef = "ghcr.io/siderolabs/installer:v1.13.0"
 
 	tests := []struct {
 		drainOnUpgrade      *tftypes.Value // nil = omitted (null) in config
+		waitForControlPlane *tftypes.Value // nil = omitted (null) in config
 		kubeconfig          *string        // nil = null; &"" = empty string; &"x" = value
 		kubeconfigWO        *string        // nil = null; &"" = empty string; &"x" = value
 		name                string
@@ -1370,6 +1571,28 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 			kubeconfigWOUnknown: true,
 			wantError:           false,
 		},
+		{
+			name:                "no image, wait_for_control_plane=true, no kubeconfig",
+			waitForControlPlane: boolValPtr(true),
+			wantError:           true,
+		},
+		{
+			name:                "no image, wait_for_control_plane=true, kubeconfig_wo set",
+			waitForControlPlane: boolValPtr(true),
+			kubeconfigWO:        strPtr("kubeconfig-yaml-content"),
+			wantError:           false,
+		},
+		{
+			name:                "no image, wait_for_control_plane=true, kubeconfig_wo unknown",
+			waitForControlPlane: boolValPtr(true),
+			kubeconfigWOUnknown: true,
+			wantError:           false,
+		},
+		{
+			name:                "no image, wait_for_control_plane=false, no kubeconfig",
+			waitForControlPlane: boolValPtr(false),
+			wantError:           false,
+		},
 	}
 
 	rvc, ok := r.(frameworkresource.ResourceWithValidateConfig)
@@ -1389,11 +1612,8 @@ func TestValidateConfig_DrainKubeconfigRequirement(t *testing.T) {
 				vals["image"] = tftypes.NewValue(tftypes.String, imageRef)
 			}
 
-			if tc.drainOnUpgrade == nil {
-				vals["drain_on_upgrade"] = tftypes.NewValue(tftypes.Bool, nil)
-			} else {
-				vals["drain_on_upgrade"] = *tc.drainOnUpgrade
-			}
+			vals["drain_on_upgrade"] = optionalBool(tc.drainOnUpgrade)
+			vals["wait_for_control_plane"] = optionalBool(tc.waitForControlPlane)
 
 			if tc.kubeconfig != nil {
 				vals["kubeconfig"] = tftypes.NewValue(tftypes.String, *tc.kubeconfig)
@@ -2050,6 +2270,8 @@ func TestNodeRequiresReplace(t *testing.T) {
 //
 //	Create: must exceed 35 m (10 m apply + 10 m wait-for-node + 15 m reboot)
 //	Update: must exceed 80 m (10+10+60 m with legacy upgrade)
+//
+// wait_for_control_plane and try_mode add their own budgets, and only when set.
 func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 	t.Parallel()
 
@@ -2058,22 +2280,42 @@ func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 		waitNodeBudget      = 10 * time.Minute
 		rebootBudget        = 15 * time.Minute
 		legacyUpgradeBudget = 60 * time.Minute
+		// wait_for_control_plane: 1m check before the apply + 10m settle and static pod restarts.
+		controlPlaneWaitBudget = 11 * time.Minute
+		// try_mode: confirming a try-mode apply ends before Talos rolls it back.
+		tryConfirmBudget = time.Minute
 	)
 
-	// Default timeouts — read from the exported constants in talos_machine_resource.go
-	// so this test breaks if someone lowers them below the worst-case threshold.
-	defaultCreate := talos.DefaultCreateTimeout
-	defaultUpdate := talos.DefaultUpdateTimeout
+	for _, opts := range []struct{ waitForControlPlane, tryMode bool }{{}, {true, false}, {false, true}, {true, true}} {
+		// Default timeouts — read from the exported constants in talos_machine_resource.go
+		// so this test breaks if someone lowers them below the worst-case threshold.
+		defaultCreate := talos.TalosMachineDefaultTimeout(talos.DefaultCreateTimeout, opts.waitForControlPlane, opts.tryMode)
+		defaultUpdate := talos.TalosMachineDefaultTimeout(talos.DefaultUpdateTimeout, opts.waitForControlPlane, opts.tryMode)
 
-	worstCaseCreate := applyRetryBudget + waitNodeBudget + rebootBudget        // 35 m
-	worstCaseUpdate := applyRetryBudget + waitNodeBudget + legacyUpgradeBudget // 80 m
+		worstCaseCreate := applyRetryBudget + waitNodeBudget + rebootBudget        // 35 m
+		worstCaseUpdate := applyRetryBudget + waitNodeBudget + legacyUpgradeBudget // 80 m
 
-	if defaultCreate < worstCaseCreate {
-		t.Errorf("Create default %v < worst-case %v: operations will time out", defaultCreate, worstCaseCreate)
-	}
+		if opts.waitForControlPlane {
+			worstCaseCreate += controlPlaneWaitBudget
+			worstCaseUpdate += controlPlaneWaitBudget
+		}
 
-	if defaultUpdate < worstCaseUpdate {
-		t.Errorf("Update default %v < worst-case %v: legacy upgrade will time out", defaultUpdate, worstCaseUpdate)
+		if opts.tryMode {
+			worstCaseCreate += tryConfirmBudget
+			worstCaseUpdate += tryConfirmBudget
+		}
+
+		if !opts.waitForControlPlane && !opts.tryMode && (defaultCreate != talos.DefaultCreateTimeout || defaultUpdate != talos.DefaultUpdateTimeout) {
+			t.Errorf("options that are off changed the defaults to %v/%v", defaultCreate, defaultUpdate)
+		}
+
+		if defaultCreate < worstCaseCreate {
+			t.Errorf("%+v: Create default %v < worst-case %v: operations will time out", opts, defaultCreate, worstCaseCreate)
+		}
+
+		if defaultUpdate < worstCaseUpdate {
+			t.Errorf("%+v: Update default %v < worst-case %v: legacy upgrade will time out", opts, defaultUpdate, worstCaseUpdate)
+		}
 	}
 }
 
@@ -2084,43 +2326,12 @@ func TestDefaultTimeoutsSufficientForWorstCase(t *testing.T) {
 // new image recorded, so only the node can distinguish a real upgrade from a silent no-op.
 func checkNodeSchematic(resourceName, wantSchematicID string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		machine, ok := s.RootModule().Resources[resourceName]
-		if !ok {
-			return fmt.Errorf("resource %s not found in state", resourceName)
-		}
-
-		secrets, ok := s.RootModule().Resources["talos_machine_secrets.this"]
-		if !ok {
-			return fmt.Errorf("talos_machine_secrets.this not found in state")
-		}
-
-		node := machine.Primary.Attributes["node"]
-		if node == "" {
-			return fmt.Errorf("%s has no node attribute", resourceName)
-		}
-
-		attrs := secrets.Primary.Attributes
-
-		ca, crt, key := attrs["client_configuration.ca_certificate"],
-			attrs["client_configuration.client_certificate"],
-			attrs["client_configuration.client_key"]
-		if ca == "" || crt == "" || key == "" {
-			return fmt.Errorf("talos_machine_secrets.this is missing client_configuration in state")
-		}
-
-		talosConfig := &clientconfig.Config{
-			Context: "acc",
-			Contexts: map[string]*clientconfig.Context{
-				"acc": {CA: ca, Crt: crt, Key: key},
-			},
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 
-		c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(node))
+		c, node, err := testAccTalosClient(ctx, s, resourceName)
 		if err != nil {
-			return fmt.Errorf("building talos client for %s: %w", node, err)
+			return err
 		}
 
 		defer c.Close() //nolint:errcheck
@@ -2151,6 +2362,143 @@ func checkNodeSchematic(resourceName, wantSchematicID string) resource.TestCheck
 				"node %s is running schematic %s, want %s — the image change never reached the node (issue #377)",
 				node, got, wantSchematicID,
 			)
+		}
+
+		return nil
+	}
+}
+
+// testAccTalosClient builds a Talos client for the node of resourceName with the
+// client configuration of talos_machine_secrets.this.
+func testAccTalosClient(ctx context.Context, s *terraform.State, resourceName string) (*client.Client, string, error) {
+	machine, ok := s.RootModule().Resources[resourceName]
+	if !ok {
+		return nil, "", fmt.Errorf("resource %s not found in state", resourceName)
+	}
+
+	secrets, ok := s.RootModule().Resources["talos_machine_secrets.this"]
+	if !ok {
+		return nil, "", fmt.Errorf("talos_machine_secrets.this not found in state")
+	}
+
+	node := machine.Primary.Attributes["node"]
+	if node == "" {
+		return nil, "", fmt.Errorf("%s has no node attribute", resourceName)
+	}
+
+	attrs := secrets.Primary.Attributes
+
+	ca, crt, key := attrs["client_configuration.ca_certificate"],
+		attrs["client_configuration.client_certificate"],
+		attrs["client_configuration.client_key"]
+	if ca == "" || crt == "" || key == "" {
+		return nil, "", fmt.Errorf("talos_machine_secrets.this is missing client_configuration in state")
+	}
+
+	talosConfig := &clientconfig.Config{
+		Context: "acc",
+		Contexts: map[string]*clientconfig.Context{
+			"acc": {CA: ca, Crt: crt, Key: key},
+		},
+	}
+
+	c, err := client.New(ctx, client.WithConfig(talosConfig), client.WithEndpoints(node))
+	if err != nil {
+		return nil, "", fmt.Errorf("building talos client for %s: %w", node, err)
+	}
+
+	return c, node, nil
+}
+
+// checkAPIServerRunsArg asserts that the kube-apiserver mirror pod of the node
+// runs with arg and is Ready. Run right after the apply, it only passes when
+// wait_for_control_plane held the apply until the restart finished: kubelet
+// takes far longer than the post-apply refresh to replace kube-apiserver.
+func checkAPIServerRunsArg(resourceName, arg string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		c, node, err := testAccTalosClient(ctx, s, resourceName)
+		if err != nil {
+			return err
+		}
+
+		defer c.Close() //nolint:errcheck
+
+		ctx = client.WithNode(ctx, node)
+
+		nodeName, err := nodedrain.GetKubernetesNodeName(ctx, c)
+		if err != nil {
+			return fmt.Errorf("reading Kubernetes node name of %s: %w", node, err)
+		}
+
+		kubeconfig, err := c.Kubeconfig(ctx)
+		if err != nil {
+			return fmt.Errorf("reading kubeconfig from %s: %w", node, err)
+		}
+
+		restConfig, err := clientcmd.RESTConfigFromKubeConfig(kubeconfig)
+		if err != nil {
+			return fmt.Errorf("parsing kubeconfig: %w", err)
+		}
+
+		cs, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return fmt.Errorf("building Kubernetes client: %w", err)
+		}
+
+		name := "kube-apiserver-" + nodeName
+
+		pod, err := cs.CoreV1().Pods(metav1.NamespaceSystem).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("getting %s: %w", name, err)
+		}
+
+		if !slices.ContainsFunc(pod.Spec.Containers, func(ct corev1.Container) bool {
+			return slices.Contains(ct.Command, arg) || slices.Contains(ct.Args, arg)
+		}) {
+			return fmt.Errorf("%s does not run with %s yet: the apply returned before kube-apiserver restarted", name, arg)
+		}
+
+		if !podutils.IsPodReady(pod) {
+			return fmt.Errorf("%s runs with %s but is not Ready: the apply returned before kube-apiserver restarted", name, arg)
+		}
+
+		return nil
+	}
+}
+
+// checkAPIServerArgSurvivesRollback waits until the try-mode rollback timer of
+// 1 minute has passed and asserts that the node's active configuration still
+// carries the kube-apiserver argument, i.e. the provider confirmed the change.
+func checkAPIServerArgSurvivesRollback(resourceName, key, want string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		// The try-mode apply was sent at least 10 seconds before the apply returned.
+		time.Sleep(time.Minute)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		c, node, err := testAccTalosClient(ctx, s, resourceName)
+		if err != nil {
+			return err
+		}
+
+		defer c.Close() //nolint:errcheck
+
+		cfg, err := safe.StateGetByID[*configres.MachineConfig](client.WithNode(ctx, node), c.COSI, configres.ActiveID)
+		if err != nil {
+			return fmt.Errorf("reading active machine configuration of %s: %w", node, err)
+		}
+
+		apiServer := cfg.Config().K8sAPIServerConfig()
+		if apiServer == nil {
+			return fmt.Errorf("%s has no kube-apiserver configuration", node)
+		}
+
+		if got := apiServer.ExtraArgs()[key]; !slices.Equal(got, []string{want}) {
+			return fmt.Errorf("%s: kube-apiserver %s is %v after the rollback timer, want %s: the try-mode change was rolled back", node, key, got, want)
 		}
 
 		return nil
