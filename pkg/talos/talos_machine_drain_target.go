@@ -74,7 +74,11 @@ func kubeletClientCertListed(ctx context.Context, c *client.Client) (bool, error
 // "lstat <dir>: no such file or directory" rather than reporting it per entry. That is "not
 // joined", not an error. Any other failure leaves the question open.
 func kubeletPKIListError(err error) error {
-	if strings.Contains(err.Error(), constants.KubeletPKIDir+": no such file or directory") {
+	// Only the wording Talos is seen to use for the PKI directory itself counts. A missing file
+	// inside it, such as a certificate that vanished while the directory was listed, says
+	// nothing about the directory, and neither does a status code: guessing "not joined"
+	// would reboot a node that has joined without a drain.
+	if strings.HasSuffix(strings.TrimSpace(err.Error()), constants.KubeletPKIDir+": no such file or directory") {
 		return errKubeletNotJoined
 	}
 
@@ -83,6 +87,19 @@ func kubeletPKIListError(err error) error {
 
 // errKubeletNotJoined is the answer "the kubelet's PKI directory does not exist".
 var errKubeletNotJoined = errors.New("the kubelet's PKI directory does not exist")
+
+// createDrainDecision turns the answer to "has the node joined the cluster" into what Create
+// does about the drain. A node that has not joined has no Kubernetes node: it is not drained.
+// A node that has joined must exist in Kubernetes, so a node that is not found is an error
+// instead of a node that has yet to join. When it cannot be told, the drain goes on as for any
+// other node.
+func createDrainDecision(joined bool, joinedErr error) (skipDrain, nodeMustExist bool) {
+	if joinedErr != nil {
+		return false, false
+	}
+
+	return !joined, joined
+}
 
 // talosMachineDrainNodeName resolves the Kubernetes node name used for the drain. A node
 // whose machine config sets skipNodeRegistration never gets a Kubernetes node, and Talos

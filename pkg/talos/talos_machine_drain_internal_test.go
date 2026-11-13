@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	ktesting "k8s.io/client-go/testing"
 )
 
@@ -265,6 +266,17 @@ func TestRunDrained_UpdateKeepsDrainingNotReadyNodes(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "waiting for node ready") {
 		t.Errorf("on Update the uncordon must still wait for the node to be Ready, got: %v", err)
 	}
+
+	// After a real upgrade, a node that did not come back Ready is exactly when the cordon is
+	// a safety net: the not-ready taint does not cover a node that flaps Ready on a bad
+	// upgrade. It stays cordoned, and the error says how to undo that once it is healthy.
+	if !nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a node that did not come back Ready after the upgrade must stay cordoned")
+	}
+
+	if !strings.Contains(err.Error(), "kubectl uncordon "+drainTestNode) {
+		t.Errorf("the error should say how to uncordon the node, got: %v", err)
+	}
 }
 
 // TestRunDrained_UpdateFailsOnMissingNode guards Update: a node name that does not match
@@ -291,6 +303,10 @@ func TestRunDrained_UpdateFailsOnMissingNode(t *testing.T) {
 
 	if ran {
 		t.Error("action must not run when the drain failed")
+	}
+
+	if strings.Contains(err.Error(), "kubectl uncordon") {
+		t.Errorf("a node that does not exist was never cordoned, so the error must not tell the user to uncordon it: %v", err)
 	}
 }
 
@@ -352,7 +368,7 @@ func TestRunDrained_NotReadyNodeUncordonSurvivesAPIRestart(t *testing.T) {
 	})
 
 	opts := drainTestOptions()
-	opts.UncordonRetryInterval = 10 * time.Millisecond
+	opts.RetryInterval = 10 * time.Millisecond
 
 	if err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(context.Context) error { return nil }); err != nil {
 		t.Fatalf("expected the uncordon to wait out a short API server outage, got: %v", err)
@@ -451,5 +467,436 @@ func TestUncordonMayPass(t *testing.T) {
 				t.Errorf("uncordonMayPass(%v) = %v, want %v", tc.err, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestRunDrained_FailedDrainUncordonsTheNode covers
+// https://github.com/siderolabs/terraform-provider-talos/issues/422: a drain that fails after
+// the node was cordoned (here: eviction blocked by a PodDisruptionBudget until the drain
+// timeout) must not leave the node unschedulable, and the upgrade must not go on.
+func TestRunDrained_FailedDrainUncordonsTheNode(t *testing.T) {
+	t.Parallel()
+
+	cs := blockedEvictionClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	opts := drainTestOptions()
+	opts.DrainTimeout = 200 * time.Millisecond
+
+	var ran bool
+
+	err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(context.Context) error {
+		ran = true
+
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected the blocked drain to fail")
+	}
+
+	if ran {
+		t.Error("the action must not run when the drain failed")
+	}
+
+	if nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a node whose drain failed must not be left cordoned")
+	}
+}
+
+// TestRunDrained_ExpiredContextStillUncordons covers the likeliest way a drain fails: the
+// operation's own timeout (or Ctrl-C) fires while pods are still being evicted. The
+// cleanup must not run on that expired context, or it fails the same way and leaves the
+// node cordoned.
+func TestRunDrained_ExpiredContextStillUncordons(t *testing.T) {
+	t.Parallel()
+
+	cs := blockedEvictionClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	opts := drainTestOptions()
+	opts.DrainTimeout = time.Minute // far longer than ctx, so ctx is what stops the drain
+
+	if err := talosMachineRunDrained(ctx, cs, drainTestNode, opts, func(context.Context) error { return nil }); err == nil {
+		t.Fatal("expected the drain to fail when the context expires")
+	}
+
+	if nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a node must be uncordoned even when the operation's context has expired")
+	}
+}
+
+// TestRunDrained_UncordonFailureSaysHowToRecover makes the failure actionable: if the
+// node cannot be uncordoned, the error tells the user it is still cordoned.
+func TestRunDrained_UncordonFailureSaysHowToRecover(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	var patches int
+
+	cs.PrependReactor("patch", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		patches++
+
+		// The first patch is the cordon; every later one is the uncordon.
+		if patches > 1 {
+			return true, nil, errors.New("api server went away")
+		}
+
+		return false, nil, nil
+	})
+
+	err := talosMachineRunDrained(context.Background(), cs, drainTestNode, drainTestOptions(), func(context.Context) error { return nil })
+	if err == nil {
+		t.Fatal("expected an error when the node cannot be uncordoned")
+	}
+
+	if !strings.Contains(err.Error(), "kubectl uncordon "+drainTestNode) {
+		t.Errorf("error should tell the user how to uncordon the node, got: %v", err)
+	}
+}
+
+// notReadyAfterActionCancel returns an action that ends the operation (its timeout or
+// Ctrl-C) and leaves the node not Ready, as a reboot that never finished would.
+func notReadyAfterActionCancel(cs *fake.Clientset, cancel context.CancelFunc) func(context.Context) error {
+	return func(actionCtx context.Context) error {
+		node, err := cs.CoreV1().Nodes().Get(actionCtx, drainTestNode, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		node.Status.Conditions = []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionFalse}}
+
+		if _, err := cs.CoreV1().Nodes().Update(actionCtx, node, metav1.UpdateOptions{}); err != nil {
+			return err
+		}
+
+		cancel()
+
+		return context.Canceled
+	}
+}
+
+// TestRunDrained_EndedOperationWithNotReadyNodeLeavesItCordoned covers the operation ending
+// while the reboot is still in progress and the node not Ready. Its health is unknown, which
+// is when the cordon is a safety net, so it is not uncordoned: the error says how to do it
+// once the node is healthy.
+func TestRunDrained_EndedOperationWithNotReadyNodeLeavesItCordoned(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := talosMachineRunDrained(ctx, cs, drainTestNode, drainTestOptions(), notReadyAfterActionCancel(cs, cancel))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected the action error, got: %v", err)
+	}
+
+	if !nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a node that is not Ready when the operation ends must stay cordoned")
+	}
+
+	if !strings.Contains(err.Error(), "kubectl uncordon "+drainTestNode) {
+		t.Errorf("the error should say how to uncordon the node, got: %v", err)
+	}
+}
+
+// ctxAwareClientset is a clientset that, like a real one, fails a node read whose context has
+// ended. The fake one ignores contexts, which would let a canceled operation read Ready.
+type ctxAwareClientset struct {
+	*fake.Clientset
+}
+
+func (c ctxAwareClientset) CoreV1() corev1client.CoreV1Interface {
+	return ctxAwareCoreV1{c.Clientset.CoreV1()}
+}
+
+type ctxAwareCoreV1 struct {
+	corev1client.CoreV1Interface
+}
+
+func (c ctxAwareCoreV1) Nodes() corev1client.NodeInterface {
+	return ctxAwareNodes{c.CoreV1Interface.Nodes()}
+}
+
+type ctxAwareNodes struct {
+	corev1client.NodeInterface
+}
+
+func (n ctxAwareNodes) Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.Node, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	return n.NodeInterface.Get(ctx, name, opts)
+}
+
+// TestRunDrained_EndedOperationBeforeReadyIsConfirmedLeavesNodeCordoned covers the operation
+// ending while the node is rebooting. A node that reads Ready then proves nothing: its Ready
+// condition stays True for a while after the kubelet stops reporting, so it may only be
+// the old one. The node stays cordoned and the error says how to undo it.
+func TestRunDrained_EndedOperationBeforeReadyIsConfirmedLeavesNodeCordoned(t *testing.T) {
+	t.Parallel()
+
+	fakeCS := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+	cs := ctxAwareClientset{fakeCS}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := talosMachineRunDrained(ctx, cs, drainTestNode, drainTestOptions(), func(context.Context) error {
+		cancel()
+
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "kubectl uncordon "+drainTestNode) {
+		t.Fatalf("expected an error that says how to uncordon the node, got: %v", err)
+	}
+
+	if !nodeUnschedulable(context.Background(), t, fakeCS) {
+		t.Error("a node must stay cordoned when the operation ended before Ready was confirmed")
+	}
+}
+
+// TestRunDrained_ReadyWaitHonorsCancellation makes sure the wait for Ready after the
+// upgrade stops when the operation is canceled, instead of running on for the whole
+// ReadyTimeout on a detached context.
+func TestRunDrained_ReadyWaitHonorsCancellation(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	opts := drainTestOptions()
+	opts.ReadyTimeout = 10 * time.Second
+
+	start := time.Now()
+
+	action := notReadyAfterActionCancel(cs, func() {
+		// The operation is canceled shortly after the reboot, while the wait is running.
+		time.AfterFunc(100*time.Millisecond, cancel)
+	})
+
+	err := talosMachineRunDrained(ctx, cs, drainTestNode, opts, func(actionCtx context.Context) error {
+		// Leaves the node not Ready and schedules the cancel; it returns the cancellation
+		// error only to mimic an interrupted reboot, which is not what is under test.
+		if actionErr := action(actionCtx); actionErr != nil && !errors.Is(actionErr, context.Canceled) {
+			return actionErr
+		}
+
+		return nil
+	})
+	if err == nil {
+		t.Error("expected an error: the node never came back Ready")
+	}
+
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("the wait for Ready ran on for %s after the operation was canceled", elapsed)
+	}
+}
+
+// TestRunDrained_FailedDrainRestoreIsBoundedAgainstADeadAPIServer makes sure the restore after a
+// failed drain gives up after FailedDrainRestoreTimeout: if the API server is down the drain
+// failed because of that, and the error must not be delayed for long.
+func TestRunDrained_FailedDrainRestoreIsBoundedAgainstADeadAPIServer(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+	cs.PrependReactor("*", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		return true, nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}
+	})
+
+	opts := drainTestOptions()
+	opts.OnCreate = false
+	opts.RetryInterval = 10 * time.Millisecond
+	opts.FailedDrainRestoreTimeout = 300 * time.Millisecond
+
+	start := time.Now()
+
+	if err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(context.Context) error { return nil }); err == nil {
+		t.Fatal("expected an error when the API server is unreachable")
+	}
+
+	if elapsed := time.Since(start); elapsed > 3*time.Second {
+		t.Errorf("the failed drain took %s: the uncordon must not be retried", elapsed)
+	}
+}
+
+// TestRunDrained_JoinedNodeMissingFromKubernetesFails covers a node that Talos knows has
+// joined the cluster, but whose name is not found in Kubernetes, for example because it
+// registered under a different name than Talos reports. It is not a node that has yet to
+// join, so it must not be rebooted without a drain: Update fails in the same case.
+func TestRunDrained_JoinedNodeMissingFromKubernetesFails(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset()
+
+	opts := drainTestOptions()
+	opts.NodeMustExist = true
+	opts.NodeAppearTimeout = 200 * time.Millisecond
+	opts.RetryInterval = 20 * time.Millisecond
+
+	var ran bool
+
+	err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(context.Context) error {
+		ran = true
+
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected an error for a joined node that Kubernetes does not know")
+	}
+
+	if ran {
+		t.Error("a node that has joined the cluster must not be rebooted undrained because its Kubernetes node was not found")
+	}
+}
+
+// TestRunDrained_JoinedNodeThatRegistersShortlyAfterIsDrained covers the moment between the
+// kubelet getting its client certificate and its Node showing up in Kubernetes: a node that
+// has joined but is not found yet is waited for briefly instead of failing the apply.
+func TestRunDrained_JoinedNodeThatRegistersShortlyAfterIsDrained(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset()
+
+	time.AfterFunc(100*time.Millisecond, func() {
+		_, _ = cs.CoreV1().Nodes().Create(context.Background(), drainTestNodeObject(corev1.ConditionTrue), metav1.CreateOptions{}) //nolint:errcheck
+	})
+
+	opts := drainTestOptions()
+	opts.NodeMustExist = true
+	opts.NodeAppearTimeout = 5 * time.Second
+	opts.RetryInterval = 20 * time.Millisecond
+
+	var cordonedDuringAction bool
+
+	err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(actionCtx context.Context) error {
+		cordonedDuringAction = nodeUnschedulable(actionCtx, t, cs)
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !cordonedDuringAction {
+		t.Error("the node must be drained once it shows up")
+	}
+}
+
+// TestRunDrained_DeadlineDuringFinalUncordonStillUncordons covers the operation ending while
+// the final uncordon runs, after the node was confirmed Ready. A healthy, upgraded node must
+// not be left cordoned only because the deadline landed on that last call.
+func TestRunDrained_DeadlineDuringFinalUncordonStillUncordons(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var patches int
+
+	cs.PrependReactor("patch", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		patches++
+
+		// The first patch is the cordon. The first uncordon patch is where the operation ends.
+		if patches == 2 {
+			cancel()
+
+			return true, nil, apierrors.NewServerTimeout(corev1.Resource("nodes"), "patch", 1)
+		}
+
+		return false, nil, nil
+	})
+
+	opts := drainTestOptions()
+	opts.RetryInterval = 10 * time.Millisecond
+
+	if err := talosMachineRunDrained(ctx, cs, drainTestNode, opts, func(context.Context) error { return nil }); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a node confirmed Ready must be uncordoned even when the operation ends during the uncordon")
+	}
+}
+
+// TestRunDrained_FailedDrainUncordonSurvivesABlip covers the failure #422 was reported with:
+// the drain dies on a momentary API error, and the uncordon that follows hits the same blip.
+// It is retried briefly instead of leaving the node cordoned.
+func TestRunDrained_FailedDrainUncordonSurvivesABlip(t *testing.T) {
+	t.Parallel()
+
+	cs := blockedEvictionClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	var patches int
+
+	cs.PrependReactor("patch", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		patches++
+
+		// The first patch is the cordon; the first uncordon attempt then meets the blip.
+		if patches == 2 {
+			return true, nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}
+		}
+
+		return false, nil, nil
+	})
+
+	opts := drainTestOptions()
+	opts.DrainTimeout = 200 * time.Millisecond
+	opts.RetryInterval = 10 * time.Millisecond
+
+	if err := talosMachineRunDrained(context.Background(), cs, drainTestNode, opts, func(context.Context) error { return nil }); err == nil {
+		t.Fatal("expected the blocked drain to fail")
+	}
+
+	if nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("a momentary API error must not leave the node cordoned after a failed drain")
+	}
+}
+
+// TestRunDrained_LastUncordonAttemptRetries covers the operation ending while the uncordon
+// rides out a blip, and the one more attempt made on a context that survives it meeting
+// another blip: it is retried too.
+func TestRunDrained_LastUncordonAttemptRetries(t *testing.T) {
+	t.Parallel()
+
+	cs := fake.NewSimpleClientset(drainTestNodeObject(corev1.ConditionTrue))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var patches int
+
+	cs.PrependReactor("patch", "nodes", func(ktesting.Action) (bool, runtime.Object, error) {
+		patches++
+
+		switch patches {
+		case 2: // the first uncordon: the operation ends here
+			cancel()
+
+			return true, nil, apierrors.NewServerTimeout(corev1.Resource("nodes"), "patch", 1)
+		case 3: // the last attempt meets another blip
+			return true, nil, &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}
+		}
+
+		return false, nil, nil
+	})
+
+	opts := drainTestOptions()
+	opts.RetryInterval = 10 * time.Millisecond
+
+	if err := talosMachineRunDrained(ctx, cs, drainTestNode, opts, func(context.Context) error { return nil }); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if nodeUnschedulable(context.Background(), t, cs) {
+		t.Error("the last uncordon attempt must be retried")
 	}
 }

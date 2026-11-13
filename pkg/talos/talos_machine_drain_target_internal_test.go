@@ -6,6 +6,7 @@ package talos
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
@@ -152,6 +153,41 @@ func TestKubeletJoined(t *testing.T) {
 			client: listClient{streamErr: status.Error(codes.Unknown, "lstat /var/lib/kubelet/pki: no such file or directory")},
 		},
 		{
+			// Only the wording Talos is seen to use counts. A NotFound status is a guess, and a
+			// wrong guess skips the drain on a node that has joined.
+			name:    "not found status alone is not enough",
+			client:  listClient{listErr: status.Error(codes.NotFound, "open /var/lib/kubelet/pki: file does not exist")},
+			wantErr: true,
+		},
+		{
+			// A file inside the directory that vanished (for example a certificate being rotated
+			// while the directory is listed) says nothing about the directory: it must not be
+			// taken for "not joined", which would reboot a joined node undrained.
+			name:    "a file inside the pki directory is missing, reported by the call",
+			client:  listClient{listErr: status.Error(codes.Unknown, "lstat /var/lib/kubelet/pki/kubelet-client-2026-11-16-10-00-00.pem: no such file or directory")},
+			wantErr: true,
+		},
+		{
+			name: "a file inside the pki directory is missing, reported by the stream",
+			client: listClient{files: []*machineapi.FileInfo{
+				fileEntry("."),
+				{Name: "/var/lib/kubelet/pki/kubelet-client-2026-11-16-10-00-00.pem", Error: "lstat /var/lib/kubelet/pki/kubelet-client-2026-11-16-10-00-00.pem: no such file or directory"},
+			}},
+			wantErr: true,
+		},
+		{
+			name:    "not found about a path inside the pki directory",
+			client:  listClient{listErr: status.Error(codes.NotFound, "open /var/lib/kubelet/pki/kubelet-client-current.pem: file does not exist")},
+			wantErr: true,
+		},
+		{
+			// A NotFound that does not name the directory says nothing about the node: it must
+			// not be taken for "not joined", which would reboot a joined node undrained.
+			name:    "not found without the directory",
+			client:  listClient{listErr: status.Error(codes.NotFound, "node not found")},
+			wantErr: true,
+		},
+		{
 			name:    "another path is missing",
 			client:  listClient{listErr: status.Error(codes.Unknown, "lstat /var/lib/etcd: no such file or directory")},
 			wantErr: true,
@@ -184,6 +220,34 @@ func TestKubeletJoined(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, tc.wantJoined, joined)
+		})
+	}
+}
+
+// TestCreateDrainDecision pins how the answer to "has the node joined the cluster" steers the
+// drain on Create: a node that has not joined is not drained, a node that has must exist in
+// Kubernetes, and when it cannot be told the drain goes on as for any other node.
+func TestCreateDrainDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		err           error
+		name          string
+		joined        bool
+		wantSkip      bool
+		wantMustExist bool
+	}{
+		{nil, "not joined", false, true, false},
+		{nil, "joined", true, false, true},
+		{errors.New("list not allowed"), "cannot be told", false, false, false},
+		{errors.New("list not allowed"), "cannot be told, even if it reads joined", true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			skip, mustExist := createDrainDecision(tc.joined, tc.err)
+			require.Equal(t, tc.wantSkip, skip)
+			require.Equal(t, tc.wantMustExist, mustExist)
 		})
 	}
 }
