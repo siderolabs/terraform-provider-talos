@@ -210,9 +210,9 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Computed: true,
 				Default:  booldefault.StaticBool(true),
 				Description: "Drain the node before rebooting during an upgrade, then uncordon after. " +
-					"On update this requires a healthy Kubernetes cluster. On create, a node that does not exist yet is not drained, " +
-					"and a node that is not Ready is drained but not waited for before it is uncordoned. " +
-					"A node that cannot be read, for example because the Kubernetes API server is unreachable, fails the apply. " +
+					"On update this requires a healthy Kubernetes cluster. On create, a node that has not joined the cluster yet " +
+					"is not drained, and a node that is not Ready is drained but not waited for before it is uncordoned. " +
+					"A node whose machine config sets skipNodeRegistration is never drained. See the resource guide for details. " +
 					"Use depends_on to sequence upgrades across nodes.",
 			},
 			"drain_timeout": schema.StringAttribute{
@@ -1068,14 +1068,38 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 		return reboot(ctx)
 	}
 
+	// On Create the node may not have joined the cluster yet, for example a control plane node
+	// that is upgraded before etcd is bootstrapped, when there is no Kubernetes API server.
+	// There is then no Kubernetes node to drain. Talos makes the same check before it drains a
+	// node. If it cannot be told, go on as for any other node: the drain, and its errors.
+	if origin == upgradeFromCreate {
+		joined, joinedErr := talosMachineHasJoinedCluster(ctx, endpoint, node, talosConfig)
+
+		switch {
+		case joinedErr != nil:
+			tflog.Warn(ctx, "could not tell whether the node has joined the cluster; going on with the drain", map[string]any{"error": joinedErr.Error()})
+		case !joined:
+			tflog.Info(ctx, "the node has not joined the cluster yet; skipping the drain")
+
+			return reboot(ctx)
+		}
+	}
+
+	// Resolve the node name before building a Kubernetes client: a node whose machine config
+	// sets skipNodeRegistration has no Kubernetes node to drain, so nothing needs one. Talos
+	// skips the drain for such a node too.
+	k8sNodeName, noNode, err := talosMachineKubernetesNodeName(ctx, endpoint, node, talosConfig)
+	if err != nil {
+		return err
+	}
+
+	if noNode {
+		return reboot(ctx)
+	}
+
 	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
 	if err != nil {
 		return fmt.Errorf("building k8s client for drain: %w", err)
-	}
-
-	k8sNodeName, err := talosMachineKubernetesNodeName(ctx, endpoint, node, talosConfig)
-	if err != nil {
-		return err
 	}
 
 	return talosMachineRunDrained(ctx, cs, k8sNodeName, drainAroundOptions{
@@ -1284,24 +1308,35 @@ func talosMachineInstallImage(ctx context.Context, endpoint, node string, talosC
 	})
 }
 
-// talosMachineKubernetesNodeName resolves the Kubernetes node name of a Talos node.
-func talosMachineKubernetesNodeName(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config) (string, error) {
-	var k8sNodeName string
+// talosMachineKubernetesNodeName resolves the Kubernetes node name of a Talos node. It
+// reports noNode when the node has no Kubernetes node at all; see talosMachineDrainNodeName.
+func talosMachineKubernetesNodeName(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config) (k8sNodeName string, noNode bool, err error) {
+	err = talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+		var nameErr error
 
-	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
-		name, err := nodedrain.GetKubernetesNodeName(nodeCtx, c)
-		if err != nil {
-			return fmt.Errorf("resolving k8s node name: %w", err)
-		}
+		k8sNodeName, noNode, nameErr = talosMachineDrainNodeName(nodeCtx, c)
 
-		k8sNodeName = name
-
-		return nil
-	}); err != nil {
-		return "", err
+		return nameErr
+	})
+	if err != nil {
+		return "", false, err
 	}
 
-	return k8sNodeName, nil
+	return k8sNodeName, noNode, nil
+}
+
+// talosMachineHasJoinedCluster asks the node whether it has joined the cluster; see
+// talosMachineKubeletJoined.
+func talosMachineHasJoinedCluster(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config) (joined bool, err error) {
+	err = talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
+		var joinedErr error
+
+		joined, joinedErr = talosMachineKubeletJoined(nodeCtx, c)
+
+		return joinedErr
+	})
+
+	return joined, err
 }
 
 // defaultNodeReadyTimeout bounds how long the uncordon after an upgrade waits for the

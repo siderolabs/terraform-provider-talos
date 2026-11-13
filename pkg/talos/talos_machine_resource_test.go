@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -116,6 +117,10 @@ func TestAccTalosMachine_bootstrap(t *testing.T) {
 // TestAccTalosMachine_bootstrapWithSchematic boots a vanilla ISO and leaves the
 // initial install image at its default. Only talos_machine.image requests the
 // non-default Factory schematic, exercising same-version reconciliation on Create.
+//
+// It also runs with drain_on_upgrade enabled and a kubeconfig, which is the situation of a
+// control plane node whose Create upgrades it before etcd is bootstrapped, when there is no
+// Kubernetes API server yet to drain through.
 func TestAccTalosMachine_bootstrapWithSchematic(t *testing.T) {
 	const (
 		talosVersion = "v1.14.0"
@@ -125,7 +130,7 @@ func TestAccTalosMachine_bootstrapWithSchematic(t *testing.T) {
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
 
 	// Register the schematic with Factory before the node pulls its installer.
-	config := testAccTalosMachineConfigWithoutInstallImage(rName, factoryImage, talosVersion, talosVersion) + `
+	config := testAccTalosMachineWithDrainBeforeBootstrap(t, testAccTalosMachineConfigWithoutInstallImage(rName, factoryImage, talosVersion, talosVersion)) + `
 resource "talos_image_factory_schematic" "this" {
   schematic = yamlencode({
     customization = {
@@ -136,6 +141,9 @@ resource "talos_image_factory_schematic" "this" {
 `
 
 	resource.ParallelTest(t, resource.TestCase{
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_11_0), // kubeconfig_wo is write-only
+		},
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"libvirt": {
 				Source:            "dmacvicar/libvirt",
@@ -203,8 +211,9 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Step 1: CP + worker, cluster bootstrapped and healthy. The worker is created
-			// after the cluster exists and is upgraded to the Factory schematic by Create,
-			// so a drain, reboot and uncordon against a real node happen on create.
+			// after the cluster exists and is upgraded to the Factory schematic by Create, so a
+			// reboot against a real node happens on create, with a drain and an uncordon if the
+			// kubelet has joined the cluster by then.
 			{
 				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, schematicImage),
 				Check: resource.ComposeAggregateTestCheckFunc(
@@ -1030,6 +1039,29 @@ resource "talos_machine" "this" {
   machine_configuration = data.talos_machine_configuration.this.machine_configuration
 }
 `, node, node)
+}
+
+// testAccTalosMachineWithDrainBeforeBootstrap enables drain_on_upgrade on the machine and
+// gives it a kubeconfig generated from the secrets, which exists before the cluster does.
+func testAccTalosMachineWithDrainBeforeBootstrap(t *testing.T, config string) string {
+	t.Helper()
+
+	const drainOff = "  drain_on_upgrade = false\n"
+
+	if !strings.Contains(config, drainOff) {
+		t.Fatal("the machine config has no drain_on_upgrade = false to turn on")
+	}
+
+	config = strings.Replace(config, drainOff,
+		"  drain_on_upgrade = true\n  kubeconfig_wo    = ephemeral.talos_cluster_kubeconfig.drain.kubeconfig_raw\n", 1)
+
+	return config + `
+ephemeral "talos_cluster_kubeconfig" "drain" {
+  machine_secrets = talos_machine_secrets.this.machine_secrets
+  cluster_name    = "test"
+  endpoint        = "https://${libvirt_domain.cp.network_interface[0].addresses[0]}:6443"
+}
+`
 }
 
 func testAccTalosMachineConfig(rName, imageUrl, imageTag, isoVersion string) string {

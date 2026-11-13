@@ -51,6 +51,16 @@ resource "talos_machine" "worker" {
 }
 ```
 
+On update the node is always drained, and an unhealthy cluster fails the apply. On create the cluster may not be healthy yet, so:
+
+- a node that has not joined the cluster yet is rebooted without draining, because there is no Kubernetes node to drain. This is the case for a control plane node that is upgraded before the cluster is bootstrapped, when there is no Kubernetes API server. Talos makes the same check before it drains a node: it looks for the kubelet's client certificate, which only exists once the node has joined;
+- a Kubernetes node that is not Ready (for example because the CNI is installed later) is still drained, but the provider does not wait for it to become Ready again before uncordoning it, as it cannot be expected to;
+- a node that has joined, but whose Kubernetes node cannot be read, for example because the API server is unreachable, fails the apply instead of being rebooted undrained.
+
+If the provider cannot tell whether the node has joined, for example because the Talos credentials are not allowed to list the kubelet's certificate directory, it goes on as for any other node.
+
+A node whose machine config sets `skipNodeRegistration` never gets a Kubernetes node, so it is never drained, on create or on update, as Talos itself does. Such a node still needs a kubeconfig in the configuration while `drain_on_upgrade` is true, so set `drain_on_upgrade = false` for it.
+
 ## Upgrading multiple nodes safely
 
 When managing a multi-node cluster, upgrading all nodes in parallel risks losing etcd quorum. Use `depends_on` to chain upgrades sequentially, so each node is fully back before the next one starts:
