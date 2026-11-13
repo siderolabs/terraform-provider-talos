@@ -183,6 +183,9 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 	const (
 		baseVersion    = "v1.13.9"
 		upgradeVersion = "v1.14.0"
+		// The worker boots the vanilla ISO but asks for a Factory schematic at the same
+		// version, so Create itself upgrades it, with the drain enabled.
+		schematicImage = "factory.talos.dev/metal-installer/${talos_image_factory_schematic.this.id}:" + baseVersion
 	)
 
 	rName := acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
@@ -199,12 +202,22 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Step 1: CP + worker, cluster bootstrapped and healthy.
+			// Step 1: CP + worker, cluster bootstrapped and healthy. The worker is created
+			// after the cluster exists and is upgraded to the Factory schematic by Create,
+			// so a drain, reboot and uncordon against a real node happen on create.
 			{
-				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, baseVersion),
+				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, schematicImage),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("talos_machine.cp", "machine_configuration_hash"),
 					resource.TestCheckResourceAttrSet("talos_machine.worker", "machine_configuration_hash"),
+					func(s *terraform.State) error {
+						schematic, ok := s.RootModule().Resources["talos_image_factory_schematic.this"]
+						if !ok || schematic.Primary == nil || schematic.Primary.ID == "" {
+							return fmt.Errorf("factory schematic is missing from state")
+						}
+
+						return checkNodeSchematic("talos_machine.worker", schematic.Primary.ID)(s)
+					},
 					resource.TestCheckResourceAttrSet("data.talos_cluster_health.this", "id"),
 				),
 			},
@@ -212,7 +225,7 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 			// drain_timeout. The worker must be drained via the Kubernetes API before
 			// rebooting, and the configured timeout must round-trip into state.
 			{
-				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, upgradeVersion),
+				Config: testAccTalosMachineWorkerDrainConfig(rName, baseVersion, images.InstallerImageRepository("metal")+":"+upgradeVersion),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("talos_machine.worker", "image",
 						images.InstallerImageRepository("metal")+":"+upgradeVersion),
@@ -226,8 +239,9 @@ func TestAccTalosMachine_drainWorkerUpgrade(t *testing.T) {
 
 // testAccTalosMachineWorkerDrainConfig creates a CP + worker cluster where the
 // worker has drain_on_upgrade = true. cpImageTag is the Talos version for the CP;
-// workerImageTag is the target image for the worker (bumped in step 2 to trigger upgrade).
-func testAccTalosMachineWorkerDrainConfig(rName, cpImageTag, workerImageTag string) string {
+// workerImage is the full target image reference for the worker (changed in step 2 to
+// trigger an upgrade). It may refer to talos_image_factory_schematic.this.
+func testAccTalosMachineWorkerDrainConfig(rName, cpImageTag, workerImage string) string {
 	cpuMode := cpuModeDefault
 	if os.Getenv("CI") != "" {
 		cpuMode = cpuModeCI
@@ -244,6 +258,14 @@ func testAccTalosMachineWorkerDrainConfig(rName, cpImageTag, workerImageTag stri
 
 	return fmt.Sprintf(`
 resource "talos_machine_secrets" "this" {}
+
+resource "talos_image_factory_schematic" "this" {
+  schematic = yamlencode({
+    customization = {
+      extraKernelArgs = ["console=ttyS0"]
+    }
+  })
+}
 
 data "talos_machine_configuration" "cp" {
   cluster_name       = "test"
@@ -410,7 +432,7 @@ resource "talos_machine" "worker" {
   endpoint              = libvirt_domain.worker.network_interface[0].addresses[0]
   client_configuration  = talos_machine_secrets.this.client_configuration
   machine_configuration = data.talos_machine_configuration.worker.machine_configuration
-  image                 = "%[6]s:%[5]s"
+  image                 = %[5]q
   drain_on_upgrade      = true
   drain_timeout         = "3m"
   kubeconfig_wo         = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
@@ -432,7 +454,7 @@ data "talos_cluster_health" "this" {
 
   timeouts = { read = "25m" }
 }
-`, rName, cpuMode, isoURL, cpImageTag, workerImageTag, installerBase,
+`, rName, cpuMode, isoURL, cpImageTag, workerImage, installerBase,
 		installDiskPatch(cpImageTag, fmt.Sprintf("%s:%s", installerBase, cpImageTag)))
 }
 
