@@ -1,6 +1,6 @@
 module github.com/siderolabs/terraform-provider-talos
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/blang/semver/v4 v4.0.0

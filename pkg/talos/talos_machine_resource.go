@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
+	gokubernetes "github.com/siderolabs/go-kubernetes/kubernetes"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/action"
 	"github.com/siderolabs/talos/cmd/talosctl/pkg/talos/nodedrain"
 	"github.com/siderolabs/talos/pkg/images"
@@ -43,6 +44,9 @@ import (
 	talosreporter "github.com/siderolabs/talos/pkg/reporter"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -202,10 +206,14 @@ func (r *talosMachineResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Description: "Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.",
 			},
 			"drain_on_upgrade": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(true),
-				Description: "Drain the node before rebooting during an upgrade, then uncordon after. Requires a healthy Kubernetes cluster. Use depends_on to sequence upgrades across nodes.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(true),
+				Description: "Drain the node before rebooting during an upgrade, then uncordon after. " +
+					"On update this requires a healthy Kubernetes cluster. On create, a node that does not exist yet is not drained, " +
+					"and a node that is not Ready is drained but not waited for before it is uncordoned. " +
+					"A node that cannot be read, for example because the Kubernetes API server is unreachable, fails the apply. " +
+					"Use depends_on to sequence upgrades across nodes.",
 			},
 			"drain_timeout": schema.StringAttribute{
 				Optional: true,
@@ -504,7 +512,7 @@ func (r *talosMachineResource) Create(ctx context.Context, req resource.CreateRe
 	plan.MachineConfigurationHash = types.StringValue(cfgHash)
 
 	if !plan.Image.IsNull() {
-		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, false); err != nil {
+		if err := talosMachineUpgradeIfNeeded(ctxDeadline, endpoint, plan.Node.ValueString(), talosConfig, &plan, upgradeFromCreate); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
 			return
@@ -998,9 +1006,22 @@ func talosMachineCheckBootReady(ctx context.Context, c *client.Client) error {
 	return nil
 }
 
+// upgradeOrigin says which resource operation runs an upgrade. A Create can run before
+// the cluster is healthy (before etcd is bootstrapped, or before a CNI is installed), so it
+// neither waits for Kubernetes after the reboot nor requires a Ready Kubernetes node to
+// drain. Update requires a healthy cluster for both.
+type upgradeOrigin int
+
+// The strict mode is the zero value, so an origin that is not set explicitly never gets
+// the lenient Create behavior.
+const (
+	upgradeFromUpdate upgradeOrigin = iota
+	upgradeFromCreate
+)
+
 // talosMachineUpgrade upgrades the Talos OS to the desired installer image
 // by performing: pull → install → drain → reboot → uncordon.
-func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, waitForKubernetes bool) (retErr error) {
+func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, origin upgradeOrigin) error {
 	rebootModeStr := strings.ToUpper(state.RebootMode.ValueString())
 
 	containerdInst := &commonapi.ContainerdInstance{
@@ -1035,27 +1056,33 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 		return err
 	}
 
-	k8sNodeName, err := talosMachineCordonAndDrain(ctx, endpoint, node, talosConfig, state.DrainOnUpgrade.ValueBool(), rawKubeconfig, drainTimeout)
+	reboot := func(rebootCtx context.Context) error {
+		if rebootErr := talosMachineReboot(rebootCtx, endpoint, node, talosConfig, rebootModeStr, origin == upgradeFromUpdate); rebootErr != nil {
+			return fmt.Errorf("waiting for node after reboot: %w", rebootErr)
+		}
+
+		return nil
+	}
+
+	if !state.DrainOnUpgrade.ValueBool() {
+		return reboot(ctx)
+	}
+
+	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
 	if err != nil {
-		return fmt.Errorf("draining node: %w", err)
+		return fmt.Errorf("building k8s client for drain: %w", err)
 	}
 
-	// Uncordon in defer so the node is never left cordoned, even if the reboot fails.
-	defer func() {
-		if k8sNodeName == "" {
-			return
-		}
-
-		if err := talosMachineUncordon(ctx, k8sNodeName, rawKubeconfig); err != nil {
-			retErr = errors.Join(retErr, fmt.Errorf("uncordoning node: %w", err))
-		}
-	}()
-
-	if err := talosMachineReboot(ctx, endpoint, node, talosConfig, rebootModeStr, waitForKubernetes); err != nil {
-		return fmt.Errorf("waiting for node after reboot: %w", err)
+	k8sNodeName, err := talosMachineKubernetesNodeName(ctx, endpoint, node, talosConfig)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	return talosMachineRunDrained(ctx, cs, k8sNodeName, drainAroundOptions{
+		DrainTimeout: drainTimeout,
+		ReadyTimeout: defaultNodeReadyTimeout,
+		OnCreate:     origin == upgradeFromCreate,
+	}, reboot)
 }
 
 // talosMachineUpgradeIfNeeded checks the running Talos version and, for Image Factory
@@ -1063,14 +1090,14 @@ func talosMachineUpgrade(ctx context.Context, endpoint, node string, talosConfig
 // pull → install → drain → reboot → uncordon.
 // Create does not wait for Kubernetes bootstrap; adoption through Update uses
 // the normal update readiness checks.
-func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, waitForKubernetes bool) (retErr error) {
+func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, state *talosMachineResourceModel, origin upgradeOrigin) (retErr error) {
 	runningImage, err := talosMachineRunningVersion(ctx, endpoint, node, talosConfig, state.Image.ValueString())
 	if err != nil {
 		return fmt.Errorf("reading running version: %w", err)
 	}
 
 	if runningImage != state.Image.ValueString() {
-		return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, waitForKubernetes)
+		return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, origin)
 	}
 
 	requestedSchematic, isImageFactoryImage := talosMachineImageFactorySchematic(state.Image.ValueString())
@@ -1087,7 +1114,7 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 		return nil
 	}
 
-	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, waitForKubernetes)
+	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, state, origin)
 }
 
 // talosMachineImageFactorySchematic returns the schematic ID embedded in the standard
@@ -1164,10 +1191,10 @@ func talosMachineUpgradeOnUpdate(
 	postImportAdopt bool,
 ) error {
 	if postImportAdopt {
-		return talosMachineUpgradeIfNeeded(ctx, endpoint, node, talosConfig, plan, true)
+		return talosMachineUpgradeIfNeeded(ctx, endpoint, node, talosConfig, plan, upgradeFromUpdate)
 	}
 
-	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, plan, true)
+	return talosMachineUpgrade(ctx, endpoint, node, talosConfig, plan, upgradeFromUpdate)
 }
 
 func talosMachineRunningVersion(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, desiredImage string) (string, error) {
@@ -1257,16 +1284,8 @@ func talosMachineInstallImage(ctx context.Context, endpoint, node string, talosC
 	})
 }
 
-func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config, drain bool, rawKubeconfig string, drainTimeout time.Duration) (string, error) {
-	if !drain {
-		return "", nil
-	}
-
-	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
-	if err != nil {
-		return "", fmt.Errorf("building k8s client for drain: %w", err)
-	}
-
+// talosMachineKubernetesNodeName resolves the Kubernetes node name of a Talos node.
+func talosMachineKubernetesNodeName(ctx context.Context, endpoint, node string, talosConfig *clientconfig.Config) (string, error) {
 	var k8sNodeName string
 
 	if err := talosClientOp(ctx, endpoint, node, talosConfig, func(nodeCtx context.Context, c *client.Client) error {
@@ -1282,13 +1301,111 @@ func talosMachineCordonAndDrain(ctx context.Context, endpoint, node string, talo
 		return "", err
 	}
 
-	return k8sNodeName, talosMachineDrainNode(ctx, cs, k8sNodeName, drainTimeout)
+	return k8sNodeName, nil
+}
+
+// defaultNodeReadyTimeout bounds how long the uncordon after an upgrade waits for the
+// node to report Ready again.
+const defaultNodeReadyTimeout = 5 * time.Minute
+
+type drainAroundOptions struct {
+	// DrainTimeout caps pod eviction. Zero defers to nodedrain's own default.
+	DrainTimeout time.Duration
+	// ReadyTimeout bounds the wait for the node to report Ready before it is uncordoned.
+	ReadyTimeout time.Duration
+	// UncordonRetryInterval is the pause between attempts to uncordon a node that is not
+	// waited for. Zero means the default.
+	UncordonRetryInterval time.Duration
+	// OnCreate marks an upgrade run by Create, which can run before the cluster is healthy
+	// (for example before a CNI is installed). A Kubernetes node that does not exist yet is
+	// not drained, and a node that was not Ready is drained but not waited for before it is
+	// uncordoned: it cannot be expected to report Ready again after the reboot, and it is
+	// uncordoned anyway because the scheduler places no pods on a node that is not Ready.
+	// Update leaves it off, always drains, and requires the node to be Ready again.
+	OnCreate bool
+}
+
+// talosMachineRunDrained cordons and drains the Kubernetes node, runs action, and
+// uncordons the node again, even when action fails so the node is never left cordoned.
+// Split out from talosMachineUpgrade so the sequence can be exercised against a fake
+// clientset, without a live Talos endpoint.
+func talosMachineRunDrained(ctx context.Context, cs kubernetes.Interface, nodeName string, opts drainAroundOptions, action func(context.Context) error) (retErr error) {
+	waitReady := true
+
+	if opts.OnCreate {
+		node, err := talosMachineGetNode(ctx, cs, nodeName)
+		if err != nil {
+			return fmt.Errorf("reading node state before drain: %w", err)
+		}
+
+		if node == nil {
+			tflog.Warn(ctx, "Kubernetes node does not exist yet; skipping drain and uncordon", map[string]any{"k8s_node": nodeName})
+
+			return action(ctx)
+		}
+
+		waitReady = nodeIsReady(node)
+	}
+
+	if err := talosMachineDrainNode(ctx, cs, nodeName, opts.DrainTimeout); err != nil {
+		return fmt.Errorf("draining node: %w", err)
+	}
+
+	defer func() {
+		if err := talosMachineUncordonNode(ctx, cs, nodeName, opts, waitReady); err != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("uncordoning node: %w", err))
+		}
+	}()
+
+	return action(ctx)
+}
+
+// talosMachineGetNode reads the Kubernetes node. A node that does not exist returns nil.
+// Any other error, including an unreachable API server, is returned rather than read as
+// "nothing to drain", so a node that may be Ready and carrying workloads is never
+// rebooted undrained because of it.
+func talosMachineGetNode(ctx context.Context, cs kubernetes.Interface, nodeName string) (*corev1.Node, error) {
+	node, err := cs.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+
+	switch {
+	case err == nil:
+		return node, nil
+	case isNodeNotFound(err, nodeName):
+		return nil, nil //nolint:nilnil // a missing node is not an error here
+	default:
+		return nil, err
+	}
+}
+
+// isNodeNotFound reports whether the API server answered that this node does not exist. A
+// 404 from anything else in the path, such as an ingress or load balancer without a route,
+// carries no details about the node and is not a missing node.
+func isNodeNotFound(err error, nodeName string) bool {
+	var status apierrors.APIStatus
+
+	if !apierrors.IsNotFound(err) || !errors.As(err, &status) {
+		return false
+	}
+
+	details := status.Status().Details
+
+	return details != nil && details.Kind == "nodes" && details.Name == nodeName
+}
+
+func nodeIsReady(node *corev1.Node) bool {
+	for _, cond := range node.Status.Conditions {
+		if cond.Type == corev1.NodeReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+
+	return false
 }
 
 // talosMachineDrainNode cordons and drains a single Kubernetes node, capping pod
 // eviction at drainTimeout. A zero drainTimeout defers to nodedrain's own 5m default.
-// Split out from talosMachineCordonAndDrain so it can be exercised directly against a
-// fake clientset, without a live Talos endpoint to resolve the Kubernetes node name.
+// Split out so it can be exercised directly against a fake clientset, without a live
+// Talos endpoint to resolve the Kubernetes node name.
 func talosMachineDrainNode(ctx context.Context, cs kubernetes.Interface, nodeName string, drainTimeout time.Duration) error {
 	noopReport := func(talosreporter.Update) {}
 
@@ -1309,19 +1426,52 @@ func parseDrainTimeout(raw string) (time.Duration, error) {
 	return d, nil
 }
 
-func talosMachineUncordon(ctx context.Context, k8sNodeName, rawKubeconfig string) error {
-	cs, err := kubeclientFromRaw([]byte(rawKubeconfig))
-	if err != nil {
-		return fmt.Errorf("building k8s client for uncordon: %w", err)
-	}
+// defaultUncordonRetryInterval is the pause between attempts to uncordon a node that is
+// not waited for.
+const defaultUncordonRetryInterval = 2 * time.Second
 
+// talosMachineUncordonNode uncordons the node. With waitReady it first waits for the node
+// to report Ready again, which also rides out an API server that is still restarting.
+// Without it the uncordon is retried for up to opts.ReadyTimeout on errors that may pass,
+// because the reboot returns before the node's own API server is necessarily back, and a
+// single refused connection would otherwise fail the apply and leave the node cordoned.
+func talosMachineUncordonNode(ctx context.Context, cs kubernetes.Interface, k8sNodeName string, opts drainAroundOptions, waitReady bool) error {
 	noopReport := func(talosreporter.Update) {}
 
-	if waitErr := nodedrain.WaitForNodeReady(ctx, cs, k8sNodeName, 5*time.Minute); waitErr != nil {
-		return fmt.Errorf("waiting for node ready: %w", waitErr)
+	if waitReady {
+		if waitErr := nodedrain.WaitForNodeReady(ctx, cs, k8sNodeName, opts.ReadyTimeout); waitErr != nil {
+			return fmt.Errorf("waiting for node ready: %w", waitErr)
+		}
+
+		return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
 	}
 
-	return nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
+	interval := opts.UncordonRetryInterval
+	if interval <= 0 {
+		interval = defaultUncordonRetryInterval
+	}
+
+	deadline := time.Now().Add(opts.ReadyTimeout)
+
+	for {
+		err := nodedrain.Uncordon(ctx, cs, k8sNodeName, noopReport)
+		if err == nil || !uncordonMayPass(err) || !time.Now().Add(interval).Before(deadline) {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(interval):
+		}
+	}
+}
+
+// uncordonMayPass reports whether a failed uncordon is worth retrying: only an error that
+// may pass, such as a refused or reset connection, a timeout or a server that is not ready.
+// A permanent refusal or a bad request fails at once.
+func uncordonMayPass(err error) bool {
+	return gokubernetes.IsRetryableError(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsTooManyRequests(err)
 }
 
 func kubeclientFromRaw(kubeconfigBytes []byte) (kubernetes.Interface, error) {

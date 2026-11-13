@@ -29,7 +29,7 @@ func TestInstallDiskPatchFormPerTalosVersion(t *testing.T) {
 		cfg     string
 		wantDoc bool
 	}{
-		{"workerDrain v1.13.9", testAccTalosMachineWorkerDrainConfig("n", "v1.13.9", "v1.14.0"), false},
+		{"workerDrain v1.13.9", testAccTalosMachineWorkerDrainConfig("n", "v1.13.9", "ghcr.io/siderolabs/installer:v1.14.0"), false},
 		{"machineConfig v1.12.7", testAccTalosMachineConfig("n", "img", "v1.12.7", "v1.12.7"), false},
 		{"machineConfig v1.13.0", testAccTalosMachineConfig("n", "img", "v1.13.0", "v1.13.0"), false},
 		{"upgradeAndK8sBump v1.12.7", testAccTalosMachineConfigUpgradeAndK8sBump("n", "v1.12.7", "v1.13.0", "v1.34.0", true), false},
