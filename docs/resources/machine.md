@@ -112,6 +112,31 @@ resource "talos_machine" "cp2" {
 
 Alternatively, use `terraform apply -parallelism=1` to force all resource operations to run one at a time without modifying `depends_on`.
 
+## Restarting the control plane one node at a time
+
+A configuration change that touches kube-apiserver, kube-controller-manager or kube-scheduler (extra args, audit policy, service account issuer, ...) makes Talos restart those static pods after `ApplyConfiguration` has already returned. Serializing the applies alone therefore still restarts every kube-apiserver at about the same time, and the cluster endpoint has no ready backend for that window.
+
+Set `wait_for_control_plane = true` on control plane nodes to have `talos_machine` wait until the node's control plane pods run the applied configuration and are Ready again. Together with `depends_on` or `-parallelism=1` this restarts the control plane one node at a time:
+
+```terraform
+resource "talos_machine" "controlplane" {
+  for_each = toset(["10.5.0.1", "10.5.0.2", "10.5.0.3"])
+
+  node                   = each.value
+  wait_for_control_plane = true
+  kubeconfig_wo          = ephemeral.talos_cluster_kubeconfig.this.kubeconfig_raw
+  # ...
+}
+```
+
+The wait only runs when the node's kube-apiserver was Ready before the apply, so the initial apply before etcd bootstrap and worker nodes are not affected. The wait never fails the apply: if it cannot run, for example because the kubeconfig is unusable, or the control plane is not Ready again within 10 minutes, Terraform shows a warning and continues. A change that does not touch the control plane adds a settle period of about 10 seconds: Talos re-renders the static pods asynchronously after the apply, so the wait first lets them settle. On Talos before 1.14, a change that makes the apply reboot the node is not waited for. With `wait_for_control_plane = true`, the default create and update timeouts grow by 11 minutes to cover the wait.
+
+## Try mode
+
+Set `try_mode = true` to apply configuration changes in Talos try mode, as `talosctl apply-config --mode=try` does. Talos then rolls a change back automatically unless the provider confirms it. The provider confirms the change once the node is still reachable through the Talos API 10 seconds after the apply. A change that cuts the node off from the provider, such as a network change that breaks the route between them, is rolled back after 1 minute and the apply fails, so the node keeps its previous configuration. Try mode only checks that the provider can still reach the node's Talos API, not that the node can still reach the rest of the cluster: with a load balancer or VIP endpoint, a node that lost its cluster network can still be confirmed.
+
+Try mode adds about 10 seconds to every configuration change, and the default create and update timeouts grow by 1 minute. Do not use it for a change that moves the address the provider connects to (`endpoint` or `node`): the provider cannot confirm it and Talos rolls it back. Nodes in maintenance mode, such as during the first apply that installs Talos, are configured without try mode. On Talos before 1.14, a change that needs a reboot is applied without try mode and Terraform shows a warning.
+
 ## Kubernetes component image management
 
 When used together with [`talos_cluster`](cluster.md), set `ignore_kubernetes_upgrade_drift = true` on `talos_machine`. This prevents `talos_machine` from re-applying the five Kubernetes component image fields managed by `upgrade-k8s`:
@@ -152,7 +177,7 @@ If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upg
 - `endpoint` (String) The endpoint to use when connecting to the node. Defaults to node.
 - `ignore_kubernetes_upgrade_drift` (Boolean) Experimental: when true, talos_machine ignores Kubernetes component image tag changes owned by talos_cluster/upgrade-k8s, preventing drift detection from interfering with graceful Kubernetes upgrades. Safe to use — enabling or disabling causes at most a one-time apply to refresh the config hash. Cannot be guaranteed to work with all future Talos versions: if upgrade-k8s manages additional image fields in a future release, this attribute must be updated to match.
 - `image` (String) Talos installer image (e.g. `ghcr.io/siderolabs/installer:v1.9.0`). When set, upgrades if running version differs. When omitted, OS version is not managed.
-- `kubeconfig` (String, Sensitive) Kubeconfig used to drain and uncordon the node during upgrades. Required when drain_on_upgrade = true and image is set. Provide talos_cluster_kubeconfig.this.kubeconfig_raw. Use kubeconfig_wo when using ephemeral resources.
+- `kubeconfig` (String, Sensitive) Kubeconfig used to drain and uncordon the node during upgrades and for wait_for_control_plane. Required when drain_on_upgrade = true and image is set, or when wait_for_control_plane = true. Provide talos_cluster_kubeconfig.this.kubeconfig_raw. Use kubeconfig_wo when using ephemeral resources.
 - `kubeconfig_wo` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of kubeconfig. Requires Terraform 1.11+.
 - `machine_configuration` (String, Sensitive) The machine configuration YAML to apply. Use machine_configuration_wo when using ephemeral resources.
 - `machine_configuration_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only variant of machine_configuration for use with ephemeral resources. Requires Terraform 1.11+.
@@ -162,6 +187,8 @@ If you use `talos_machine` without `talos_cluster`, leave `ignore_kubernetes_upg
 then a subsequent *terraform destroy* for the changes to take effect due to limitations in Terraform provider framework. (see [below for nested schema](#nestedatt--on_destroy))
 - `reboot_mode` (String) Reboot mode for OS upgrades: DEFAULT or POWERCYCLE.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
+- `try_mode` (Boolean) Apply configuration changes to a running node in Talos try mode. Talos rolls the change back after 1 minute unless the provider confirms it, which the provider does once the node is still reachable through the Talos API 10 seconds after the apply. A change that cuts the node off from the provider is rolled back and the apply fails; reachability from other nodes is not checked. Adds about 10 seconds to every configuration change. Do not use it for changes that move the address the provider connects to (endpoint or node). Nodes in maintenance mode and, on Talos before 1.14, changes that need a reboot are applied without try mode.
+- `wait_for_control_plane` (Boolean) After applying configuration to a control plane node whose kube-apiserver is Ready, wait until kube-apiserver, kube-controller-manager and kube-scheduler run the applied configuration and are Ready again. Combined with -parallelism=1 or depends_on between control plane nodes, this restarts the control plane one node at a time. Requires kubeconfig or kubeconfig_wo. No-op on workers and before the cluster is bootstrapped. The wait never fails the apply: if it cannot run or does not finish within 10 minutes, Terraform shows a warning. On Talos before 1.14, an apply that reboots the node does not wait.
 
 ### Read-Only
 
