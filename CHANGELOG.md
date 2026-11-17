@@ -1,3 +1,56 @@
+## [terraform-provider-talos 0.13.0-alpha.1](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.13.0-alpha.1) (2026-11-17)
+
+Welcome to the v0.13.0-alpha.1 release of terraform-provider-talos!  
+*This is a pre-release of terraform-provider-talos*
+
+
+
+Please try out the release binaries and report any issues at
+https://github.com/siderolabs/terraform-provider-talos/issues.
+
+### talos_machine
+
+`talos_machine` can now be imported, and has a new `drain_timeout` attribute that caps how long pod eviction may take during an upgrade.
+
+`drain_on_upgrade` copes better with a create that runs before the cluster is ready: a node that has not joined the cluster yet is not drained, a node that is not Ready is drained but not waited for before it is uncordoned, and a node whose machine config sets `skipNodeRegistration` is never drained. A failed drain now uncordons the node again, and a node that does not come back Ready after an upgrade stays cordoned, with an error that says how to uncordon it. See the resource guide.
+
+
+### Component Updates
+
+Talos sdk: v1.14.1
+
+
+### Contributors
+
+* Mickaël Canévet
+* RoFz
+
+### Changes
+<details><summary>8 commits</summary>
+<p>
+
+* [`d714bf7`](https://github.com/siderolabs/terraform-provider-talos/commit/d714bf7a4cfffeb7a5a668885e9136d6bed12dd3) fix(talos_machine): uncordon the node when the drain fails
+* [`57f67bc`](https://github.com/siderolabs/terraform-provider-talos/commit/57f67bcd54935e8264a32b96ff37aefb57c67262) fix(talos_machine): skip the drain on a node that hasn't joined the cluster
+* [`de2166d`](https://github.com/siderolabs/terraform-provider-talos/commit/de2166da35d59d61c9a5963f9054a8738750998d) fix(talos_machine): don't wait for a not-Ready node on create
+* [`d0d4997`](https://github.com/siderolabs/terraform-provider-talos/commit/d0d4997ec0c070ad4cd84023f7801585869617cf) chore: bump klauspost/compress to 1.20.2
+* [`77d43fb`](https://github.com/siderolabs/terraform-provider-talos/commit/77d43fb0d45b92ee9c7fd7650948181908e35554) feat(talos_machine): add import support for existing nodes
+* [`0a16578`](https://github.com/siderolabs/terraform-provider-talos/commit/0a165787abccb03f3bd6d937ac81a655dc736525) feat(talos_machine): add drain_timeout to configure eviction cap
+* [`5073c3b`](https://github.com/siderolabs/terraform-provider-talos/commit/5073c3bc10045f9a57d1c92648a418dde6037a43) fix(talos_machine_configuration): preserve empty search domains in ResolverConfig patch
+* [`9339349`](https://github.com/siderolabs/terraform-provider-talos/commit/9339349161058eaa0b711766c113826cc7fa1f4c) chore: bump go to 1.26.10 and fix hardcoded talos version in test
+</p>
+</details>
+
+### Dependency Changes
+
+* **github.com/siderolabs/gen**                  v0.8.7 -> v0.8.8
+* **github.com/siderolabs/talos**                v1.14.0 -> v1.14.1
+* **github.com/siderolabs/talos/pkg/machinery**  v1.14.0 -> v1.14.1
+* **golang.org/x/crypto**                        v0.55.0 -> v0.57.0
+* **golang.org/x/mod**                           v0.40.0 -> v0.41.0
+* **google.golang.org/protobuf**                 v1.36.12 **_new_**
+
+Previous release can be found at [v0.12.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0)
+
 ## [terraform-provider-talos 0.12.0](https://github.com/siderolabs/terraform-provider-talos/releases/tag/v0.12.0) (2026-09-21)
 
 Welcome to the v0.12.0 release of terraform-provider-talos!
