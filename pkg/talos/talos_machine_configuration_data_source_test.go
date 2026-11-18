@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"text/template"
@@ -40,6 +41,7 @@ func TestAccTalosMachineConfigurationDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.talos_machine_configuration.this", "machine_secrets.%"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "machine_type", "controlplane"),
 					resource.TestCheckNoResourceAttr("data.talos_machine_configuration.this", "config_patches"),
+					resource.TestCheckNoResourceAttr("data.talos_machine_configuration.this", "components"),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "kubernetes_version", constants.DefaultKubernetesVersion),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "talos_version", semver.MajorMinor(gendata.VersionTag)),
 					resource.TestCheckResourceAttr("data.talos_machine_configuration.this", "docs", "true"),
@@ -378,6 +380,155 @@ func validateGeneratedTalosMachineConfig(
 
 	if extraChecks != nil {
 		return extraChecks(t, machineConfig)
+	}
+
+	return nil
+}
+
+func TestAccTalosMachineConfigurationDataSourceComponents(t *testing.T) {
+	const ds = "data.talos_machine_configuration.this"
+
+	resource.ParallelTest(t, resource.TestCase{
+		IsUnitTest:               true, // this is a local only resource, so can be unit tested
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// no Kubernetes or etcd
+			{
+				Config: testAccTalosMachineConfigurationDataSourceComponentsConfig("controlplane", "", "{ kubernetes = false, etcd = false }"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(ds, "components.kubernetes", "false"),
+					resource.TestCheckResourceAttr(ds, "components.etcd", "false"),
+					resource.TestCheckResourceAttrWith(ds, "machine_configuration", func(value string) error {
+						return validateComponentsTalosMachineConfig(machine.TypeControlPlane, false, false, value)
+					}),
+				),
+			},
+			{
+				Config: testAccTalosMachineConfigurationDataSourceComponentsConfig("worker", "", "{ kubernetes = false, etcd = false }"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrWith(ds, "machine_configuration", func(value string) error {
+						return validateComponentsTalosMachineConfig(machine.TypeWorker, false, false, value)
+					}),
+				),
+			},
+			// etcd without Kubernetes, etcd left at its default
+			{
+				Config: testAccTalosMachineConfigurationDataSourceComponentsConfig("controlplane", "", "{ kubernetes = false }"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(ds, "components.kubernetes", "false"),
+					resource.TestCheckNoResourceAttr(ds, "components.etcd"),
+					resource.TestCheckResourceAttrWith(ds, "machine_configuration", func(value string) error {
+						return validateComponentsTalosMachineConfig(machine.TypeControlPlane, false, true, value)
+					}),
+				),
+			},
+			// explicitly enabled behaves like unset
+			{
+				Config: testAccTalosMachineConfigurationDataSourceComponentsConfig("controlplane", "", "{ kubernetes = true, etcd = true }"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(ds, "components.kubernetes", "true"),
+					resource.TestCheckResourceAttr(ds, "components.etcd", "true"),
+					resource.TestCheckResourceAttrWith(ds, "machine_configuration", func(value string) error {
+						return validateComponentsTalosMachineConfig(machine.TypeControlPlane, true, true, value)
+					}),
+				),
+			},
+		},
+	})
+
+	// separate test case: an invalid config as the last step of a case with resources breaks its post-test destroy
+	resource.Test(t, resource.TestCase{
+		IsUnitTest:               true, // this is a local only resource, so can be unit tested
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			// Kubernetes can't run without etcd
+			{
+				PlanOnly:    true,
+				Config:      testAccTalosMachineConfigurationDataSourceComponentsConfig("controlplane", "", "{ etcd = false }"),
+				ExpectError: regexp.MustCompile(`components are invalid[\s\S]*kubernetes requires etcd`),
+			},
+			// contracts that generate Kubernetes configuration inline are rejected at plan time
+			{
+				PlanOnly:    true,
+				Config:      testAccTalosMachineConfigurationDataSourceComponentsConfig("controlplane", "v1.13", "{ kubernetes = false, etcd = false }"),
+				ExpectError: regexp.MustCompile(`components are invalid[\s\S]*disabling kubernetes requires talos_version v1.14 or later`),
+			},
+		},
+	})
+}
+
+func testAccTalosMachineConfigurationDataSourceComponentsConfig(machineType, talosVersion, components string) string {
+	talosVersionAttr := ""
+	if talosVersion != "" {
+		talosVersionAttr = fmt.Sprintf("talos_version = %q", talosVersion)
+	}
+
+	return fmt.Sprintf(`
+resource "talos_machine_secrets" "this" {}
+
+data "talos_machine_configuration" "this" {
+  cluster_name     = "example-cluster"
+  cluster_endpoint = "https://cluster.local:6443"
+  machine_type     = %q
+  machine_secrets  = talos_machine_secrets.this.machine_secrets
+  components       = %s
+  %s
+  config_patches = [
+    yamlencode({
+      apiVersion = "v1alpha1"
+      kind       = "ContainerConfig"
+      name       = "hello"
+      image      = "docker.io/library/busybox:1.37.0"
+    }),
+  ]
+}
+`, machineType, components, talosVersionAttr)
+}
+
+// validateComponentsTalosMachineConfig checks which components a generated configuration contains.
+func validateComponentsTalosMachineConfig(machineType machine.Type, wantKubernetes, wantEtcd bool, mc string) error {
+	provider, err := configloader.NewFromBytes([]byte(mc))
+	if err != nil {
+		return err
+	}
+
+	kinds := make([]string, 0, len(provider.Documents()))
+
+	for _, doc := range provider.Documents() {
+		kinds = append(kinds, doc.Kind())
+	}
+
+	if !slices.Contains(kinds, "ContainerConfig") {
+		return fmt.Errorf("ContainerConfig patch missing, documents: %v", kinds)
+	}
+
+	if got := slices.Contains(kinds, "KubeletConfig"); got != wantKubernetes {
+		return fmt.Errorf("KubeletConfig present: %t, want %t, documents: %v", got, wantKubernetes, kinds)
+	}
+
+	if !wantKubernetes {
+		if i := slices.IndexFunc(kinds, func(kind string) bool { return strings.HasPrefix(kind, "Kube") }); i >= 0 {
+			return fmt.Errorf("unexpected Kubernetes document %q", kinds[i])
+		}
+	}
+
+	raw := provider.RawV1Alpha1()
+	if raw == nil {
+		return fmt.Errorf("v1alpha1 document missing, documents: %v", kinds)
+	}
+
+	if got := raw.Machine().Type(); got != machineType {
+		return fmt.Errorf("machine type %s, want %s", got, machineType)
+	}
+
+	// workers never run etcd
+	if got, want := raw.ClusterConfig.EtcdConfig != nil, wantEtcd && machineType == machine.TypeControlPlane; got != want {
+		return fmt.Errorf("cluster.etcd present: %t, want %t", got, want)
+	}
+
+	// the Talos worker generator sets the bootstrap token unconditionally
+	if got, want := raw.ClusterConfig.BootstrapToken != "", wantKubernetes || machineType == machine.TypeWorker; got != want { //nolint:staticcheck // legacy configuration
+		return fmt.Errorf("cluster.token present: %t, want %t", got, want)
 	}
 
 	return nil

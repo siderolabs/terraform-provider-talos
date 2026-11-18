@@ -28,17 +28,18 @@ var (
 
 type talosMachineConfigurationEphemeralResource struct{}
 
-type talosMachineConfigurationEphemeralResourceModel struct {
-	ClusterName          types.String   `tfsdk:"cluster_name"`
-	ClusterEndpoint      types.String   `tfsdk:"cluster_endpoint"`
-	MachineType          types.String   `tfsdk:"machine_type"`
-	KubernetesVersion    types.String   `tfsdk:"kubernetes_version"`
-	TalosVersion         types.String   `tfsdk:"talos_version"`
-	MachineSecrets       machineSecrets `tfsdk:"machine_secrets"`
-	MachineConfiguration types.String   `tfsdk:"machine_configuration"`
-	ConfigPatches        types.List     `tfsdk:"config_patches"`
-	Docs                 types.Bool     `tfsdk:"docs"`
-	Examples             types.Bool     `tfsdk:"examples"`
+type talosMachineConfigurationEphemeralResourceModel struct { //nolint:govet
+	ClusterName          types.String                    `tfsdk:"cluster_name"`
+	ClusterEndpoint      types.String                    `tfsdk:"cluster_endpoint"`
+	MachineType          types.String                    `tfsdk:"machine_type"`
+	KubernetesVersion    types.String                    `tfsdk:"kubernetes_version"`
+	TalosVersion         types.String                    `tfsdk:"talos_version"`
+	MachineSecrets       machineSecrets                  `tfsdk:"machine_secrets"`
+	MachineConfiguration types.String                    `tfsdk:"machine_configuration"`
+	ConfigPatches        types.List                      `tfsdk:"config_patches"`
+	Docs                 types.Bool                      `tfsdk:"docs"`
+	Examples             types.Bool                      `tfsdk:"examples"`
+	Components           *machineConfigurationComponents `tfsdk:"components"`
 }
 
 // NewTalosMachineConfigurationEphemeralResource implements the ephemeral.EphemeralResource interface.
@@ -110,6 +111,20 @@ func (r *talosMachineConfigurationEphemeralResource) Schema(_ context.Context, _
 			"examples": schema.BoolAttribute{
 				Description: "Whether to generate examples for the generated configuration. Defaults to false",
 				Optional:    true,
+			},
+			"components": schema.SingleNestedAttribute{
+				Description: componentsDescription,
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"kubernetes": schema.BoolAttribute{
+						Description: componentsKubernetesDescription,
+						Optional:    true,
+					},
+					"etcd": schema.BoolAttribute{
+						Description: componentsEtcdDescription,
+						Optional:    true,
+					},
+				},
 			},
 			"machine_configuration": schema.StringAttribute{
 				Description: "The generated machine configuration",
@@ -210,6 +225,8 @@ func (r *talosMachineConfigurationEphemeralResource) Open(ctx context.Context, r
 		talosVersion:      talosVersion,
 		docsEnabled:       config.Docs.ValueBool(),
 		examplesEnabled:   config.Examples.ValueBool(),
+		disableKubernetes: config.Components.kubernetesDisabled(),
+		disableEtcd:       config.Components.etcdDisabled(),
 	}
 
 	machineConfiguration, err := genOptions.generate()
@@ -233,6 +250,7 @@ func (r *talosMachineConfigurationEphemeralResource) Open(ctx context.Context, r
 		ConfigPatches:        config.ConfigPatches,
 		Docs:                 config.Docs,
 		Examples:             config.Examples,
+		Components:           config.Components,
 	}
 
 	diags = resp.Result.Set(ctx, &result)
@@ -261,5 +279,5 @@ func (r *talosMachineConfigurationEphemeralResource) ValidateConfig(ctx context.
 		return
 	}
 
-	validateMachineConfigurationConfig(ctx, config.ClusterEndpoint, config.ConfigPatches, &resp.Diagnostics)
+	validateMachineConfigurationConfig(ctx, config.ClusterEndpoint, config.ConfigPatches, config.TalosVersion, config.Components, &resp.Diagnostics)
 }

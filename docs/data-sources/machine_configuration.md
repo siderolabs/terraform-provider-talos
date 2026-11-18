@@ -42,6 +42,7 @@ Keep `kubernetes_version` here in sync with `talos_cluster.kubernetes_version` s
 
 ### Optional
 
+- `components` (Attributes) Talos components to include in the generated machine configuration (experimental in Talos). Disabling both `kubernetes` and `etcd` generates a configuration for nodes that only run Talos containers (`ContainerConfig`). Kubernetes requires etcd. Disabling Kubernetes requires `talos_version` v1.14 or later. `config_patches` are applied as is and can add Kubernetes or etcd configuration back (see [below for nested schema](#nestedatt--components))
 - `config_patches` (List of String) The list of config patches to apply to the generated configuration
 - `docs` (Boolean) Whether to generate documentation for the generated configuration. Defaults to false
 - `examples` (Boolean) Whether to generate examples for the generated configuration. Defaults to false
@@ -147,3 +148,13 @@ Optional:
 Required:
 
 - `token` (String, Sensitive) The trustd token for the talos kubernetes cluster
+
+
+
+<a id="nestedatt--components"></a>
+### Nested Schema for `components`
+
+Optional:
+
+- `etcd` (Boolean) Whether to generate the etcd configuration (control plane only, workers never run etcd). Can only be disabled together with `kubernetes`. Defaults to true
+- `kubernetes` (Boolean) Whether to generate the Kubernetes configuration. Without it, `cluster_name` and `cluster_endpoint` are still required by the schema but are not written to the generated configuration, and `kubernetes_version` has no effect. A `worker` configuration still contains the bootstrap token (`cluster.token`). Defaults to true

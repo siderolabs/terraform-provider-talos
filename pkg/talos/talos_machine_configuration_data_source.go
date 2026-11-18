@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/siderolabs/crypto/x509"
+	"github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/configpatcher"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
@@ -24,18 +26,19 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-type talosMachineConfigurationDataSourceModelV0 struct {
-	ID                   types.String   `tfsdk:"id"`
-	ClusterName          types.String   `tfsdk:"cluster_name"`
-	ClusterEndpoint      types.String   `tfsdk:"cluster_endpoint"`
-	MachineType          types.String   `tfsdk:"machine_type"`
-	KubernetesVersion    types.String   `tfsdk:"kubernetes_version"`
-	TalosVersion         types.String   `tfsdk:"talos_version"`
-	MachineSecrets       machineSecrets `tfsdk:"machine_secrets"`
-	MachineConfiguration types.String   `tfsdk:"machine_configuration"`
-	ConfigPatches        types.List     `tfsdk:"config_patches"`
-	Docs                 types.Bool     `tfsdk:"docs"`
-	Examples             types.Bool     `tfsdk:"examples"`
+type talosMachineConfigurationDataSourceModelV0 struct { //nolint:govet
+	ID                   types.String                    `tfsdk:"id"`
+	ClusterName          types.String                    `tfsdk:"cluster_name"`
+	ClusterEndpoint      types.String                    `tfsdk:"cluster_endpoint"`
+	MachineType          types.String                    `tfsdk:"machine_type"`
+	KubernetesVersion    types.String                    `tfsdk:"kubernetes_version"`
+	TalosVersion         types.String                    `tfsdk:"talos_version"`
+	MachineSecrets       machineSecrets                  `tfsdk:"machine_secrets"`
+	MachineConfiguration types.String                    `tfsdk:"machine_configuration"`
+	ConfigPatches        types.List                      `tfsdk:"config_patches"`
+	Docs                 types.Bool                      `tfsdk:"docs"`
+	Examples             types.Bool                      `tfsdk:"examples"`
+	Components           *machineConfigurationComponents `tfsdk:"components"`
 }
 
 type talosMachineConfigurationDataSource struct{}
@@ -115,6 +118,20 @@ func (d *talosMachineConfigurationDataSource) Schema(_ context.Context, _ dataso
 			"examples": schema.BoolAttribute{
 				Description: "Whether to generate examples for the generated configuration. Defaults to false",
 				Optional:    true,
+			},
+			"components": schema.SingleNestedAttribute{
+				Description: componentsDescription,
+				Optional:    true,
+				Attributes: map[string]schema.Attribute{
+					"kubernetes": schema.BoolAttribute{
+						Description: componentsKubernetesDescription,
+						Optional:    true,
+					},
+					"etcd": schema.BoolAttribute{
+						Description: componentsEtcdDescription,
+						Optional:    true,
+					},
+				},
 			},
 			"machine_configuration": schema.StringAttribute{
 				Description: "The generated machine configuration",
@@ -201,6 +218,8 @@ func (d *talosMachineConfigurationDataSource) Read(ctx context.Context, req data
 		talosVersion:      state.TalosVersion.ValueString(),
 		docsEnabled:       state.Docs.ValueBool(),
 		examplesEnabled:   state.Examples.ValueBool(),
+		disableKubernetes: state.Components.kubernetesDisabled(),
+		disableEtcd:       state.Components.etcdDisabled(),
 	}
 
 	machineConfiguration, err := genOptions.generate()
@@ -246,10 +265,21 @@ func (d *talosMachineConfigurationDataSource) ValidateConfig(ctx context.Context
 		return
 	}
 
-	validateMachineConfigurationConfig(ctx, state.ClusterEndpoint, state.ConfigPatches, &resp.Diagnostics)
+	validateMachineConfigurationConfig(ctx, state.ClusterEndpoint, state.ConfigPatches, state.TalosVersion, state.Components, &resp.Diagnostics)
 }
 
-func validateMachineConfigurationConfig(ctx context.Context, clusterEndpoint types.String, configPatches types.List, diagnostics *diag.Diagnostics) {
+func validateMachineConfigurationConfig(
+	ctx context.Context,
+	clusterEndpoint types.String,
+	configPatches types.List,
+	talosVersion types.String,
+	components *machineConfigurationComponents,
+	diagnostics *diag.Diagnostics,
+) {
+	if err := validateComponentsConfig(components, talosVersion); err != nil {
+		diagnostics.AddAttributeError(path.Root("components"), "components are invalid", err.Error())
+	}
+
 	if !clusterEndpoint.IsUnknown() && !clusterEndpoint.IsNull() {
 		if err := validateClusterEndpoint(clusterEndpoint.ValueString()); err != nil {
 			diagnostics.AddError(
@@ -285,6 +315,36 @@ func validateMachineConfigurationConfig(ctx context.Context, clusterEndpoint typ
 			)
 		}
 	}
+}
+
+// validateComponentsConfig checks the components at plan time, as far as the values are known.
+// Read/Open check them again with the final values.
+func validateComponentsConfig(components *machineConfigurationComponents, talosVersion types.String) error {
+	// an unknown etcd counts as enabled here, which only skips the "kubernetes requires etcd" check until Read/Open
+	if components == nil || components.Kubernetes.IsUnknown() {
+		return nil
+	}
+
+	if err := validateComponentsCombination(components.kubernetesDisabled(), components.etcdDisabled()); err != nil {
+		return err
+	}
+
+	if talosVersion.IsUnknown() {
+		return nil
+	}
+
+	// same default as Read/Open
+	version := talosVersion.ValueString()
+	if talosVersion.IsNull() {
+		version = semver.MajorMinor(gendata.VersionTag)
+	}
+
+	// an unparsable version is reported by the talos_version validator
+	if versionContract, err := config.ParseContractFromVersion(version); err == nil {
+		return validateComponentsContract(components.kubernetesDisabled(), versionContract, version)
+	}
+
+	return nil
 }
 
 func machineSecretsSchemaAttribute() schema.SingleNestedAttribute {

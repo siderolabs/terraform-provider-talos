@@ -4,8 +4,40 @@
 
 package talos
 
-var (
-	TalosMachineCheckBootReady        = talosMachineCheckBootReady
-	TalosMachineWaitForBoot           = talosMachineWaitForBoot
-	TalosMachineRebootBeforeBootstrap = talosMachineRebootBeforeBootstrap
+import (
+	"github.com/siderolabs/talos/pkg/machinery/config/generate/secrets"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 )
+
+var (
+	TalosMachineCheckBootReady         = talosMachineCheckBootReady
+	TalosMachineWaitForBoot            = talosMachineWaitForBoot
+	TalosMachineRebootBeforeBootstrap  = talosMachineRebootBeforeBootstrap
+	ValidateMachineConfigurationConfig = validateMachineConfigurationConfig
+)
+
+// MachineConfigurationComponents is the model of the talos_machine_configuration `components` attribute.
+type MachineConfigurationComponents = machineConfigurationComponents
+
+// GenerateMachineConfiguration generates a machine configuration the way talos_machine_configuration does.
+func GenerateMachineConfiguration(
+	secretsBundle *secrets.Bundle,
+	machineType machine.Type,
+	talosVersion string,
+	disableKubernetes, disableEtcd bool,
+	configPatches ...string,
+) (string, error) {
+	opts := &machineConfigGenerateOptions{
+		machineSecrets:    secretsBundle,
+		clusterName:       "test-cluster",
+		clusterEndpoint:   "https://127.0.0.1:6443",
+		kubernetesVersion: "1.35.0",
+		talosVersion:      talosVersion,
+		configPatches:     configPatches,
+		machineType:       machineType,
+		disableKubernetes: disableKubernetes,
+		disableEtcd:       disableEtcd,
+	}
+
+	return opts.generate()
+}

@@ -52,6 +52,65 @@ type machineConfigGenerateOptions struct {
 	machineType       machine.Type
 	docsEnabled       bool
 	examplesEnabled   bool
+	// components left out of the generated configuration (`components` attribute)
+	disableKubernetes bool
+	disableEtcd       bool
+}
+
+const (
+	componentsDescription = "Talos components to include in the generated machine configuration (experimental in Talos). " +
+		"Disabling both `kubernetes` and `etcd` generates a configuration for nodes that only run Talos containers (`ContainerConfig`). " +
+		"Kubernetes requires etcd. Disabling Kubernetes requires `talos_version` v1.14 or later. " +
+		"`config_patches` are applied as is and can add Kubernetes or etcd configuration back"
+	componentsKubernetesDescription = "Whether to generate the Kubernetes configuration. Without it, `cluster_name` and `cluster_endpoint` " +
+		"are still required by the schema but are not written to the generated configuration, and `kubernetes_version` has no effect. " +
+		"A `worker` configuration still contains the bootstrap token (`cluster.token`). Defaults to true"
+	componentsEtcdDescription = "Whether to generate the etcd configuration (control plane only, workers never run etcd). " +
+		"Can only be disabled together with `kubernetes`. Defaults to true"
+)
+
+// machineConfigurationComponents is the `components` attribute of talos_machine_configuration.
+// A null object or attribute means enabled.
+type machineConfigurationComponents struct {
+	Kubernetes types.Bool `tfsdk:"kubernetes"`
+	Etcd       types.Bool `tfsdk:"etcd"`
+}
+
+func (c *machineConfigurationComponents) kubernetesDisabled() bool {
+	return c != nil && !c.Kubernetes.IsNull() && !c.Kubernetes.IsUnknown() && !c.Kubernetes.ValueBool()
+}
+
+func (c *machineConfigurationComponents) etcdDisabled() bool {
+	return c != nil && !c.Etcd.IsNull() && !c.Etcd.IsUnknown() && !c.Etcd.ValueBool()
+}
+
+// validateComponents checks a components combination against the version contract.
+func validateComponents(disableKubernetes, disableEtcd bool, versionContract *config.VersionContract, talosVersion string) error {
+	if err := validateComponentsCombination(disableKubernetes, disableEtcd); err != nil {
+		return err
+	}
+
+	return validateComponentsContract(disableKubernetes, versionContract, talosVersion)
+}
+
+// validateComponentsCombination checks the rules that don't depend on the Talos version.
+func validateComponentsCombination(disableKubernetes, disableEtcd bool) error {
+	if disableEtcd && !disableKubernetes {
+		return fmt.Errorf("kubernetes requires etcd: disable kubernetes as well, or keep etcd enabled")
+	}
+
+	return nil
+}
+
+// validateComponentsContract checks the components against the version contract.
+func validateComponentsContract(disableKubernetes bool, versionContract *config.VersionContract, talosVersion string) error {
+	// Before v1.14 the Kubernetes configuration is generated inline in the v1alpha1 document,
+	// and the version contract only drops etcd and the bootstrap token there.
+	if disableKubernetes && !versionContract.MultidocKubernetesConfigSupported() {
+		return fmt.Errorf("disabling kubernetes requires talos_version v1.14 or later, got %q", talosVersion)
+	}
+
+	return nil
 }
 
 func (m *machineConfigGenerateOptions) generate() (string, error) {
@@ -69,6 +128,18 @@ func (m *machineConfigGenerateOptions) generate() (string, error) {
 	versionContract, err := validateVersionContract(m.talosVersion)
 	if err != nil {
 		return "", err
+	}
+
+	if err = validateComponents(m.disableKubernetes, m.disableEtcd, versionContract, m.talosVersion); err != nil {
+		return "", err
+	}
+
+	if m.disableKubernetes {
+		versionContract = versionContract.DisableKubernetes()
+	}
+
+	if m.disableEtcd {
+		versionContract = versionContract.DisableEtcd()
 	}
 
 	genOptions = append(genOptions, generate.WithVersionContract(versionContract))
