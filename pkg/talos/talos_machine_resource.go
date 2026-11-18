@@ -718,12 +718,14 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 	plan.Endpoint = types.StringValue(endpoint)
 
 	// Upgrade OS first so the new config is accepted by the upgraded node.
-	// Post-import state has a null image (identity-only ImportState). Use
-	// UpgradeIfNeeded only then so an already matching version and Factory
-	// schematic do not trigger pull/install/drain/reboot. Every other image
-	// change continues to use an unconditional upgrade.
+	// After an import (null prior image) or when only the image tag changed,
+	// UpgradeIfNeeded checks the node first, so a node that already runs the
+	// planned version and Factory schematic is not pulled, installed, drained
+	// or rebooted. Every other image change upgrades unconditionally.
+	// postImportAdopt is separate: it only selects the config baseline hash.
 	imageChanged := !plan.Image.IsNull() && !plan.Image.Equal(state.Image)
 	postImportAdopt := state.Image.IsNull()
+	verifyFirst := talosMachineVerifyBeforeUpgrade(state.Image, plan.Image)
 
 	if imageChanged {
 		if err := talosMachineUpgradeOnUpdate(
@@ -732,7 +734,7 @@ func (r *talosMachineResource) Update(ctx context.Context, req resource.UpdateRe
 			plan.Node.ValueString(),
 			talosConfig,
 			&plan,
-			postImportAdopt,
+			verifyFirst,
 		); err != nil {
 			resp.Diagnostics.AddError("error upgrading Talos", err.Error())
 
@@ -1134,6 +1136,8 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 
 	requestedSchematic, isImageFactoryImage := talosMachineImageFactorySchematic(state.Image.ValueString())
 	if !isImageFactoryImage {
+		tflog.Info(ctx, "node already runs the planned Talos version, skipping the upgrade", map[string]any{"node": node, "image": state.Image.ValueString()})
+
 		return nil
 	}
 
@@ -1143,6 +1147,8 @@ func talosMachineUpgradeIfNeeded(ctx context.Context, endpoint, node string, tal
 	}
 
 	if runningSchematic == requestedSchematic {
+		tflog.Info(ctx, "node already runs the planned Talos version and schematic, skipping the upgrade", map[string]any{"node": node, "image": state.Image.ValueString()})
+
 		return nil
 	}
 
@@ -1212,17 +1218,52 @@ func talosMachineRunningSchematic(ctx context.Context, endpoint, node string, ta
 	return schematicID, nil
 }
 
-// talosMachineUpgradeOnUpdate chooses UpgradeIfNeeded only for post-import adopt
-// (null prior image). All other Update image changes use unconditional Upgrade
-// so same-tag schematic changes are not skipped.
+// talosMachineVerifyBeforeUpgrade reports whether Update must first check that the
+// node does not already run the planned image before upgrading it.
+//
+// Read cannot refresh the image from the node with write-only credentials or when
+// the node is unreachable, so state can lag behind a `talosctl upgrade` done outside
+// Terraform. Bumping the manifest to the version the node already runs then shows as
+// an image change, and an unconditional upgrade would reboot the node for nothing.
+//
+// Verification is limited to the cases where it is reliable:
+//   - a null prior image (post-import adopt), and
+//   - a change of the tag alone. The running version is compared with the planned
+//     tag, and for Factory images the active schematic too.
+//
+// Any other change (a different schematic, registry or repository, or a digest) still
+// upgrades unconditionally: the running-schematic check cannot see, for example, a
+// switch from a Factory image to a vanilla installer with the same tag.
+func talosMachineVerifyBeforeUpgrade(stateImage, planImage types.String) bool {
+	if stateImage.IsNull() {
+		return true
+	}
+
+	state, plan := stateImage.ValueString(), planImage.ValueString()
+
+	if isDigestPinnedImage(state) || isDigestPinnedImage(plan) {
+		return false
+	}
+
+	stateRepository, planRepository := stripImageTag(state), stripImageTag(plan)
+
+	// Both references must carry a tag, otherwise there is nothing to compare.
+	hasTags := stateRepository != state && planRepository != plan
+
+	return hasTags && stateRepository == planRepository
+}
+
+// talosMachineUpgradeOnUpdate chooses UpgradeIfNeeded when verifyFirst is set
+// (see talosMachineVerifyBeforeUpgrade); every other image change uses an
+// unconditional Upgrade so same-tag schematic changes are not skipped.
 func talosMachineUpgradeOnUpdate(
 	ctx context.Context,
 	endpoint, node string,
 	talosConfig *clientconfig.Config,
 	plan *talosMachineResourceModel,
-	postImportAdopt bool,
+	verifyFirst bool,
 ) error {
-	if postImportAdopt {
+	if verifyFirst {
 		return talosMachineUpgradeIfNeeded(ctx, endpoint, node, talosConfig, plan, upgradeFromUpdate)
 	}
 
