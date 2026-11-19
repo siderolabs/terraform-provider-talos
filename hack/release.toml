@@ -22,4 +22,14 @@ Talos sdk: v1.14.1
 `talos_machine` can now be imported, and has a new `drain_timeout` attribute that caps how long pod eviction may take during an upgrade.
 
 `drain_on_upgrade` copes better with a create that runs before the cluster is ready: a node that has not joined the cluster yet is not drained, a node that is not Ready is drained but not waited for before it is uncordoned, and a node whose machine config sets `skipNodeRegistration` is never drained. A failed drain now uncordons the node again, and a node that does not come back Ready after an upgrade stays cordoned, with an error that says how to uncordon it. See the resource guide.
+
+When only the image tag changes, `talos_machine` first checks the running version and no longer upgrades or reboots a node that already runs it. This matters when the state is stale, for example with write-only credentials after a `talosctl upgrade`.
+"""
+
+    [notes.options]
+        title = "New options"
+        description = """\
+`talos_machine_configuration` has a new `components` option to generate a configuration without Kubernetes, or without Kubernetes and etcd.
+
+`talos_cluster_health` has a new `k8s_endpoint` option to override the Kubernetes API endpoint used for the Kubernetes checks.
 """
