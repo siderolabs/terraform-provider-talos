@@ -32,4 +32,6 @@ When only the image tag changes, `talos_machine` first checks the running versio
 `talos_machine_configuration` has a new `components` option to generate a configuration without Kubernetes, or without Kubernetes and etcd.
 
 `talos_cluster_health` has a new `k8s_endpoint` option to override the Kubernetes API endpoint used for the Kubernetes checks.
+
+`talos_cluster` has new optional `machine_secrets` and `machine_secrets_wo` arguments, and the `kubernetes_ca_certificate`, `talos_ca_certificate`, `etcd_ca_certificate` and `kubernetes_aggregator_ca_certificate` attributes: the CA certificates of the cluster, known at plan time. See the resource guide.
 """
