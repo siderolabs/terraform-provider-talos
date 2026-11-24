@@ -23,4 +23,40 @@ The `kubernetes_version` argument in `talos_machine_configuration` controls the 
 
 `kubernetes_version` in `talos_machine_configuration` still matters for scale-up: new nodes bootstrap at that version. Keep it in sync with `talos_cluster.kubernetes_version`.
 
+## Exposing the cluster CA certificates
+
+`kubernetes_ca_certificate`, `talos_ca_certificate`, `etcd_ca_certificate` and `kubernetes_aggregator_ca_certificate` are the CA certificates of the cluster, computed from the optional `machine_secrets` or `machine_secrets_wo` argument. Terraform does not let a value derived from an ephemeral value flow into a regular argument, so the CA certificates of a secrets bundle read from an ephemeral source, a secret manager for example, cannot be used elsewhere. Passing the bundle to `machine_secrets_wo` makes them ordinary attributes, already known at plan time. Only the certificates are exposed, never a key.
+
+The bundle must be the one the cluster was created with. An ephemeral `talos_machine_secrets` generates a new bundle each time it is opened, so it is not a source for an existing cluster.
+
+```terraform
+# The secrets bundle and the client configuration the cluster was created with,
+# as ephemeral values, read from a secret manager for example.
+variable "machine_secrets" {
+  type      = any
+  ephemeral = true
+  sensitive = true
+}
+
+variable "client_configuration" {
+  type      = any
+  ephemeral = true
+  sensitive = true
+}
+
+resource "talos_cluster" "this" {
+  node                    = "10.5.0.2"
+  client_configuration_wo = var.client_configuration
+  machine_secrets_wo      = var.machine_secrets
+  kubernetes_version      = "v1.32.0"
+}
+
+resource "vault_kubernetes_auth_backend_config" "this" {
+  kubernetes_host    = "https://10.5.0.2:6443"
+  kubernetes_ca_cert = base64decode(talos_cluster.this.kubernetes_ca_certificate)
+}
+```
+
+The certificates are base64 encoded, like the certificates in the secrets bundle. A field can hold several certificates, for example the old and the new CA during a rotation. All of them must be valid CA certificates. When the bundle changes, for example after a CA rotation, the certificates that changed show as a normal in-place change and do not start a Kubernetes upgrade. `machine_secrets` does the same but stores the whole bundle in the state, including the CA private keys and tokens (marked sensitive, but still in the state file), so prefer `machine_secrets_wo`. Without either argument, these attributes are null.
+
 {{ .SchemaMarkdown | trimspace }}

@@ -55,6 +55,14 @@ type talosClusterResourceModel struct {
 	KubernetesVersion     types.String          `tfsdk:"kubernetes_version"`
 	Node                  types.String          `tfsdk:"node"`
 	Timeouts              timeouts.Value        `tfsdk:"timeouts"`
+
+	MachineSecrets          basetypes.ObjectValue `tfsdk:"machine_secrets"`
+	MachineSecretsWO        basetypes.ObjectValue `tfsdk:"machine_secrets_wo"`
+	KubernetesCACertificate types.String          `tfsdk:"kubernetes_ca_certificate"`
+	TalosCACertificate      types.String          `tfsdk:"talos_ca_certificate"`
+	EtcdCACertificate       types.String          `tfsdk:"etcd_ca_certificate"`
+
+	KubernetesAggregatorCACertificate types.String `tfsdk:"kubernetes_aggregator_ca_certificate"`
 }
 
 // NewTalosClusterResource implements the resource.Resource interface.
@@ -149,6 +157,14 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 					},
 				},
 			},
+			clusterMachineSecretsAttribute: clusterMachineSecretsSchemaAttribute(false,
+				"Optional machine secrets bundle of the cluster, used only to compute the public CA certificates "+
+					"exposed by this resource (`kubernetes_ca_certificate` and the other `*_ca_certificate` attributes). The whole bundle is stored in the state: its "+
+					"keys and tokens are marked sensitive but are still in the state file. Use `machine_secrets_wo` to keep "+
+					"it out of the state. Any change to the bundle is shown as an in-place update. Only one of "+
+					"`machine_secrets` and `machine_secrets_wo` can be set."),
+			clusterMachineSecretsWOAttribute: clusterMachineSecretsSchemaAttribute(true,
+				"Write-only variant of `machine_secrets` for use with ephemeral resources. Requires Terraform 1.11+."),
 			"kubernetes_version": schema.StringAttribute{
 				Required: true,
 				Description: "Desired Kubernetes version (e.g. `v1.32.0`). " +
@@ -165,6 +181,10 @@ func (r *talosClusterResource) Schema(ctx context.Context, _ resource.SchemaRequ
 				Update: true,
 			}),
 		},
+	}
+
+	for _, ca := range clusterCACertificates {
+		resp.Schema.Attributes[ca.attribute] = clusterCACertificateAttribute(ca)
 	}
 }
 
@@ -193,6 +213,8 @@ func (r *talosClusterResource) ValidateConfig(ctx context.Context, req resource.
 			"Only one of client_configuration or client_configuration_wo can be set, not both.",
 		)
 	}
+
+	resp.Diagnostics.Append(validateClusterMachineSecrets(ctx, &cfg, req.Config)...)
 
 	if !cfg.ControlPlaneNodes.IsNull() && !cfg.Node.IsNull() && !cfg.Node.IsUnknown() {
 		var nodes []string
@@ -238,6 +260,29 @@ func (r *talosClusterResource) ModifyPlan(ctx context.Context, req resource.Modi
 		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("control_plane_nodes"),
 			types.ListValueMust(types.StringType, []attr.Value{plan.Node}))...)
 	}
+
+	// The CA certificates come from the machine secrets input in the config
+	// (write-only values are only available there), so they are known at plan
+	// time. Without an input they stay null, whatever else changes in this plan.
+	input, diags := clusterMachineSecretsInput(ctx, req.Config)
+
+	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	for _, ca := range clusterCACertificates {
+		cert, certDiags := clusterCACertificateFromInput(ctx, req.Config, input, ca)
+
+		resp.Diagnostics.Append(certDiags...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(ca.attribute), cert)...)
+	}
 }
 
 func (r *talosClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -252,6 +297,15 @@ func (r *talosClusterResource) Create(ctx context.Context, req resource.CreateRe
 	var cfgModel talosClusterResourceModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &cfgModel)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Fill the CA certificates that were unknown at plan time first: a bundle that
+	// turns out to be invalid or in conflict must fail before anything is done to
+	// the cluster.
+	resp.Diagnostics.Append(resolveClusterCACertificates(ctx, req.Config, &plan)...)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -337,6 +391,15 @@ func (r *talosClusterResource) Update(ctx context.Context, req resource.UpdateRe
 	var cfgModel talosClusterResourceModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &cfgModel)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Fill the CA certificates that were unknown at plan time first: a bundle that
+	// turns out to be invalid or in conflict must fail before anything is done to
+	// the cluster.
+	resp.Diagnostics.Append(resolveClusterCACertificates(ctx, req.Config, &plan)...)
 
 	if resp.Diagnostics.HasError() {
 		return
