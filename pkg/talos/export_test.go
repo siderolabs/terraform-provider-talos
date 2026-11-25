@@ -9,11 +9,25 @@ import (
 	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 )
 
+type (
+	ClientOpFunc           = clientOpFunc
+	ControlPlaneWaitTiming = controlPlaneWaitTiming
+	TryApplyTiming         = tryApplyTiming
+)
+
 var (
-	TalosMachineCheckBootReady         = talosMachineCheckBootReady
-	TalosMachineWaitForBoot            = talosMachineWaitForBoot
-	TalosMachineRebootBeforeBootstrap  = talosMachineRebootBeforeBootstrap
-	ValidateMachineConfigurationConfig = validateMachineConfigurationConfig
+	TalosMachineCheckBootReady          = talosMachineCheckBootReady
+	TalosMachineWaitForBoot             = talosMachineWaitForBoot
+	TalosMachineRebootBeforeBootstrap   = talosMachineRebootBeforeBootstrap
+	ValidateMachineConfigurationConfig  = validateMachineConfigurationConfig
+	TalosMachineControlPlaneNodeName    = talosMachineControlPlaneNodeName
+	TalosMachineWaitForControlPlane     = talosMachineWaitForControlPlane
+	TalosMachineStaticPodsSettle        = talosMachineStaticPodsSettle
+	TalosMachinePrepareControlPlaneWait = talosMachinePrepareControlPlaneWait
+	TalosMachineRunControlPlaneWait     = talosMachineRunControlPlaneWait
+	TalosMachineDefaultTimeout          = talosMachineDefaultTimeout
+	TalosMachineSendConfig              = talosMachineSendConfig
+	TalosMachineConfirmTry              = talosMachineConfirmTry
 )
 
 // MachineConfigurationComponents is the model of the talos_machine_configuration `components` attribute.
